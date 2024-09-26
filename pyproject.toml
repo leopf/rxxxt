@@ -1,0 +1,47 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools"]
+
+[project]
+name = "razz"
+version = "0.1.0"
+authors = [
+  {name = "leopf"},
+]
+dependencies = [
+  "typing_extensions"
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff",
+  "uvicorn"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["razz*"]
+
+[tool.ruff]
+line-length = 150
+indent-width = 2
+target-version = "py311"
+preview = true
+
+lint.select = [
+    "F",
+    "W293",
+    "W291",
+    "W191",
+    "W292",
+    "W391",
+    "E703"
+]
+
+include = [
+    "razz/*.py",
+    "tests/**.py",
+    "extra/**.py",
+    "examples/**.py",
+    "setup.py"
+]
