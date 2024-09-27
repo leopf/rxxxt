@@ -115,8 +115,8 @@ class StateInfo:
 
 def global_state(name: str): return PartialStateInfo(is_global=True, name=name)
 
-EHP = ParamSpec('EHP')  # Captures the parameters of the function
-EHR = TypeVar('EHR')    # Captures the return type of the functio
+EHP = ParamSpec('EHP')
+EHR = TypeVar('EHR')
 
 class Element(ABC):
   @abstractmethod
@@ -158,6 +158,10 @@ class ClassEventHandler(Generic[EHP, EHR]):
   def __init__(self, fn:  Callable[EHP, EHR]) -> None:
     self.fn = fn
     self.instance: object | None = None
+
+  def __get__(self, instance, owner):
+    self.instance = instance
+    return self
 
   def __call__(self, *args: EHP.args, **kwargs: EHP.kwargs) -> EHR:
     if len(args) == 0: raise ValueError("Expected at least self as a positional argument.")
@@ -221,11 +225,11 @@ class ClassEventHandler(Generic[EHP, EHR]):
 
 
 class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute):
-  def __init__(self, fn:  Callable[EHP, EHR], context_id: str, execution: AppExecution, component_instance: object) -> None:
+  def __init__(self, fn:  Callable[EHP, EHR], context_id: str, execution: AppExecution, instance: object) -> None:
     self.fn = fn
     self.context_id = context_id
     self.execution = execution
-    self.instance = component_instance
+    self.instance = instance
   def get_key(self, original_key: str) -> str: return f"razz-on-{original_key}"
   def get_value(self) -> str:
     _, _, param_map = self._get_function_specs()
@@ -253,7 +257,7 @@ class Component(Element, ABC):
       if not attr_name.startswith("_"):
         v = getattr(self, attr_name)
         if isinstance(v, ClassEventHandler):
-          setattr(self, attr_name, InstanceEventHandler(v.fn, context_id, context.execution, self))
+          setattr(self, attr_name, InstanceEventHandler(v.fn, context_id, context.execution, v.instance))
 
     for state_info in self._get_state_infos():
       state_context_id = "" if state_info.is_global else context_id
