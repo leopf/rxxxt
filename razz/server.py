@@ -7,7 +7,7 @@ import inspect
 import json
 import secrets
 import sys
-from typing import Annotated, Callable, Generic, ParamSpec, TypeVar, Union, get_args, get_origin, get_type_hints, Awaitable
+from typing import Annotated, Any, Callable, Generic, ParamSpec, TypeVar, Union, get_args, get_origin, get_type_hints, Awaitable
 import weakref
 # from razz.asgiserver import
 from pydantic import BaseModel, Field, create_model
@@ -24,14 +24,7 @@ def validate_key(key: str):
   if "!" in key: raise ValueError("Key must not contain an exclamation mark.")
   if "#" in key: raise ValueError("Key must not contain a hashtag.")
 
-class State(BaseModel):
-  def init(self) -> None | Awaitable[None]: pass
-
-@dataclass
-class ContextEventTokenData:
-  context_id: str
-  handler_name: str
-  allowed_fields: list[str]
+class State(BaseModel): pass
 
 @dataclass
 class ContextEvent:
@@ -67,10 +60,9 @@ class AppExecution:
     self._unique_ids.add(ctx_id)
     return ctx_id
 
-  def get_context_events(self, context_id: str):
-    for e in self._input_events.get(context_id, []): yield e
+  def pop_context_events(self, context_id: str): return self._input_events.pop(context_id, [])
 
-  async def get_state(self, name: str, context: str, state_type: type[State]):
+  def get_state(self, name: str, context: str, state_type: type[State]):
     key = context + "!" + name
     if key in self._state:
       state = self._state[key]
@@ -81,7 +73,6 @@ class AppExecution:
       self._state[key] = state
     else:
       state = self._state[key] = state_type()
-      await to_awaitable(state.init) # basically useless for now but lets keep it for later
     return state
 
   def get_output_data(self) -> AppOuputData:
@@ -91,15 +82,15 @@ class AppExecution:
     )
 
 class Context:
-  def __init__(self, keyspace: str, execution: AppExecution) -> None:
-    self.keyspace = keyspace
+  def __init__(self, id: str, execution: AppExecution) -> None:
+    self.id = id
     self.execution = execution
 
-  def get_context_id(self): return self.execution.get_context_id(self.keyspace)
+  def pop_events(self): return self.execution.pop_context_events(self.id)
 
   def sub(self, key: str) -> 'Context':
     validate_key(key)
-    return Context(keyspace=self.keyspace + ";" + key, execution=self.execution)
+    return Context(id=self.execution.get_context_id(self.id + ";" + key), execution=self.execution)
 
 @dataclass
 class PartialStateInfo:
@@ -115,19 +106,13 @@ class StateInfo:
 
 def global_state(name: str): return PartialStateInfo(is_global=True, name=name)
 
-EHP = ParamSpec('EHP')
-EHR = TypeVar('EHR')
-
 class Element(ABC):
   @abstractmethod
   async def to_html(self, context: Context) -> str: pass
 
 class CustomAttribute(ABC):
   @abstractmethod
-  def get_key(self, original_key: str) -> str: pass
-
-  @abstractmethod
-  def get_value(self) -> str: pass
+  def get_html_attribute_key_value(self, original_key: str) -> str: pass
 
 class HTMLElement(Element):
   def __init__(self, tag: str, attributes: dict[str, str | CustomAttribute], content: list[Union[Element, str]], key: str | None = None) -> None:
@@ -148,23 +133,27 @@ class HTMLElement(Element):
 
     inner_html = "".join(parts)
 
-    attributes = dict((k, v) if isinstance(v, str) else (v.get_key(k), v.get_value()) for k, v in self.attributes.items())
+    attributes = dict((k, v) if isinstance(v, str) else v.get_html_attribute_key_value(k) for k, v in self.attributes.items())
     attribute_str = "".join(f" {k}=\"{v}\"" for k, v in attributes.items())
     return f"<{self.tag}{attribute_str}>{inner_html}</{self.tag}>"
 
+EHP = ParamSpec('EHP')
+EHR = TypeVar('EHR')
+
 class ClassEventHandler(Generic[EHP, EHR]):
+  def __init__(self, fn:  Callable[EHP, EHR]) -> None: self.fn = fn
+  def __get__(self, instance, owner): return InstanceEventHandler(self.fn, instance)
+  def __call__(self, *args: EHP.args, **kwargs: EHP.kwargs) -> EHR: raise RuntimeError("The event handler can only be called when attached to an instance!")
+
+class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute):
   _fn_spec_cache: weakref.WeakKeyDictionary[Callable, tuple[BaseModel, dict[int, str], dict[str, str]]] = weakref.WeakKeyDictionary()
-
-  def __init__(self, fn:  Callable[EHP, EHR]) -> None:
-    self.fn = fn
-    self.instance: object | None = None
-
-  def __get__(self, instance, owner):
+  
+  def __init__(self, fn: Callable[EHP, EHR], instance: Any) -> None:
+    super().__init__(fn)
+    if not isinstance(instance, Component): raise ValueError("The provided instance must be a component!")
     self.instance = instance
-    return self
 
   def __call__(self, *args: EHP.args, **kwargs: EHP.kwargs) -> EHR:
-    if len(args) == 0: raise ValueError("Expected at least self as a positional argument.")
     model, arg_map, _ = self._get_function_specs()
     params = {**kwargs}
     for i, arg in enumerate(args):
@@ -176,15 +165,25 @@ class ClassEventHandler(Generic[EHP, EHR]):
     new_kwargs = model.model_validate(params).model_dump()
     return self.fn(self.instance, **new_kwargs)
 
+  def get_html_attribute_key_value(self, original_key: str):
+    if self.instance.context is None: raise ValueError("The instance must have a context_id to create an event value.")
+    _, _, param_map = self._get_function_specs()
+    v = base64.b64encode(json.dumps({
+      "context_id": self.instance.context.id,
+      "handler_name": self.fn.__name__,
+      "param_map": param_map
+    }).encode("utf-8")).decode("utf-8")
+    return (f"razz-on-{original_key}", v)
+    
   @staticmethod
   def _is_valid_type(typ, valid_types):
     origin = get_origin(typ)
     if origin is Union:
-      return all(ClassEventHandler._is_valid_type(arg, valid_types) for arg in get_args(typ))
+      return all(InstanceEventHandler._is_valid_type(arg, valid_types) for arg in get_args(typ))
     return issubclass(typ, valid_types)
 
   def _get_function_specs(self):
-    specs = ClassEventHandler._fn_spec_cache.get(self.fn, None)
+    specs = InstanceEventHandler._fn_spec_cache.get(self.fn, None)
     if specs is not None: return specs
 
     valid_types = (str, float, int, bool)
@@ -203,11 +202,11 @@ class ClassEventHandler(Generic[EHP, EHR]):
         main_type = args[0]
         metadata = args[1:]
 
-        if not ClassEventHandler._is_valid_type(main_type, valid_types):
-            raise TypeError(f"The type of parameter '{name}' is not allowed. Must be str, float, int, or bool.")
+        if not InstanceEventHandler._is_valid_type(main_type, valid_types):
+          raise TypeError(f"The type of parameter '{name}' is not allowed. Must be str, float, int, or bool.")
 
         if len(metadata) < 1:
-            raise ValueError(f"Parameter '{name}' is missing the second annotation.")
+          raise ValueError(f"Parameter '{name}' is missing the second annotation.")
 
         field_default = PydanticUndefined if param.default is param.empty else param.default
         fields[name] = (main_type, Field(description=metadata[0], default=field_default))
@@ -220,49 +219,32 @@ class ClassEventHandler(Generic[EHP, EHR]):
 
     model: BaseModel = create_model(f"{self.fn.__name__}Model", **fields)
     spec = model, args_map, annotation_map
-    ClassEventHandler._fn_spec_cache[self.fn] = spec
+    InstanceEventHandler._fn_spec_cache[self.fn] = spec
     return spec
-
-
-class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute):
-  def __init__(self, fn:  Callable[EHP, EHR], context_id: str, execution: AppExecution, instance: object) -> None:
-    self.fn = fn
-    self.context_id = context_id
-    self.execution = execution
-    self.instance = instance
-  def get_key(self, original_key: str) -> str: return f"razz-on-{original_key}"
-  def get_value(self) -> str:
-    _, _, param_map = self._get_function_specs()
-    print(param_map)
-    return base64.b64encode(json.dumps({
-      "context_id": self.context_id,
-      "handler_name": self.fn.__name__,
-      "param_map": param_map
-    }).encode("utf-8")).decode("utf-8")
 
 def event_handler(fn): return ClassEventHandler(fn)
 
 class Component(Element, ABC):
+  def __init__(self) -> None:
+    super().__init__()
+    self.context: Context | None = None
+  
   @abstractmethod
   def render(self) -> Element | Awaitable[Element]: pass
   def init(self) -> None | Awaitable[None]: pass
 
   async def to_html(self, context: Context) -> str:
-    context = context.sub(self.__class__.__qualname__)
-    context_id = context.get_context_id()
-
-    # setup
-
-    for attr_name in dir(self):
-      if not attr_name.startswith("_"):
-        v = getattr(self, attr_name)
-        if isinstance(v, ClassEventHandler):
-          setattr(self, attr_name, InstanceEventHandler(v.fn, context_id, context.execution, v.instance))
-
+    self.context = context.sub(self.__class__.__qualname__)
+    
     for state_info in self._get_state_infos():
-      state_context_id = "" if state_info.is_global else context_id
-      state = await context.execution.get_state(state_info.state_name, state_context_id, state_info.state_type)
-      setattr(self, state_info.attr_name, state)
+      setattr(self, state_info.attr_name, self.get_state(state_info.state_name, state_info.state_type, state_info.is_global))
+
+    for e in self.context.pop_events():
+      handler = getattr(self, e.handler_name, None)
+      if isinstance(handler, InstanceEventHandler):
+        await to_awaitable(handler, **e.data)
+      else:
+        raise ValueError("Invalid event handler.")
 
     # run
 
@@ -271,7 +253,11 @@ class Component(Element, ABC):
 
     # to text
 
-    return await result.to_html(context)
+    return await result.to_html(self.context)
+
+  def get_state(self, name: str, state_type: type[State], is_global: bool = False):
+    state_context_id = "" if is_global else self.context.id
+    return self.context.execution.get_state(name, state_context_id, state_type)
 
   @classmethod
   def _get_state_infos(cls):
@@ -292,7 +278,7 @@ class TestState(State):
   count: int = 0
 
 class AuthState(State):
-  username: str = secrets.token_hex(6)
+  username: str = Field(default_factory=lambda: secrets.token_hex(6))
 
 class HomePage(Component):
   state: TestState
@@ -305,10 +291,10 @@ class HomePage(Component):
 
   @event_handler
   def on_click(self, value: Annotated[str, "0.target.value"]):
-    print("DID the value thingy", value)
+    print("DID the value thingy", value, self.la)
+    self.state.count += 1
 
   def render(self):
-    self.on_click("HHHHEEEE" + self.la)
     return HTMLElement("div", { "class": "comp", "click": self.on_click }, content=[self.title, str(self.state.count), "  ", self.auth.username])
 
 
@@ -316,7 +302,9 @@ def index(auth : State):
   return Component()
 
 async def main():
-  context = Context("", AppExecution(AppInputData(state={}, events=[])))
+  context = Context("", AppExecution(AppInputData(state={}, events=[
+    ContextEvent(";HomePage#0", "on_click", { "value": "MAIN TEST" })
+  ])))
 
   print(await HTMLElement("div", { "class": "hello-world" }, [ "Hello", HTMLElement("b", {}, [ "World!" ]), HomePage("WOOOOO"), HomePage("WAAAAA") ]).to_html(context))
 
