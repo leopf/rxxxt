@@ -62,8 +62,8 @@ const eventHandler = (e: Event) => {
     const eventData: Record<string, number | boolean | string> = {};
 
     for (const outField of Object.keys(eventDesc.param_map)) {
-        const eventField = eventDesc[outField];
-        eventData[outField] = objectPath.get(e, eventField);
+        const eventField = eventDesc.param_map[outField];
+        eventData[outField] = objectPath.withInheritedProps.get(e, eventField);
     }
     
     inputEvents.push({
@@ -148,7 +148,6 @@ const applyEventHandlers = () => {
 
         for (const eventName of pendingEvents) {
             if (!appliedEvents.has(eventName)) {
-                console.log("adding listener to", element, eventName)
                 element.addEventListener(eventName, eventHandler);
             }
         }

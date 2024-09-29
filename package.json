@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build:prod": "esbuild web/index.ts --outfile=razz/assets/main.js --bundle --target=chrome58,firefox57,safari11,edge16",
+    "build:prod": "esbuild web/index.ts --outfile=razz/assets/main.js --bundle --target=chrome58,firefox57,safari11,edge16 --minify",
     "build:dev": "esbuild web/index.ts --outfile=razz/assets/main.js --bundle --target=chrome58,firefox57,safari11,edge16 --sourcemap=inline"
   },
   "keywords": [],
