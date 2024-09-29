@@ -3,11 +3,13 @@ import base64
 from dataclasses import dataclass
 import datetime
 import hashlib
+import html
 import importlib.resources
 from inspect import isawaitable
 import inspect
 import json
 import sys
+from types import NoneType
 from typing import Annotated, Any, Callable, Generic, Literal, ParamSpec, TypeVar, Union, get_args, get_origin, get_type_hints, Awaitable
 import weakref
 from pydantic import BaseModel, Field, TypeAdapter, create_model
@@ -158,12 +160,12 @@ class HTMLFragment(Element):
     parts: list[str] = []
     for item in self.content:
       if isinstance(item, Element): parts.append(await item.to_html(context))
-      else: parts.append(item)
+      else: parts.append(html.escape(str(item), quote=False))
 
     return "".join(parts)
 
 class HTMLBaseElement(Element):
-  def __init__(self, tag: str, attributes: dict[str, str | CustomAttribute | Literal[True]]) -> None:
+  def __init__(self, tag: str, attributes: dict[str, str | CustomAttribute | NoneType]) -> None:
     super().__init__()
     self.tag = tag
     self.attributes = attributes
@@ -171,20 +173,19 @@ class HTMLBaseElement(Element):
   def _render_attributes(self):
     parts: list[str] = []
     for k, v in self.attributes.items():
-      if isinstance(v, str): parts.append(f" {str(k)}=\"{str(v)}\"")
-      elif isinstance(v, CustomAttribute):
-        k, v = v.get_html_attribute_key_value(k)
-        parts.append(f" {str(k)}=\"{str(v)}\"")
-      elif v == True: parts.append(f" {k}")
-      else: raise ValueError("Invalid attribute value!")
+      if isinstance(v, CustomAttribute): k, v = v.get_html_attribute_key_value(k)
+      k = html.escape(str(k))
+      if v is not None: v = html.escape(str(v))
+      if v is None: parts.append(f" {k}")
+      else: parts.append(f" {k}=\"{v}\"")
     return "".join(parts)
 
 class HTMLVoidElement(HTMLBaseElement):
   async def to_html(self, context: Context) -> str:
-    return f"<{self.tag}{self._render_attributes()}>"
+    return f"<{html.escape(self.tag)}{self._render_attributes()}>"
 
 class HTMLElement(HTMLBaseElement):
-  def __init__(self, tag: str, attributes: dict[str, str | CustomAttribute | Literal[True]] = {}, content: list[Union[Element, str]] = [], key: str | None = None) -> None:
+  def __init__(self, tag: str, attributes: dict[str, str | CustomAttribute | NoneType] = {}, content: list[Union[Element, str]] = [], key: str | None = None) -> None:
     super().__init__(tag, attributes)
     self.key = key
     self.content = content
@@ -196,11 +197,11 @@ class HTMLElement(HTMLBaseElement):
     parts: list[str] = []
     for item in self.content:
       if isinstance(item, Element): parts.append(await item.to_html(context))
-      else: parts.append(item)
+      else: parts.append(html.escape(str(item), quote=False))
 
     inner_html = "".join(parts)
-
-    return f"<{self.tag}{self._render_attributes()}>{inner_html}</{self.tag}>"
+    tag = html.escape(self.tag)
+    return f"<{tag}{self._render_attributes()}>{inner_html}</{tag}>"
 
 EHP = ParamSpec('EHP')
 EHR = TypeVar('EHR')
