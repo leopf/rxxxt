@@ -23,7 +23,7 @@ class Page(Component):
     ])
 
   def render_body(self) -> Element:
-    return HTMLElement("div", attributes={ "id": "root" }, content=[ self.content_element ])
+    return HTMLElement("div", attributes={ "id": "razz-root" }, content=[ self.content_element ])
 
   def render_headers(self) -> Element:
     return HTMLFragment([

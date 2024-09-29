@@ -72,7 +72,7 @@ class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute
 
     fields: dict[str, tuple[type, Field]] = {}
     args_map: dict[int, str] = {}
-    annotation_map: dict[str, str] = {}
+    param_map: dict[str, str] = {}
 
     sig = inspect.signature(self.fn)
 
@@ -95,12 +95,12 @@ class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute
 
         args_map[i] = name
 
-        annotation_map[name] = metadata[0]
+        param_map[name] = metadata[0]
       else:
         raise TypeError(f"Parameter '{name}' must be of type Annotated.")
 
     model: BaseModel = create_model(f"{self.fn.__name__}Model", **fields)
-    spec = model, args_map, annotation_map
+    spec = model, args_map, param_map
     InstanceEventHandler._fn_spec_cache[self.fn] = spec
     return spec
 

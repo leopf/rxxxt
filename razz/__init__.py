@@ -79,6 +79,7 @@ class App:
         if len(output_events) > 0: output_events.append(ForceRefreshOutputEvent())
         else:
           html_output, output_events = await executor.execute(element_factory(), ExecutionInput(
+            events=[],
             params=params,
             path=context.path,
             query_string=context.query_string
