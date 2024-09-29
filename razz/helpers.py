@@ -1,4 +1,6 @@
+from inspect import isawaitable
 import re
+from typing import Awaitable, Callable, TypeVar
 
 class PathPattern:
   def __init__(self, pattern: str) -> None:
@@ -71,3 +73,9 @@ class PathPattern:
       if "/" in param_val and not param_allow_slash: return None
       if param_name is not None: params[param_name] = param_val
     return params
+
+T = TypeVar("T")
+async def to_awaitable(fn: Callable[..., T | Awaitable[T]], *args, **kwargs) -> T:
+  result = fn(*args, **kwargs)
+  if isawaitable(result): result = await result
+  return result
