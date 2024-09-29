@@ -4,7 +4,7 @@ from typing import Awaitable, Callable, TypeVar
 
 class PathPattern:
   def __init__(self, pattern: str) -> None:
-    pattern = pattern.rstrip("/")
+    pattern = pattern.rstrip("/") if len(pattern) > 1 else pattern
     param_ranges: list[tuple[int, int]] = []
     param_search_start = 0
     while (param_start := pattern.find("{", param_search_start)) != -1:
@@ -32,20 +32,6 @@ class PathPattern:
 
     for part in self.parts:
       if "}" in part: raise ValueError("Invalid pattern. Found closing brace without an opening brace.")
-
-  def construct(self, params: dict[str, str], default_value: str | None = None) -> str:
-    param_parts = []
-    for param_name, param_allow_slash in self.params:
-      v = params.get(param_name, default_value)
-      if v is None: raise ValueError("Param can not be None!")
-      if not param_allow_slash and "/" in v: raise ValueError("Found flash in param name, which is not allowed!")
-      param_parts.append(v)
-    result_parts = []
-    for idx in range(len(self.params)):
-      result_parts.append(self.parts[idx])
-      result_parts.append(param_parts[idx])
-    result_parts.append(self.parts[-1])
-    return "".join(result_parts)
 
   def match(self, path: str) -> dict[str,str] | None:
     # path = path.rstrip("/")

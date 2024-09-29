@@ -3,8 +3,6 @@ import html
 from types import NoneType
 from typing import TYPE_CHECKING, Callable, Union
 
-from razz.execution import Context
-
 if TYPE_CHECKING:
     from razz.execution import Context
 
@@ -20,7 +18,7 @@ class UnescapedHTMLElement(Element):
   def __init__(self, text: str) -> NoneType:
     super().__init__()
     self.text = text
-  async def to_html(self, context: Context) -> str: return self.text
+  async def to_html(self, context: 'Context') -> str: return self.text
 
 class HTMLFragment(Element):
   def __init__(self, content: list[Union[Element, str]], key: str | None = None) -> None:

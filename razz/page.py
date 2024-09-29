@@ -13,10 +13,8 @@ class Page(Component):
   def render(self) -> Element:
     return HTMLFragment([
       HTMLVoidElement("!DOCTYPE", attributes={ "html": None }),
-      HTMLElement("html", attributes={ "lang": "en" }, content=[
-        HTMLElement("head", content=[
-          self.render_headers(),
-        ]),
+      HTMLElement("html", content=[
+        HTMLElement("head", content=[ self.render_headers() ]),
         HTMLElement("body", content=[
           self.render_body(),
           self.script_element

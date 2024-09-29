@@ -28,7 +28,7 @@ RawStateAdapter = TypeAdapter(dict[str, str])
 class App:
   def __init__(self, jwt_secret: bytes, session_duration: datetime.timedelta | None = None, jwt_algorithm: str = "HS512") -> None:
     self.page_layout: PageFactory = Page
-    self._routes: list[tuple[PathPattern, ElementFactory]]
+    self._routes: list[tuple[PathPattern, ElementFactory]] = []
     self._session_duration = datetime.timedelta(hours=1) if session_duration is None else session_duration
     self._jwt_secret = jwt_secret
     if not jwt_algorithm.startswith("HS"): raise ValueError("JWT algorithm must start with HS")
@@ -44,7 +44,7 @@ class App:
   async def __call__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> Any:
     if scope["type"] == "http":
       context = HTTPContext(scope, receive, send)
-      try: return await self._handle_http()
+      try: return await self._handle_http(context)
       except (ValidationError, ValueError) as e:
         logging.debug(e)
         return await context.respond_status(400)
@@ -55,9 +55,8 @@ class App:
   async def _handle_http(self, context: HTTPContext):
     if context.path == "/razz-client.js":
       with importlib.resources.path("razz.assets", "main.js") as file_path:
-        return await context.respond_file(file_path)
-
-    if context.method in [ "GET", "POST" ] and (route := self._get_route(context.path)) is not None:
+        await context.respond_file(file_path)
+    elif context.method in [ "GET", "POST" ] and (route := self._get_route(context.path)) is not None:
       params, element_factory = route
 
       if context.method == "POST":
@@ -101,18 +100,14 @@ class App:
           ])
         ])
         content_element = UnescapedHTMLElement(html_output)
-        page_element = self.page_layout(content_element, script_element)
-        page_html, _ = await executor.execute(page_element, ExecutionInput(
+        page_html, _ = await executor.execute(self.page_layout(content_element, script_element), ExecutionInput(
           events=[],
           params=params,
           path=context.path,
           query_string=context.query_string
         ))
         await context.respond_text(page_html, mime_type="text/html")
-
     else: await context.respond_status(404)
-
-  # def _render_page()
 
   def _sign_state(self, state: dict[str, str]):
     return jwt.encode({ "data": state, "exp": datetime.datetime.now(tz=datetime.timezone.utc) + self._session_duration}, self._jwt_secret, self._jwt_algorithm)
