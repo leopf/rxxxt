@@ -3,7 +3,7 @@ import base64
 import inspect
 import json
 from types import NoneType, UnionType
-from typing import Annotated, Any, Awaitable, Callable, Generic, ParamSpec, TypeVar, Union, get_args, get_origin
+from typing import Annotated, Any, Awaitable, Callable, Generic, ParamSpec, TypeVar, get_args, get_origin
 import weakref
 from pydantic import BaseModel, Field, create_model
 from pydantic_core import PydanticUndefined

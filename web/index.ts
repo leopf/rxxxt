@@ -26,7 +26,10 @@ interface ContextInputEventDescription {
     context_id: string;
     handler_name: string;
     param_map: Record<string, string>,
-    options: {}
+    options: {
+        throttle?: number,
+        debounce?: number,
+    }
 }
 
 interface AppHttpPostResponse {
@@ -40,75 +43,13 @@ interface InitData {
     events: OutputEvent[]
 }
 
-let root: HTMLElement;
 let stateToken: string = "";
-let refreshScheduled: boolean = false;
+let updateScheduled: boolean = false;
+let updateHandler: () => void;
 const inputEvents: ContextInputEvent[] = [];
-const trackedElements = new WeakMap<Node, string[]>();
+const trackedElements = new WeakMap<Node, TrackedElement>();
+const defaultTargetId = "razz-root";
 const eventPrefix = "razz-on-";
-
-const eventHandler = (e: Event) => {
-    if (e.target === null || !(e.target instanceof Element)) {
-        return;
-    }
-    const targetAttribute = eventPrefix + e.type;
-    const eventDescB64 = e.target.getAttribute(targetAttribute);
-
-    if (eventDescB64 === null) {
-        return;
-    }
-
-    const eventDesc: ContextInputEventDescription = JSON.parse(atob(eventDescB64));
-    const eventData: Record<string, number | boolean | string> = {};
-
-    for (const outField of Object.keys(eventDesc.param_map)) {
-        const eventField = eventDesc.param_map[outField];
-        eventData[outField] = objectPath.withInheritedProps.get(e, eventField);
-    }
-    
-    inputEvents.push({
-        context_id: eventDesc.context_id,
-        data: eventData,
-        handler_name: eventDesc.handler_name
-    });
-
-    refreshPage();
-};
-
-const runRefreshPage = async () => {
-    const body = JSON.stringify({
-        stateToken,
-        events: inputEvents
-    });
-    inputEvents.length = 0;
-
-    const result: AppHttpPostResponse = await fetch(location.href, {
-        method: "POST",
-        body: body,
-        headers: {
-            "Content-Type": "application/json"
-        },
-        credentials: "include",
-    }).then(res => res.json());
-
-    const temp = document.createElement("div");
-    temp.innerHTML = result.html;
-    morphdom(root, temp, { childrenOnly: true });
-    applyEventHandlers();
-
-    stateToken = result.stateToken;
-    handleOutputEvents(result.events);
-};
-
-const refreshPage = () => {
-    if (!refreshScheduled) {
-        refreshScheduled = true;
-        setTimeout(() => {
-            refreshScheduled = false;   
-            runRefreshPage();
-        }, 0);
-    }
-};
 
 const handleOutputEvents = (events: OutputEvent[]) => {
     let refresh: boolean = false;
@@ -124,15 +65,128 @@ const handleOutputEvents = (events: OutputEvent[]) => {
     }
 
     if (refresh) {
-        refreshPage();
+        update();
     }
 };
 
-const applyEventHandlers = () => {
-    for (const element of root.getElementsByTagName("*")) {
-        const appliedEvents = new Set(trackedElements.get(element) ?? []);
-        const pendingEvents = new Set<string>();
+const applyHTML = (html?: string) => {
+    let target: Element | null = document.getElementById(defaultTargetId);
+    if (target === null) {
+        throw new Error("Update target not found!");
+    }
 
+    if (html !== undefined) {
+        const temp = document.createElement("div");
+        temp.innerHTML = html;
+        morphdom(target, temp, { childrenOnly: true });
+    }
+
+    for (const element of target.getElementsByTagName("*")) {
+        let trackedElement = trackedElements.get(element);
+        if (trackedElement === undefined) {
+            trackedElement = new TrackedElement();
+            trackedElements.set(element, trackedElement);
+        }
+        trackedElement.track(element);
+    }
+};
+
+const httpUpdateHandler = async () => {
+    const body = JSON.stringify({
+        stateToken,
+        events: inputEvents
+    });
+    inputEvents.length = 0;
+
+    const result: AppHttpPostResponse = await fetch(location.href, {
+        method: "POST",
+        body: body,
+        headers: {
+            "Content-Type": "application/json"
+        },
+        credentials: "include",
+    }).then(res => res.json());
+
+    applyHTML(result.html);
+
+    stateToken = result.stateToken;
+    handleOutputEvents(result.events);
+};
+updateHandler = httpUpdateHandler;
+
+const update = () => {
+    if (!updateScheduled) {
+        updateScheduled = true;
+        setTimeout(() => {
+            updateScheduled = false;   
+            updateHandler();
+        }, 0);
+    }
+};
+
+class TrackedElementEvent {
+    private lastCall?: number;
+    private timeoutHandle?: number;
+    public handler = (e: Event) => this.handle(e); 
+
+    private handle(e: Event) {
+        if (e.target === null || !(e.target instanceof Element)) {
+            return;
+        }
+        const targetAttribute = eventPrefix + e.type;
+        const eventDescB64 = e.target.getAttribute(targetAttribute);
+    
+        if (eventDescB64 === null) {
+            return;
+        }
+    
+        const eventDesc: ContextInputEventDescription = JSON.parse(atob(eventDescB64));
+        const eventData: Record<string, number | boolean | string> = {};
+    
+        for (const outField of Object.keys(eventDesc.param_map)) {
+            const eventField = eventDesc.param_map[outField];
+            eventData[outField] = objectPath.withInheritedProps.get(e, eventField);
+        }
+
+        const runEvent = () => {
+            this.lastCall = (new Date()).getTime();
+            inputEvents.push({
+                context_id: eventDesc.context_id,
+                data: eventData,
+                handler_name: eventDesc.handler_name
+            });
+            update();
+            this.timeoutHandle = undefined;
+        };
+
+        if (this.timeoutHandle) {
+            clearTimeout(this.timeoutHandle);
+        }
+
+        const waitTimes: number[] = [];
+        if (eventDesc.options.debounce) {
+            waitTimes.push(eventDesc.options.debounce);
+        }
+        if (eventDesc.options.throttle && this.lastCall) {
+            const currTime = (new Date()).getTime();
+            waitTimes.push(eventDesc.options.throttle + this.lastCall - currTime);
+        }
+        const waitTime = Math.max(0, ...waitTimes);
+
+        if (waitTime === 0) {
+            runEvent();
+        }
+        else {
+            this.timeoutHandle = setTimeout(runEvent, waitTime);
+        }
+    }
+}
+
+class TrackedElement {
+    private eventMap = new Map<string, TrackedElementEvent>();
+
+    public track(element: Element) {
+        const pendingEvents = new Set<string>();
         for (const attributeName of element.getAttributeNames()) {
             if (attributeName.startsWith(eventPrefix)) {
                 const eventName = attributeName.substring(eventPrefix.length);
@@ -140,25 +194,27 @@ const applyEventHandlers = () => {
             }
         }
 
-        for (const eventName of appliedEvents) {
+        for (const entry of this.eventMap.entries()) {
+            const eventName = entry[0];
+            const event = entry[1];
             if (!pendingEvents.has(eventName)) {
-                element.removeEventListener(eventName, eventHandler);
+                element.removeEventListener(eventName, event.handler);
+                this.eventMap.delete(eventName);
             }
         }
 
         for (const eventName of pendingEvents) {
-            if (!appliedEvents.has(eventName)) {
-                element.addEventListener(eventName, eventHandler);
+            if (!this.eventMap.has(eventName)) {
+                const event = new TrackedElementEvent();
+                this.eventMap.set(eventName, event);
+                element.addEventListener(eventName, event.handler);
             }
         }
-
-        trackedElements.set(element, Array.from(pendingEvents));
     }
-};
+}
 
 (window as any).razzInit = (data: InitData) => {
-    root = document.getElementById("razz-root")!;
     stateToken = data.stateToken;
     handleOutputEvents(data.events);
-    applyEventHandlers();
+    applyHTML();
 };

@@ -21,7 +21,7 @@ class Example(Component):
     self.state.count += 1
 
   @event_handler(throttle=1000)
-  def on_input(self, value: Annotated[str | None, "target.value"]): 
+  def on_input(self, value: Annotated[str | None, "target.value"]):
     print("input", value)
     self.state.text = value
 
