@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import base64
 import inspect
 import json
+from types import NoneType, UnionType
 from typing import Annotated, Any, Awaitable, Callable, Generic, ParamSpec, TypeVar, Union, get_args, get_origin
 import weakref
 from pydantic import BaseModel, Field, create_model
@@ -16,7 +17,8 @@ EHP = ParamSpec('EHP')
 EHR = TypeVar('EHR')
 
 class EventHandlerOptions(BaseModel):
-  pass
+  debounce: int | None = None
+  throttle: int | None = None
 
 class ClassEventHandler(Generic[EHP, EHR]):
   def __init__(self, fn:  Callable[EHP, EHR], options: EventHandlerOptions) -> None:
@@ -27,6 +29,7 @@ class ClassEventHandler(Generic[EHP, EHR]):
 
 class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute):
   _fn_spec_cache: weakref.WeakKeyDictionary[Callable, tuple[BaseModel, dict[int, str], dict[str, str]]] = weakref.WeakKeyDictionary()
+  _valid_types = (str, float, int, bool)
 
   def __init__(self, fn: Callable[EHP, EHR], options: EventHandlerOptions, instance: Any) -> None:
     super().__init__(fn, options)
@@ -53,22 +56,21 @@ class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute
       "context_id": self.instance.context.id,
       "handler_name": self.fn.__name__,
       "param_map": param_map,
-      "options": self.options.model_dump()
+      "options": self.options.model_dump(exclude_defaults=True)
     }).encode("utf-8")).decode("utf-8")
     return (f"razz-on-{original_key[2:]}", v)
 
   @staticmethod
-  def _is_valid_type(typ, valid_types):
+  def _is_valid_type(typ):
+    if typ is NoneType: return True
     origin = get_origin(typ)
-    if origin is Union:
-      return all(InstanceEventHandler._is_valid_type(arg, valid_types) for arg in get_args(typ))
-    return issubclass(typ, valid_types)
+    if origin is UnionType:
+      return all(InstanceEventHandler._is_valid_type(arg) for arg in get_args(typ))
+    return issubclass(typ, InstanceEventHandler._valid_types)
 
   def _get_function_specs(self):
     specs = InstanceEventHandler._fn_spec_cache.get(self.fn, None)
     if specs is not None: return specs
-
-    valid_types = (str, float, int, bool)
 
     fields: dict[str, tuple[type, Field]] = {}
     args_map: dict[int, str] = {}
@@ -84,7 +86,7 @@ class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute
         main_type = args[0]
         metadata = args[1:]
 
-        if not InstanceEventHandler._is_valid_type(main_type, valid_types):
+        if not InstanceEventHandler._is_valid_type(main_type):
           raise TypeError(f"The type of parameter '{name}' is not allowed. Must be str, float, int, or bool.")
 
         if len(metadata) < 1:

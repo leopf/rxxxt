@@ -20,17 +20,18 @@ class Example(Component):
   def on_click(self):
     self.state.count += 1
 
-  @event_handler()
-  def on_input(self, value: Annotated[str, "target.value"]):
+  @event_handler(throttle=1000)
+  def on_input(self, value: Annotated[str | None, "target.value"]): 
+    print("input", value)
     self.state.text = value
 
   def render(self) -> Element:
     return El.div(content=[
-      El.div(onclick= self.on_click, content=[ f"Count: {self.state.count}" ]),
+      El.div(onclick=self.on_click, content=[ f"Count: {self.state.count}" ]),
       El.div(content=[
         El.b(content=[self.state.text])
       ]),
-      VEl.input(onchange=self.on_input, value=self.state.text)
+      VEl.input(oninput=self.on_input, value=self.state.text)
     ])
 
 app = App(b"SECRET")
