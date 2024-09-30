@@ -1,6 +1,6 @@
 from typing import Callable
 from razz.component import Component
-from razz.elements import Element, HTMLElement, HTMLFragment, HTMLVoidElement
+from razz.elements import El, Element, HTMLFragment, VEl
 
 PageFactory = Callable[[Element, Element], Element]
 
@@ -12,10 +12,10 @@ class Page(Component):
 
   def render(self) -> Element:
     return HTMLFragment([
-      HTMLVoidElement("!DOCTYPE", attributes={ "html": None }),
-      HTMLElement("html", content=[
-        HTMLElement("head", content=[ self.render_headers() ]),
-        HTMLElement("body", content=[
+      VEl["!DOCTYPE"](html=None),
+      El.html(content=[
+        El.head(content=[ self.render_headers() ]),
+        El.body(content=[
           self.render_body(),
           self.script_element
         ])
@@ -23,11 +23,11 @@ class Page(Component):
     ])
 
   def render_body(self) -> Element:
-    return HTMLElement("div", attributes={ "id": "razz-root" }, content=[ self.content_element ])
+    return El.div(id="razz-root", content=[ self.content_element ])
 
   def render_headers(self) -> Element:
     return HTMLFragment([
-      HTMLVoidElement("meta", attributes={ "charset": "UTF-8" }),
-      HTMLVoidElement("meta", attributes={ "name": "viewport", "content": "width=device-width, initial-scale=1.0" }),
-      HTMLElement("title", content=["Document"])
+      VEl.meta(charset="UTF-8"),
+      VEl.meta(name="viewport", content="width=device-width, initial-scale=1.0"),
+      El.title(content=["Document"])
     ])

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import html
 from types import NoneType
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING, Callable, Protocol, Union
 
 if TYPE_CHECKING:
     from razz.execution import Context
@@ -58,7 +58,7 @@ class HTMLVoidElement(HTMLBaseElement):
     return f"<{html.escape(self.tag)}{self._render_attributes()}>"
 
 class HTMLElement(HTMLBaseElement):
-  def __init__(self, tag: str, attributes: dict[str, str | CustomAttribute | NoneType] = {}, content: list[Union[Element, str]] = [], key: str | None = None) -> None:
+  def __init__(self, tag: str, attributes: dict[str, str | CustomAttribute | NoneType] = {}, content: list[Element | str] = [], key: str | None = None) -> None:
     super().__init__(tag, attributes)
     self.key = key
     self.content = content
@@ -75,5 +75,29 @@ class HTMLElement(HTMLBaseElement):
     inner_html = "".join(parts)
     tag = html.escape(self.tag)
     return f"<{tag}{self._render_attributes()}>{inner_html}</{tag}>"
+
+class CreateHTMLElement(Protocol):
+  def __call__(self, content: list[Element | str] = [], **kwargs: dict[str, str | CustomAttribute | NoneType]) -> HTMLElement: ...
+
+class _El(type):
+  def __getitem__(cls, name: str) -> CreateHTMLElement:
+    def _inner(content: list[Element | str] = [], **kwargs):
+      return HTMLElement(name, attributes=kwargs, content=content)
+    return _inner
+  def __getattribute__(cls, name: str): return cls[name]
+
+class El(metaclass=_El): pass
+
+class CreateHTMLVoidElement(Protocol):
+  def __call__(self, **kwargs: dict[str, str | CustomAttribute | NoneType]) -> HTMLVoidElement: ...
+
+class _VEl(type):
+  def __getitem__(cls, name: str) -> CreateHTMLVoidElement:
+    def _inner(**kwargs):
+      return HTMLVoidElement(name, attributes=kwargs)
+    return _inner
+  def __getattribute__(cls, name: str): return cls[name]
+
+class VEl(metaclass=_VEl): pass
 
 ElementFactory = Callable[[], Element]

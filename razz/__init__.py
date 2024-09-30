@@ -6,7 +6,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 import jwt
 
 from razz.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, HTTPContext
-from razz.elements import CustomAttribute as CustomAttribute, Element as Element, ElementFactory, HTMLElement, HTMLFragment, UnescapedHTMLElement
+from razz.elements import CustomAttribute as CustomAttribute, El, Element as Element, ElementFactory, HTMLFragment, UnescapedHTMLElement
 from razz.execution import AppExecutor, ContextInputEvent, ExecutionInput, ExecutionOutputEvent, ForceRefreshOutputEvent
 from razz.helpers import PathPattern
 from razz.page import Page, PageFactory
@@ -95,8 +95,8 @@ class App:
         ).model_dump_json())
       else:
         script_element = HTMLFragment([
-          HTMLElement("script", attributes={ "src": "/razz-client.js" }),
-          HTMLElement("script", content=[
+          El.script(src="/razz-client.js"),
+          El.script(content=[
             f"window.razzInit({AppHttpResult(stateToken=state_token, events=output_events).model_dump_json()});"
           ])
         ])
