@@ -1,30 +1,30 @@
-from typing import Callable
+from typing import Protocol
 from razz.component import Component
 from razz.elements import El, Element, HTMLFragment, VEl
 
-PageFactory = Callable[[Element, Element], Element]
+class PageFactory(Protocol):
+  def __call__(self, header: Element, content: Element, body_end: Element) -> Element: ...
 
 class Page(Component):
-  def __init__(self, content_element: Element, script_element: Element) -> None:
+  def __init__(self, header: Element, content: Element, body_end: Element) -> None:
     super().__init__()
-    self.content_element = content_element
-    self.script_element = script_element
+    self.el_header = header
+    self.el_content = content
+    self.el_body_end = body_end
 
   def render(self) -> Element:
     return HTMLFragment([
       VEl["!DOCTYPE"](html=None),
       El.html(content=[
-        El.head(content=[ self.render_headers() ]),
+        El.head(content=[ self.render_headers(), self.el_header ]),
         El.body(content=[
           self.render_body(),
-          self.script_element
+          self.el_body_end
         ])
       ])
     ])
 
-  def render_body(self) -> Element:
-    return El.div(id="razz-root", content=[ self.content_element ])
-
+  def render_body(self) -> Element: return self.el_content
   def render_headers(self) -> Element:
     return HTMLFragment([
       VEl.meta(charset="UTF-8"),

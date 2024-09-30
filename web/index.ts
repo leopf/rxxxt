@@ -43,9 +43,10 @@ interface AppHttpPostResponse {
 }
 
 interface AppWebsocketResponse {
-    stateToken?: string,
+    stateToken?: string
     events: OutputEvent[]
     html: string
+    end: boolean
 }
 
 interface InitData {
@@ -98,15 +99,31 @@ const handleOutputEvents = (events: OutputEvent[]) => {
 };
 
 const applyHTML = (html?: string) => {
-    let target: Element | null = document.getElementById(defaultTargetId);
-    if (target === null) {
-        throw new Error("Update target not found!");
-    }
+    let target: Element; 
 
-    if (html !== undefined) {
+    if (html === undefined) {
+        const ttarget = document.getElementById(defaultTargetId);
+        if (ttarget === null) {
+            throw new Error("Update target not found!");
+        }
+        target = ttarget;
+    }
+    else {
         const temp = document.createElement("div");
         temp.innerHTML = html;
-        morphdom(target, temp, { childrenOnly: true });
+
+        const updateRoot = temp.children.item(0);
+        if (updateRoot === null || updateRoot.tagName !== "razz-meta".toUpperCase()) {
+            throw new Error("Invalid update root!");
+        }
+
+        const ttarget = document.getElementById(updateRoot.id);
+        if (ttarget === null) {
+            throw new Error("Update target not found!");
+        }
+
+        target = ttarget;
+        morphdom(target, updateRoot);
     }
 
     for (const element of target.getElementsByTagName("*")) {
@@ -147,8 +164,10 @@ const upgradeToWebsocket = () => {
         if (response.stateToken) {
             stateToken = response.stateToken;
         }
-        finishUpdate();
         handleOutputEvents(response.events);
+        if (response.end) {
+            finishUpdate();
+        }
     });
 };
 
@@ -180,8 +199,8 @@ const httpUpdateHandler = async () => {
 
     applyHTML(response.html);
     stateToken = response.stateToken;
-    finishUpdate();
     handleOutputEvents(response.events);
+    finishUpdate();
 };
 updateHandler = httpUpdateHandler;
 

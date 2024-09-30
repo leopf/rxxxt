@@ -58,6 +58,7 @@ class App:
         await context.respond_file(file_path)
     elif context.method in [ "GET", "POST" ] and (route := self._get_route(context.path)) is not None:
       params, element_factory = route
+      def create_element(): return El["razz-meta"](id="razz-root", content=[element_factory()])
 
       if context.method == "POST":
         req = AppHttpRequest.model_validate_json(await context.receive_json_raw())
@@ -66,7 +67,7 @@ class App:
 
       executor = AppExecutor(state, context.headers)
 
-      html_output, output_events = await executor.execute(element_factory(), ExecutionInput(
+      html_output, output_events = await executor.execute(create_element(), ExecutionInput(
         events=events,
         params=params,
         path=context.path,
@@ -78,7 +79,7 @@ class App:
       if len(events) > 0:
         if len(output_events) > 0: output_events.append(ForceRefreshOutputEvent())
         else:
-          html_output, output_events = await executor.execute(element_factory(), ExecutionInput(
+          html_output, output_events = await executor.execute(create_element(), ExecutionInput(
             events=[],
             params=params,
             path=context.path,
@@ -94,14 +95,17 @@ class App:
           html=html_output
         ).model_dump_json())
       else:
-        script_element = HTMLFragment([
+        header_el = HTMLFragment([
           El.script(src="/razz-client.js"),
+          El.style(content=["razz-meta { display: contents; }"])
+        ])
+        body_end_el = HTMLFragment([
           El.script(content=[
             f"window.razzInit({AppHttpResult(stateToken=state_token, events=output_events).model_dump_json()});"
           ])
         ])
-        content_element = UnescapedHTMLElement(html_output)
-        page_html, _ = await executor.execute(self.page_layout(content_element, script_element), ExecutionInput(
+        content_el = UnescapedHTMLElement(html_output)
+        page_html, _ = await executor.execute(self.page_layout(header_el, content_el, body_end_el), ExecutionInput(
           events=[],
           params=params,
           path=context.path,
