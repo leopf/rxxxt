@@ -5,8 +5,8 @@ import re
 from typing import Literal
 from pydantic import BaseModel, field_serializer, field_validator
 
-from razz.elements import Element
-from razz.state import State
+from rxxxt.elements import Element
+from rxxxt.state import State
 
 
 def validate_key(key: str):

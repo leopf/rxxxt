@@ -3,7 +3,7 @@ build-backend = "setuptools.build_meta"
 requires = ["setuptools"]
 
 [project]
-name = "razz"
+name = "rxxxt"
 version = "0.1.0"
 authors = [
   {name = "leopf"},
@@ -20,7 +20,7 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["razz*"]
+include = ["rxxxt*"]
 
 [tool.ruff]
 line-length = 150
@@ -39,7 +39,7 @@ lint.select = [
 ]
 
 include = [
-    "razz/*.py",
+    "rxxxt/*.py",
     "tests/**.py",
     "extra/**.py",
     "examples/**.py",
@@ -47,4 +47,4 @@ include = [
 ]
 
 [tool.setuptools.package-data]
-"razz" = ["assets/*"]
+"rxxxt" = ["assets/*"]

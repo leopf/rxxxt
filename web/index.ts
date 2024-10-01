@@ -70,8 +70,8 @@ let updateHandler: () => void;
 let updateSocket: WebSocket | undefined;
 const inputEvents: ContextInputEvent[] = [];
 const trackedElements = new WeakMap<Node, TrackedElement>();
-const defaultTargetId = "razz-root";
-const eventPrefix = "razz-on-";
+const defaultTargetId = "rxxxt-root";
+const eventPrefix = "rxxxt-on-";
 
 const startUpdate = () => {
     updateRunning = true;
@@ -143,7 +143,7 @@ const applyHTML = (html?: string) => {
         temp.innerHTML = html;
 
         const updateRoot = temp.children.item(0);
-        if (updateRoot === null || updateRoot.tagName !== "razz-meta".toUpperCase()) {
+        if (updateRoot === null || updateRoot.tagName !== "rxxxt-meta".toUpperCase()) {
             throw new Error("Invalid update root!");
         }
 
@@ -334,7 +334,7 @@ class TrackedElement {
     }
 }
 
-(window as any).razzInit = (data: InitData) => {
+(window as any).rxxxtInit = (data: InitData) => {
     window.addEventListener("popstate", update);
     stateToken = data.stateToken;
     handleOutputEvents(data.events);

@@ -1,6 +1,6 @@
 from typing import Protocol
-from razz.component import Component
-from razz.elements import El, Element, HTMLFragment, VEl
+from rxxxt.component import Component
+from rxxxt.elements import El, Element, HTMLFragment, VEl
 
 class PageFactory(Protocol):
   def __call__(self, header: Element, content: Element, body_end: Element) -> Element: ...

@@ -4,7 +4,7 @@ from types import NoneType
 from typing import TYPE_CHECKING, Callable, Protocol, Union
 
 if TYPE_CHECKING:
-    from razz.execution import Context
+    from rxxxt.execution import Context
 
 class CustomAttribute(ABC):
   @abstractmethod

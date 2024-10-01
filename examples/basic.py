@@ -4,10 +4,10 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
-from razz import App
-from razz.component import Component, event_handler
-from razz.elements import El, Element, VEl
-from razz.state import State
+from rxxxt import App
+from rxxxt.component import Component, event_handler
+from rxxxt.elements import El, Element, VEl
+from rxxxt.state import State
 
 class ExampleState(State):
   count: int = 0

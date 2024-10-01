@@ -8,10 +8,10 @@ import weakref
 from pydantic import BaseModel, Field, create_model
 from pydantic_core import PydanticUndefined
 
-from razz.elements import CustomAttribute, Element
-from razz.execution import Context
-from razz.helpers import to_awaitable
-from razz.state import get_state_infos_for_object_type
+from rxxxt.elements import CustomAttribute, Element
+from rxxxt.execution import Context
+from rxxxt.helpers import to_awaitable
+from rxxxt.state import get_state_infos_for_object_type
 
 EHP = ParamSpec('EHP')
 EHR = TypeVar('EHR')
@@ -58,7 +58,7 @@ class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute
       "param_map": param_map,
       "options": self.options.model_dump(exclude_defaults=True)
     }).encode("utf-8")).decode("utf-8")
-    return (f"razz-on-{original_key[2:]}", v)
+    return (f"rxxxt-on-{original_key[2:]}", v)
 
   @staticmethod
   def _is_valid_type(typ):

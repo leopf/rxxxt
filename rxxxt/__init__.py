@@ -6,12 +6,12 @@ import secrets
 from typing import Any
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from razz.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, HTTPContext
-from razz.elements import CustomAttribute as CustomAttribute, El, Element as Element, ElementFactory, HTMLFragment, UnescapedHTMLElement
-from razz.execution import AppExecutor, ContextInputEvent, ExecutionInput, ExecutionOutputEvent, ForceRefreshOutputEvent
-from razz.helpers import PathPattern, to_awaitable
-from razz.page import Page, PageFactory
-from razz.state import JWTStateResolver, StateResolver, StateResolverError
+from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, HTTPContext
+from rxxxt.elements import CustomAttribute as CustomAttribute, El, Element as Element, ElementFactory, HTMLFragment, UnescapedHTMLElement
+from rxxxt.execution import AppExecutor, ContextInputEvent, ExecutionInput, ExecutionOutputEvent, ForceRefreshOutputEvent
+from rxxxt.helpers import PathPattern, to_awaitable
+from rxxxt.page import Page, PageFactory
+from rxxxt.state import JWTStateResolver, StateResolver, StateResolverError
 
 
 class AppHttpRequest(BaseModel):
@@ -57,12 +57,12 @@ class App:
         return await context.respond_status(500)
 
   async def _handle_http(self, context: HTTPContext):
-    if context.path == "/razz-client.js":
-      with importlib.resources.path("razz.assets", "main.js") as file_path:
+    if context.path == "/rxxxt-client.js":
+      with importlib.resources.path("rxxxt.assets", "main.js") as file_path:
         await context.respond_file(file_path)
     elif context.method in [ "GET", "POST" ] and (route := self._get_route(context.path)) is not None:
       params, element_factory = route
-      def create_element(): return El["razz-meta"](id="razz-root", content=[element_factory()])
+      def create_element(): return El["rxxxt-meta"](id="rxxxt-root", content=[element_factory()])
 
       old_state_token: str | None = None
       if context.method == "POST":
@@ -110,12 +110,12 @@ class App:
         ).model_dump_json())
       else:
         header_el = HTMLFragment([
-          El.script(src="/razz-client.js"),
-          El.style(content=["razz-meta { display: contents; }"])
+          El.script(src="/rxxxt-client.js"),
+          El.style(content=["rxxxt-meta { display: contents; }"])
         ])
         body_end_el = HTMLFragment([
           El.script(content=[
-            f"window.razzInit({AppHttpResult(stateToken=state_token, events=output_events).model_dump_json()});"
+            f"window.rxxxtInit({AppHttpResult(stateToken=state_token, events=output_events).model_dump_json()});"
           ])
         ])
         content_el = UnescapedHTMLElement(html_output)
