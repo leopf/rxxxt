@@ -5,6 +5,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 from rxxxt import App
+from rxxxt.page import Page, PageBuilder
 from rxxxt.component import Component, event_handler
 from rxxxt.elements import El, Element, VEl
 from rxxxt.state import State
@@ -41,7 +42,16 @@ class Example(Component):
 class ExamplePage2(Component):
   def render(self) -> Element: return El.h1(content=[ "Hello World!" ])
 
-app = App()
+page_builder = PageBuilder(Page)
+page_builder.add_header(VEl.link(href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap", rel="stylesheet"))
+page_builder.add_header(El.style(content=["""
+body {
+  margin: 0;
+  font-family: Roboto;
+}
+"""]))
+
+app = App(page_layout=page_builder)
 
 app.add_route("/", Example)
 app.add_route("/page2", ExamplePage2)

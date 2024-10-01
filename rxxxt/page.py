@@ -31,3 +31,15 @@ class Page(Component):
       VEl.meta(name="viewport", content="width=device-width, initial-scale=1.0"),
       El.title(content=["Document"])
     ])
+
+class PageBuilder(PageFactory):
+  def __init__(self, page_factory: PageFactory) -> None:
+    self._header_elements: list[Element] = []
+    self._body_end_elements: list[Element] = []
+    self._page_factory = page_factory
+
+  def add_header(self, el: Element): self._header_elements.append(el)
+  def add_body_end(self, el: Element): self._body_end_elements.append(el)
+
+  def __call__(self, header: Element, content: Element, body_end: Element) -> Element:
+    return self._page_factory(HTMLFragment([ header, *self._header_elements ]), content, HTMLFragment([ *self._body_end_elements, body_end ]))

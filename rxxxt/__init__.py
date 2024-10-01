@@ -28,8 +28,8 @@ class AppHttpPostResponse(AppHttpResult):
 RawStateAdapter = TypeAdapter(dict[str, str])
 
 class App:
-  def __init__(self, state_resolver: StateResolver | None = None) -> None:
-    self.page_layout: PageFactory = Page
+  def __init__(self, state_resolver: StateResolver | None = None, page_layout: PageFactory | None = None) -> None:
+    self.page_layout: PageFactory = page_layout or Page
     if state_resolver is None:
       jwt_secret = os.getenv("JWT_SECRET", None)
       if jwt_secret is None: jwt_secret = secrets.token_bytes(64)
