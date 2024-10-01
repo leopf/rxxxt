@@ -20,9 +20,9 @@ class Example(Component):
   @event_handler()
   def on_click(self):
     self.state.count += 1
-    self.context.use_websocket((self.state.count % 2) == 0)
+    self.context.use_websocket(True)
 
-  @event_handler(throttle=1000)
+  @event_handler(debounce=500)
   def on_input(self, value: Annotated[str | None, "target.value"]):
     self.context.set_cookie("hello", "world", http_only=True)
     self.state.text = value

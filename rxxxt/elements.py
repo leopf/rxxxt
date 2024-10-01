@@ -82,7 +82,7 @@ class CreateHTMLElement(Protocol):
 class _El(type):
   def __getitem__(cls, name: str) -> CreateHTMLElement:
     def _inner(content: list[Element | str] = [], **kwargs):
-      return HTMLElement(name, attributes=kwargs, content=content)
+      return HTMLElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() }, content=content)
     return _inner
   def __getattribute__(cls, name: str): return cls[name]
 
@@ -94,7 +94,7 @@ class CreateHTMLVoidElement(Protocol):
 class _VEl(type):
   def __getitem__(cls, name: str) -> CreateHTMLVoidElement:
     def _inner(**kwargs):
-      return HTMLVoidElement(name, attributes=kwargs)
+      return HTMLVoidElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() })
     return _inner
   def __getattribute__(cls, name: str): return cls[name]
 

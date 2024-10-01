@@ -40,6 +40,7 @@ interface ContextInputEventDescription {
     options: {
         throttle?: number,
         debounce?: number,
+        prevent_default?: boolean
     }
 }
 
@@ -306,6 +307,10 @@ class TrackedElementEvent {
 
         if (this.timeoutHandle) {
             clearTimeout(this.timeoutHandle);
+        }
+
+        if (eventDesc.options.prevent_default) {
+            e.preventDefault();
         }
 
         const waitTimes: number[] = [];

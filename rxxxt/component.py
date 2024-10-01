@@ -19,6 +19,7 @@ EHR = TypeVar('EHR')
 class EventHandlerOptions(BaseModel):
   debounce: int | None = None
   throttle: int | None = None
+  prevent_default: bool = False
 
 class ClassEventHandler(Generic[EHP, EHR]):
   def __init__(self, fn:  Callable[EHP, EHR], options: EventHandlerOptions) -> None:
