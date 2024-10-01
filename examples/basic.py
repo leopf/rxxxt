@@ -25,17 +25,25 @@ class Example(Component):
     self.context.set_cookie("hello", "world", http_only=True)
     self.state.text = value
 
+  @event_handler()
+  def on_navigate(self): self.context.navigate("/page2")
+
   def render(self) -> Element:
     return El.div(content=[
       El.div(onclick=self.on_click, content=[ f"Count: {self.state.count}" ]),
       El.div(content=[
         El.b(content=[self.state.text])
       ]),
-      VEl.input(oninput=self.on_input, value=self.state.text)
+      VEl.input(oninput=self.on_input, value=self.state.text),
+      El.button(content=["nav"], onclick=self.on_navigate)
     ])
+
+class ExamplePage2(Component):
+  def render(self) -> Element: return El.h1(content=[ "Hello World!" ])
 
 app = App(b"SECRET")
 
 app.add_route("/", Example)
+app.add_route("/page2", ExamplePage2)
 
 uvicorn.run(app)

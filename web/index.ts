@@ -335,6 +335,7 @@ class TrackedElement {
 }
 
 (window as any).razzInit = (data: InitData) => {
+    window.addEventListener("popstate", update);
     stateToken = data.stateToken;
     handleOutputEvents(data.events);
     applyHTML();
