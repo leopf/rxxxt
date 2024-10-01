@@ -116,7 +116,7 @@ class Component(Element, ABC):
     self.context: Context
 
   @abstractmethod
-  def render(self) -> Element | Awaitable[Element]: pass
+  def render(self) -> Element: pass
   def init(self) -> None | Awaitable[None]: pass
 
   async def to_html(self, context: Context) -> str:
@@ -135,7 +135,7 @@ class Component(Element, ABC):
     # run
 
     await to_awaitable(self.init)
-    result = await to_awaitable(self.render)
+    result = self.render()
 
     # to text
 
