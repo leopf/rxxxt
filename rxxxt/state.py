@@ -6,11 +6,15 @@ import hashlib
 from io import BytesIO
 import json
 import sys
-from typing import Awaitable, ByteString, Literal, get_type_hints
+from typing import TYPE_CHECKING, Awaitable, ByteString, Literal, get_type_hints
 from pydantic import BaseModel
 import hmac
 
-class State(BaseModel): pass
+if TYPE_CHECKING:
+  from rxxxt.execution import Context
+
+class State(BaseModel):
+  def init(self, context: 'Context') -> None | Awaitable[None]: pass
 
 @dataclass
 class PartialStateInfo:

@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, field_serializer, field_validator
 
 from rxxxt.elements import Element
+from rxxxt.helpers import to_awaitable
 from rxxxt.state import State
 
 
@@ -106,8 +107,8 @@ class AppExecutor:
     html_output = await element.to_html(Context(context_prefix, execution))
     return html_output, execution.output_events
 
-  def get_state(self, name: str, context: str, state_type: type[State]):
-    key = context + "!" + name
+  async def get_state(self, name: str, context: 'Context', state_type: type[State]):
+    key = context.id + "!" + name
     if key in self._state:
       state = self._state[key]
       if not isinstance(state, state_type): raise ValueError("Invalid state type for state!")
@@ -117,6 +118,7 @@ class AppExecutor:
       self._state[key] = state
     else:
       state = self._state[key] = state_type()
+      await to_awaitable(state.init, context)
     return state
 
   def get_raw_state(self): return { k: v.model_dump_json() for k, v in self._state.items() }
@@ -124,6 +126,9 @@ class AppExecutor:
 class AppExecution:
   def __init__(self, executor: AppExecutor, input_data: ExecutionInput) -> None:
     self.executor = executor
+    self.query_string = input_data.query_string
+    self.path = input_data.path
+    self.params = input_data.params
     self.output_events: list[ExecutionOutputEvent] = []
     self._unique_ids: set[str] = set()
     self._input_events: dict[str, list[ContextInputEvent]] = { e.context_id: [] for e in input_data.events }
@@ -146,11 +151,20 @@ class Context:
     self.id = id
     self.execution = execution
 
+  @property
+  def query_string(self): return self.execution.query_string
+
+  @property
+  def path(self): return self.execution.path
+
+  @property
+  def params(self): return self.execution.params
+
   def pop_events(self): return self.execution.pop_context_events(self.id)
 
-  def get_state(self, name: str, state_type: type[State], is_global: bool = False):
-    state_context_id = "" if is_global else self.id
-    return self.execution.executor.get_state(name, state_context_id, state_type)
+  async def get_state(self, name: str, state_type: type[State], is_global: bool = False):
+    context = Context("", self.execution) if is_global else self
+    return await self.execution.executor.get_state(name, context, state_type)
 
   def navigate(self, location: str): self.execution.output_events.append(NavigateOutputEvent(location=location))
   def use_websocket(self, websocket: bool = True): self.execution.output_events.append(UseWebsocketOutputEvent(websocket=websocket))

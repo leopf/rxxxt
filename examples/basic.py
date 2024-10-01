@@ -7,12 +7,15 @@ logging.basicConfig(level=logging.DEBUG)
 from rxxxt import App
 from rxxxt.page import Page, PageBuilder
 from rxxxt.component import Component, event_handler
+from rxxxt.execution import Context
 from rxxxt.elements import El, Element, VEl
 from rxxxt.state import State
 
 class ExampleState(State):
   count: int = 0
   text: str = ""
+
+  def init(self, context: 'Context'): self.text = context.query_string
 
 class Example(Component):
   state: ExampleState
