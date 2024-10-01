@@ -102,7 +102,7 @@ class App:
       if typ == "disconnect" or typ == "connect": return
 
       update_message = AppWebsocketUpdateMessage.model_validate_json(message)
-      route = self._get_route(update_message.location)
+      route = self._get_route(update_message.path)
       if route is None: continue
       params, element_factory = route
 

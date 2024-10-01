@@ -307,6 +307,7 @@ class TrackedElementEvent {
 
         if (this.timeoutHandle) {
             clearTimeout(this.timeoutHandle);
+            this.timeoutHandle = undefined;
         }
 
         if (eventDesc.options.prevent_default) {
