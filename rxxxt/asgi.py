@@ -136,6 +136,7 @@ class WebsocketContext(TransportContext):
     await self._wsend(event)
 
   async def close(self, code: int = 1000, reason: str | None = None):
+    self._connected = False
     await self._wsend({ "type": "websocket.close", "code": code, "reason": WebsocketContext.close_reasons.get(code, "") if reason is None else reason })
 
   async def _wsend(self, event: dict):

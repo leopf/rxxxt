@@ -18,12 +18,13 @@ interface ForceRefreshOutputEvent {
 }
 
 interface NavigateOutputEvent {
-    event: "navigate",
+    event: "navigate"
     location: string
 }
 
-interface UpgradeWebsocketOutputEvent {
-    event: "upgrade-websocket",
+interface UseWebsocketOutputEvent {
+    event: "use-websocket"
+    websocket: boolean
 }
 
 interface ContextInputEvent {
@@ -60,13 +61,13 @@ interface InitData {
     events: OutputEvent[]
 }
 
-type OutputEvent = SetCookieOutputEvent | ForceRefreshOutputEvent | NavigateOutputEvent | UpgradeWebsocketOutputEvent;
+type OutputEvent = SetCookieOutputEvent | ForceRefreshOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent;
 type InputEventProducer = () => ContextInputEvent[];
 
 let stateToken: string = "";
 let enableStateUpdates: boolean = false;
 let updateScheduled: boolean = false;
-let updateRunning: boolean = false;
+let updatesRunning: number = 0;
 let updateHandler: () => void;
 let updateSocket: WebSocket | undefined;
 const inputEventProducers: InputEventProducer[] = [];
@@ -75,13 +76,13 @@ const defaultTargetId = "rxxxt-root";
 const eventPrefix = "rxxxt-on-";
 
 const startUpdate = () => {
-    updateRunning = true;
+    updatesRunning++;
     updateScheduled = false;
 };
 const finishUpdate = () => {
-    updateRunning = false;
-    if (updateScheduled) {
-        update();
+    updatesRunning = Math.max(0, updatesRunning - 1);
+    if (updatesRunning == 0 && updateScheduled) {
+        updateHandler();
     }
 };
 
@@ -104,7 +105,7 @@ const handleOutputEvents = (events: OutputEvent[]) => {
             window.history.pushState({}, "", event.location);
             refresh = true;
         }
-        else if (event.event === "upgrade-websocket") {
+        else if (event.event === "use-websocket" && event.websocket) {
             upgradeToWebsocket();
             refresh = true;
         }
@@ -177,19 +178,22 @@ const applyHTML = (html?: string) => {
 };
 
 const upgradeToWebsocket = () => {
-    if (!updateSocket) {
+    if (updateSocket) {
         return;
     }
     startUpdate();
-    updateSocket = new WebSocket(location.href);
+    const url = new URL(location.href);
+    url.protocol = location.protocol == "https:" ? "wss" : "ws";
+    updateSocket = new WebSocket(url);
     updateSocket.addEventListener("close", () => {
         updateHandler = httpUpdateHandler;
+        updateSocket = undefined;
     });
     updateSocket.addEventListener("open", () => {
         updateHandler = websocketUpdateHandler;
         updateSocket?.send(JSON.stringify({
             type: "init",
-            state: stateToken,
+            stateToken: stateToken,
             enableStateUpdates: enableStateUpdates
         }));
         finishUpdate();
@@ -247,7 +251,7 @@ const update = () => {
     if (!updateScheduled) {
         updateScheduled = true;
         setTimeout(() => {
-            if (!updateRunning) {
+            if (updatesRunning == 0) {
                 updateHandler();
             }
         }, 0);

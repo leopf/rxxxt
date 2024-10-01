@@ -63,8 +63,9 @@ class SetCookieOutputEvent(BaseModel):
     if self.http_only: parts.append("httponly")
     return ";".join(parts)
 
-class UpgradeWebsocketOutputEvent(BaseModel):
-  event: Literal["upgrade-websocket"] = "upgrade-websocket"
+class UseWebsocketOutputEvent(BaseModel):
+  event: Literal["use-websocket"] = "use-websocket"
+  websocket: bool
 
 class ForceRefreshOutputEvent(BaseModel):
   event: Literal["force-refresh"] = "force-refresh"
@@ -73,7 +74,7 @@ class NavigateOutputEvent(BaseModel):
   location: str
   event: Literal["navigate"] = "navigate"
 
-ExecutionOutputEvent = SetCookieOutputEvent | NavigateOutputEvent | ForceRefreshOutputEvent | UpgradeWebsocketOutputEvent
+ExecutionOutputEvent = SetCookieOutputEvent | NavigateOutputEvent | ForceRefreshOutputEvent | UseWebsocketOutputEvent
 
 @dataclass
 class ExecutionInput:
@@ -152,7 +153,7 @@ class Context:
     return self.execution.executor.get_state(name, state_context_id, state_type)
 
   def navigate(self, location: str): self.execution.output_events.append(NavigateOutputEvent(location=location))
-  def upgrade_to_websocket(self): self.execution.output_events.append(UpgradeWebsocketOutputEvent())
+  def use_websocket(self, websocket: bool = True): self.execution.output_events.append(UseWebsocketOutputEvent(websocket=websocket))
   def get_cookie(self, name: str) -> str | None: return self.execution.executor.cookies.get(name, None)
   def set_cookie(self, name: str, value: str, expires: datetime | None = None, path: str | None = None,
                 secure: bool | None = None, http_only: bool | None = None, domain: str | None = None, max_age: int | None = None):

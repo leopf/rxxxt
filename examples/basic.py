@@ -20,6 +20,7 @@ class Example(Component):
   @event_handler()
   def on_click(self):
     self.state.count += 1
+    self.context.use_websocket((self.state.count % 2) == 0)
 
   @event_handler(throttle=1000)
   def on_input(self, value: Annotated[str | None, "target.value"]):

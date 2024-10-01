@@ -3,16 +3,15 @@ import importlib.resources
 import logging
 import os
 import secrets
-from typing import Any
+from typing import Any, Literal
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, HTTPContext
+from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, HTTPContext, WebsocketContext
 from rxxxt.elements import CustomAttribute as CustomAttribute, El, Element as Element, ElementFactory, HTMLFragment, UnescapedHTMLElement
 from rxxxt.execution import AppExecutor, ContextInputEvent, ExecutionInput, ExecutionOutputEvent, ForceRefreshOutputEvent
 from rxxxt.helpers import PathPattern, to_awaitable
 from rxxxt.page import Page, PageFactory
 from rxxxt.state import JWTStateResolver, StateResolver, StateResolverError
-
 
 class AppHttpRequest(BaseModel):
   stateToken: str
@@ -24,6 +23,30 @@ class AppHttpResult(BaseModel):
 
 class AppHttpPostResponse(AppHttpResult):
   html: str
+
+class AppWebsocketInitMessage(BaseModel):
+  type: Literal["init"]
+  stateToken: str
+  enableStateUpdates: bool
+
+class AppWebsocketUpdateMessage(BaseModel):
+  type: Literal["update"]
+  events: list[ContextInputEvent]
+  location: str
+
+  @property
+  def path(self): return self.location.split("?")[0]
+
+  @property
+  def query_string(self):
+    parts = self.location.split("?")
+    return parts[1] if len(parts) > 1 else None
+
+class AppWebsocketResponseMessage(BaseModel):
+  stateToken: str | None = None
+  events: list[ExecutionOutputEvent]
+  html: str
+  end: bool
 
 RawStateAdapter = TypeAdapter(dict[str, str])
 
@@ -48,13 +71,79 @@ class App:
   async def __call__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> Any:
     if scope["type"] == "http":
       context = HTTPContext(scope, receive, send)
-      try: return await self._handle_http(context)
+      try: await self._handle_http(context)
       except (ValidationError, ValueError) as e:
         logging.debug(e)
         return await context.respond_status(400)
       except BaseException as e:
         logging.debug(e)
         return await context.respond_status(500)
+    elif scope["type"] == "websocket":
+      context = WebsocketContext(scope, receive, send)
+      try: await self._handle_websocket(context)
+      except BaseException as e:
+        logging.debug(e)
+        await context.close(1011, "Internal error")
+      finally:
+        if context.connected: await context.close()
+
+  async def _handle_websocket(self, context: WebsocketContext):
+    closing = False
+    await context.accept()
+    typ, message = await context.receive()
+    if typ != "message" or message is None: raise ValueError("Invalid init message!")
+
+    init_message = AppWebsocketInitMessage.model_validate_json(message)
+    last_state_token = init_message.stateToken
+    executor = AppExecutor(await self._get_state_from_token(last_state_token), context.headers)
+
+    while not closing:
+      typ, message = await context.receive()
+      if typ == "disconnect" or typ == "connect": return
+
+      update_message = AppWebsocketUpdateMessage.model_validate_json(message)
+      route = self._get_route(update_message.location)
+      if route is None: continue
+      params, element_factory = route
+
+      path_hash = hashlib.sha1(update_message.path.encode("utf-8")).hexdigest()
+      content_ctx_prefix = path_hash + ";content"
+
+      html_output, output_events = await executor.execute(content_ctx_prefix, self._create_root(element_factory), ExecutionInput(
+        events=update_message.events,
+        params=params,
+        path=update_message.path,
+        query_string=update_message.query_string
+      ))
+
+      noutput_events: list[ExecutionOutputEvent] = []
+      for event in output_events:
+        if event.event == "use-websocket":
+          if not event.websocket: closing = True
+        else: noutput_events.append(event)
+      output_events = noutput_events
+
+      if len(update_message.events) > 0:
+        if len(output_events) > 0: output_events.append(ForceRefreshOutputEvent())
+        else:
+          html_output, output_events = await executor.execute(content_ctx_prefix, self._create_root(element_factory), ExecutionInput(
+            events=[],
+            params=params,
+            path=context.path,
+            query_string=context.query_string
+          ))
+
+      state_token: str | None = None
+      if init_message.enableStateUpdates or closing:
+        state_token = await self._create_state_token(executor.get_raw_state(), last_state_token)
+        last_state_token = state_token
+
+      await context.send_message(AppWebsocketResponseMessage(
+        events=output_events,
+        html=html_output,
+        stateToken=state_token,
+        end=True
+      ).model_dump_json())
 
   async def _handle_http(self, context: HTTPContext):
     if context.path == "/rxxxt-client.js":
@@ -62,7 +151,6 @@ class App:
         await context.respond_file(file_path)
     elif context.method in [ "GET", "POST" ] and (route := self._get_route(context.path)) is not None:
       params, element_factory = route
-      def create_element(): return El["rxxxt-meta"](id="rxxxt-root", content=[element_factory()])
 
       old_state_token: str | None = None
       if context.method == "POST":
@@ -75,7 +163,7 @@ class App:
       path_hash = hashlib.sha1(context.path.encode("utf-8")).hexdigest()
       content_ctx_prefix = path_hash + ";content"
 
-      html_output, output_events = await executor.execute(content_ctx_prefix, create_element(), ExecutionInput(
+      html_output, output_events = await executor.execute(content_ctx_prefix, self._create_root(element_factory), ExecutionInput(
         events=events,
         params=params,
         path=context.path,
@@ -85,15 +173,14 @@ class App:
       noutput_events: list[ExecutionOutputEvent] = []
       for event in output_events:
         if event.event == "set-cookie": context.add_response_headers([(b"Set-Cookie", event.to_set_cookie_header().encode("utf-8"))])
+        elif event.event == "use-websocket" and not event.websocket: pass
         else: noutput_events.append(event)
       output_events = noutput_events
-
-      # TODO: handle output events
 
       if len(events) > 0:
         if len(output_events) > 0: output_events.append(ForceRefreshOutputEvent())
         else:
-          html_output, output_events = await executor.execute(content_ctx_prefix, create_element(), ExecutionInput(
+          html_output, output_events = await executor.execute(content_ctx_prefix, self._create_root(element_factory), ExecutionInput(
             events=[],
             params=params,
             path=context.path,
@@ -127,6 +214,8 @@ class App:
         ))
         await context.respond_text(page_html, mime_type="text/html")
     else: await context.respond_status(404)
+
+  def _create_root(self, element_factory: ElementFactory): return El["rxxxt-meta"](id="rxxxt-root", content=[element_factory()])
 
   async def _create_state_token(self, state: dict[str, str], old_token: str | None):
     return await to_awaitable(self.state_resolver.create_token, state, old_token)
