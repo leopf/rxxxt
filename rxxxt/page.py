@@ -29,7 +29,7 @@ class Page(Component):
     return HTMLFragment([
       VEl.meta(charset="UTF-8"),
       VEl.meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-      El.title(content=["Document"])
+      El.title(content=[self.context.app_data.get("title", "Document")])
     ])
 
 class PageBuilder(PageFactory):

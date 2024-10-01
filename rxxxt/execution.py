@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import functools
 import re
-from typing import Literal
+from typing import Any, Literal
 from pydantic import BaseModel, field_serializer, field_validator
 
 from rxxxt.elements import Element
@@ -85,14 +85,15 @@ class ExecutionInput:
   query_string: str | None
 
 class AppExecutor:
-  def __init__(self, raw_state: dict[str, str], headers: dict[str, list[str]]) -> None:
+  def __init__(self, raw_state: dict[str, str], headers: dict[str, list[str]], app_data: dict[str, Any]) -> None:
+    self.app_data = app_data
+    self.headers = headers
     self._raw_state = raw_state
-    self._headers = headers
     self._state: dict[str, State] = {}
 
   @functools.cached_property
   def cookies(self) -> dict[str, str]:
-    values = self._headers.get("cookie", [])
+    values = self.headers.get("cookie", [])
     if len(values) == 0: return {}
     result: dict[str, str] = {}
     for cookie in values[0].split(";"):
@@ -159,6 +160,12 @@ class Context:
 
   @property
   def params(self): return self.execution.params
+  
+  @property
+  def headers(self): return self.execution.executor.headers
+  
+  @property
+  def app_data(self): return self.execution.executor.app_data
 
   def pop_events(self): return self.execution.pop_context_events(self.id)
 

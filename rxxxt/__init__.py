@@ -51,8 +51,9 @@ class AppWebsocketResponseMessage(BaseModel):
 RawStateAdapter = TypeAdapter(dict[str, str])
 
 class App:
-  def __init__(self, state_resolver: StateResolver | None = None, page_layout: PageFactory | None = None) -> None:
+  def __init__(self, state_resolver: StateResolver | None = None, page_layout: PageFactory | None = None, app_data: dict[str, Any] = {}) -> None:
     self.page_layout: PageFactory = page_layout or Page
+    self.app_data = app_data
     if state_resolver is None:
       jwt_secret = os.getenv("JWT_SECRET", None)
       if jwt_secret is None: jwt_secret = secrets.token_bytes(64)
@@ -95,7 +96,7 @@ class App:
 
     init_message = AppWebsocketInitMessage.model_validate_json(message)
     last_state_token = init_message.stateToken
-    executor = AppExecutor(await self._get_state_from_token(last_state_token), context.headers)
+    executor = AppExecutor(await self._get_state_from_token(last_state_token), context.headers, self.app_data)
 
     while not closing:
       typ, message = await context.receive()
@@ -159,7 +160,7 @@ class App:
         state, events = await self._get_state_from_token(req.stateToken), req.events
       else: state, events={}, []
 
-      executor = AppExecutor(state, context.headers)
+      executor = AppExecutor(state, context.headers, self.app_data)
       path_hash = hashlib.sha1(context.path.encode("utf-8")).hexdigest()
       content_ctx_prefix = path_hash + ";content"
 
