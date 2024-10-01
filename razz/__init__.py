@@ -1,16 +1,17 @@
-import datetime
 import hashlib
 import importlib.resources
 import logging
+import os
+import secrets
 from typing import Any
 from pydantic import BaseModel, TypeAdapter, ValidationError
-import jwt
 
 from razz.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, HTTPContext
 from razz.elements import CustomAttribute as CustomAttribute, El, Element as Element, ElementFactory, HTMLFragment, UnescapedHTMLElement
 from razz.execution import AppExecutor, ContextInputEvent, ExecutionInput, ExecutionOutputEvent, ForceRefreshOutputEvent
-from razz.helpers import PathPattern
+from razz.helpers import PathPattern, to_awaitable
 from razz.page import Page, PageFactory
+from razz.state import JWTStateResolver, StateResolver, StateResolverError
 
 
 class AppHttpRequest(BaseModel):
@@ -27,13 +28,15 @@ class AppHttpPostResponse(AppHttpResult):
 RawStateAdapter = TypeAdapter(dict[str, str])
 
 class App:
-  def __init__(self, jwt_secret: bytes, session_duration: datetime.timedelta | None = None, jwt_algorithm: str = "HS512") -> None:
+  def __init__(self, state_resolver: StateResolver | None = None) -> None:
     self.page_layout: PageFactory = Page
+    if state_resolver is None:
+      jwt_secret = os.getenv("JWT_SECRET", None)
+      if jwt_secret is None: jwt_secret = secrets.token_bytes(64)
+      else: jwt_secret = jwt_secret.encode("utf-8")
+      self.state_resolver: StateResolver = JWTStateResolver(jwt_secret)
+    else: self.state_resolver = state_resolver
     self._routes: list[tuple[PathPattern, ElementFactory]] = []
-    self._session_duration = datetime.timedelta(hours=1) if session_duration is None else session_duration
-    self._jwt_secret = jwt_secret
-    if not jwt_algorithm.startswith("HS"): raise ValueError("JWT algorithm must start with HS")
-    self._jwt_algorithm = jwt_algorithm
 
   def add_route(self, path: str, element_factory: ElementFactory): self._routes.append((PathPattern(path), element_factory))
   def route(self, path: str):
@@ -61,9 +64,11 @@ class App:
       params, element_factory = route
       def create_element(): return El["razz-meta"](id="razz-root", content=[element_factory()])
 
+      old_state_token: str | None = None
       if context.method == "POST":
         req = AppHttpRequest.model_validate_json(await context.receive_json_raw())
-        state, events = self._verify_state(req.stateToken), req.events
+        old_state_token = req.stateToken
+        state, events = await self._get_state_from_token(req.stateToken), req.events
       else: state, events={}, []
 
       executor = AppExecutor(state, context.headers)
@@ -95,7 +100,7 @@ class App:
             query_string=context.query_string
           ))
 
-      state_token = self._sign_state(executor.get_raw_state())
+      state_token = await self._create_state_token(executor.get_raw_state(), old_state_token)
 
       if context.method == "POST":
         await context.respond_json_string(AppHttpPostResponse(
@@ -123,12 +128,12 @@ class App:
         await context.respond_text(page_html, mime_type="text/html")
     else: await context.respond_status(404)
 
-  def _sign_state(self, state: dict[str, str]):
-    return jwt.encode({ "data": state, "exp": datetime.datetime.now(tz=datetime.timezone.utc) + self._session_duration}, self._jwt_secret, self._jwt_algorithm)
+  async def _create_state_token(self, state: dict[str, str], old_token: str | None):
+    return await to_awaitable(self.state_resolver.create_token, state, old_token)
 
-  def _verify_state(self, token: str):
-    token_data = jwt.decode(token, self._jwt_secret, algorithms=[self._jwt_algorithm])
-    return RawStateAdapter.validate_python(token_data["data"])
+  async def _get_state_from_token(self, token: str) -> dict[str, str]:
+    try: return RawStateAdapter.validate_python(await to_awaitable(self.state_resolver.resolve, token))
+    except StateResolverError: return {}
 
   def _get_route(self, path: str):
     for pattern, element_factory in self._routes:

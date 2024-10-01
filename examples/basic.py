@@ -41,7 +41,7 @@ class Example(Component):
 class ExamplePage2(Component):
   def render(self) -> Element: return El.h1(content=[ "Hello World!" ])
 
-app = App(b"SECRET")
+app = App()
 
 app.add_route("/", Example)
 app.add_route("/page2", ExamplePage2)

@@ -10,7 +10,6 @@ authors = [
 ]
 dependencies = [
   "pydantic",
-  "PyJWT>=2.9.0"
 ]
 
 [project.optional-dependencies]
