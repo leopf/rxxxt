@@ -22,7 +22,7 @@ class Example(Component):
 
   @event_handler(throttle=1000)
   def on_input(self, value: Annotated[str | None, "target.value"]):
-    print("input", value)
+    self.context.set_cookie("hello", "world", http_only=True)
     self.state.text = value
 
   def render(self) -> Element:

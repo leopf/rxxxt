@@ -94,9 +94,7 @@ class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute
 
         field_default = PydanticUndefined if param.default is param.empty else param.default
         fields[name] = (main_type, Field(description=metadata[0], default=field_default))
-
         args_map[i] = name
-
         param_map[name] = metadata[0]
       else:
         raise TypeError(f"Parameter '{name}' must be of type Annotated.")

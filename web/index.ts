@@ -3,6 +3,14 @@ import objectPath from "object-path";
 
 interface SetCookieOutputEvent {
     event: "set-cookie"
+    name: string
+    value?: string
+    expires?: string
+    path?: string
+    max_age?: number
+    secure?: boolean
+    http_only?: boolean
+    domain?: string
 }
 
 interface ForceRefreshOutputEvent {
@@ -90,7 +98,29 @@ const handleOutputEvents = (events: OutputEvent[]) => {
             upgradeToWebsocket();
             refresh = true;
         }
-        // TODO: more events
+        else if (event.event === "set-cookie") {
+            const parts: string[] = [`${event.name}=${event.value ?? ""}`];
+            if (typeof event.path === "string") {
+                parts.push(`path=${event.path}`);
+            }
+            if (typeof event.expires === "string") {
+                parts.push(`expires=${(new Date(event.expires)).toUTCString()}`);
+            }
+            if (typeof event.max_age === "number") {
+                parts.push(`max-age=${event.max_age}`);
+            }
+            if (typeof event.domain === "string") {
+                parts.push(`domain=${event.domain}`);
+            }
+            if (event.secure) {
+                parts.push(`secure`);
+            }
+            if (event.http_only) {
+                parts.push(`httponly`);
+            }
+
+            document.cookie = parts.join(";");
+        }
     }
 
     if (refresh) {

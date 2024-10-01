@@ -1,6 +1,9 @@
 from dataclasses import dataclass
-import hashlib
+from datetime import datetime
+import functools
+import re
 from typing import Literal
+from pydantic import BaseModel, field_serializer, field_validator
 
 from razz.elements import Element
 from razz.state import State
@@ -11,26 +14,66 @@ def validate_key(key: str):
   if "!" in key: raise ValueError("Key must not contain an exclamation mark.")
   if "#" in key: raise ValueError("Key must not contain a hashtag.")
 
-@dataclass
-class ContextInputEvent:
+class ContextInputEvent(BaseModel):
   context_id: str
   handler_name: str
   data: dict[str, int | float | str | bool]
 
-@dataclass
-class SetCookieOutputEvent:
+class SetCookieOutputEvent(BaseModel):
   event: Literal["set-cookie"] = "set-cookie"
+  name: str
+  value: str | None = None
+  expires: datetime | None = None
+  path: str | None = None
+  max_age: int | None = None
+  secure: bool | None = None
+  http_only: bool | None = None
+  domain: str | None = None
 
-@dataclass
-class ForceRefreshOutputEvent:
+  @field_validator('name')
+  @classmethod
+  def validate_name(cls, value: str):
+    if not re.match(r'^[^=;, \t\n\r\f\v]+$', value): raise ValueError("Invalid cookie name")
+    return value
+
+  @field_validator('value', "domain")
+  @classmethod
+  def validate_value(cls, value: str | None):
+    if value is None: return None
+    if not re.match(r'^[^;, \t\n\r\f\v]+$', value): raise ValueError("Invalid value.")
+    return value
+
+  @field_validator('path')
+  @classmethod
+  def validate_path(cls, value: str | None):
+    if value is None: return None
+    if not re.match(r'^[^\x00-\x20;,\s]+$', value): raise ValueError("Invalid path value")
+    return value
+
+  @field_serializer('expires', when_used='json')
+  def seriliaze_expires(self, value: datetime | None): return None if value is None else value.isoformat()
+
+  def to_set_cookie_header(self):
+    parts: list[str] = [f"{self.name}={self.value}"]
+    if self.path is not None: parts.append(f"path={self.path}")
+    if self.expires is not None: parts.append(f"expires={self.expires.strftime("%a, %d %b %G %T %Z")}")
+    if self.max_age is not None: parts.append(f"max-age={self.max_age}")
+    if self.domain is not None: parts.append(f"domain={self.domain}")
+    if self.secure: parts.append("secure")
+    if self.http_only: parts.append("httponly")
+    return ";".join(parts)
+
+class UpgradeWebsocketOutputEvent(BaseModel):
+  event: Literal["upgrade-websocket"] = "upgrade-websocket"
+
+class ForceRefreshOutputEvent(BaseModel):
   event: Literal["force-refresh"] = "force-refresh"
 
-@dataclass
-class NavigateOutputEvent:
+class NavigateOutputEvent(BaseModel):
   location: str
   event: Literal["navigate"] = "navigate"
 
-ExecutionOutputEvent = SetCookieOutputEvent | NavigateOutputEvent
+ExecutionOutputEvent = SetCookieOutputEvent | NavigateOutputEvent | ForceRefreshOutputEvent | UpgradeWebsocketOutputEvent
 
 @dataclass
 class ExecutionInput:
@@ -45,9 +88,20 @@ class AppExecutor:
     self._headers = headers
     self._state: dict[str, State] = {}
 
-  async def execute(self, element: 'Element', exec_input: ExecutionInput):
+  @functools.cached_property
+  def cookies(self) -> dict[str, str]:
+    values = self._headers.get("cookie", [])
+    if len(values) == 0: return {}
+    result: dict[str, str] = {}
+    for cookie in values[0].split(";"):
+      try:
+        eq_idx = cookie.index("=")
+        result[cookie[:eq_idx]] = cookie[(eq_idx + 1):]
+      except ValueError: pass
+    return result
+
+  async def execute(self, context_prefix: str, element: 'Element', exec_input: ExecutionInput):
     execution = AppExecution(self, exec_input)
-    context_prefix = hashlib.sha1(exec_input.path.encode("utf-8")).hexdigest()
     html_output = await element.to_html(Context(context_prefix, execution))
     return html_output, execution.output_events
 
@@ -98,6 +152,13 @@ class Context:
     return self.execution.executor.get_state(name, state_context_id, state_type)
 
   def navigate(self, location: str): self.execution.output_events.append(NavigateOutputEvent(location=location))
+  def upgrade_to_websocket(self): self.execution.output_events.append(UpgradeWebsocketOutputEvent())
+  def get_cookie(self, name: str) -> str | None: return self.execution.executor.cookies.get(name, None)
+  def set_cookie(self, name: str, value: str, expires: datetime | None = None, path: str | None = None,
+                secure: bool | None = None, http_only: bool | None = None, domain: str | None = None, max_age: int | None = None):
+    self.execution.output_events.append(SetCookieOutputEvent(name=name, value=value, expires=expires, path=path, secure=secure, http_only=http_only, domain=domain, max_age=max_age))
+  def delete_cookie(self, name: str):
+    self.execution.output_events.append(SetCookieOutputEvent(name=name, max_age=-1))
 
   def sub(self, key: str) -> 'Context':
     validate_key(key)

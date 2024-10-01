@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import importlib.resources
 import logging
 from typing import Any
@@ -66,20 +67,28 @@ class App:
       else: state, events={}, []
 
       executor = AppExecutor(state, context.headers)
+      path_hash = hashlib.sha1(context.path.encode("utf-8")).hexdigest()
+      content_ctx_prefix = path_hash + ";content"
 
-      html_output, output_events = await executor.execute(create_element(), ExecutionInput(
+      html_output, output_events = await executor.execute(content_ctx_prefix, create_element(), ExecutionInput(
         events=events,
         params=params,
         path=context.path,
         query_string=context.query_string
       ))
 
+      noutput_events: list[ExecutionOutputEvent] = []
+      for event in output_events:
+        if event.event == "set-cookie": context.add_response_headers([(b"Set-Cookie", event.to_set_cookie_header().encode("utf-8"))])
+        else: noutput_events.append(event)
+      output_events = noutput_events
+
       # TODO: handle output events
 
       if len(events) > 0:
         if len(output_events) > 0: output_events.append(ForceRefreshOutputEvent())
         else:
-          html_output, output_events = await executor.execute(create_element(), ExecutionInput(
+          html_output, output_events = await executor.execute(content_ctx_prefix, create_element(), ExecutionInput(
             events=[],
             params=params,
             path=context.path,
@@ -105,7 +114,7 @@ class App:
           ])
         ])
         content_el = UnescapedHTMLElement(html_output)
-        page_html, _ = await executor.execute(self.page_layout(header_el, content_el, body_end_el), ExecutionInput(
+        page_html, _ = await executor.execute(path_hash + ";page", self.page_layout(header_el, content_el, body_end_el), ExecutionInput(
           events=[],
           params=params,
           path=context.path,

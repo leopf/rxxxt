@@ -17,7 +17,7 @@ class StateInfo:
   state_name: str
   state_type: type[State]
 
-def global_state(name: str): return PartialStateInfo(is_global=True, name=name)
+def global_state(name: str | None = None): return PartialStateInfo(is_global=True, name=name)
 
 def get_state_infos_for_object_type(t: type[object]):
   global_ns = vars(sys.modules[t.__module__])
