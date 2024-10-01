@@ -26,8 +26,6 @@ interface UpgradeWebsocketOutputEvent {
     event: "upgrade-websocket",
 }
 
-type OutputEvent = SetCookieOutputEvent | ForceRefreshOutputEvent | NavigateOutputEvent | UpgradeWebsocketOutputEvent;
-
 interface ContextInputEvent {
     context_id: string;
     handler_name: string;
@@ -62,13 +60,16 @@ interface InitData {
     events: OutputEvent[]
 }
 
+type OutputEvent = SetCookieOutputEvent | ForceRefreshOutputEvent | NavigateOutputEvent | UpgradeWebsocketOutputEvent;
+type InputEventProducer = () => ContextInputEvent[];
+
 let stateToken: string = "";
 let enableStateUpdates: boolean = false;
 let updateScheduled: boolean = false;
 let updateRunning: boolean = false;
 let updateHandler: () => void;
 let updateSocket: WebSocket | undefined;
-const inputEvents: ContextInputEvent[] = [];
+const inputEventProducers: InputEventProducer[] = [];
 const trackedElements = new WeakMap<Node, TrackedElement>();
 const defaultTargetId = "rxxxt-root";
 const eventPrefix = "rxxxt-on-";
@@ -82,6 +83,15 @@ const finishUpdate = () => {
     if (updateScheduled) {
         update();
     }
+};
+
+const produceInputEvents = () => {
+    const events: ContextInputEvent[] = [];
+    let producer: InputEventProducer | undefined;
+    while (producer = inputEventProducers.shift()) {
+        events.push(...producer());
+    }
+    return events;
 };
 
 const handleOutputEvents = (events: OutputEvent[]) => {
@@ -205,7 +215,7 @@ const websocketUpdateHandler = async () => {
     startUpdate();
     updateSocket?.send(JSON.stringify({
         type: "update",
-        events: inputEvents,
+        events: produceInputEvents(),
         location: location.href.substring(location.origin.length)
     }));
 };
@@ -214,9 +224,8 @@ const httpUpdateHandler = async () => {
     startUpdate();
     const body = JSON.stringify({
         stateToken,
-        events: inputEvents
+        events: produceInputEvents()
     });
-    inputEvents.length = 0;
 
     const response: AppHttpPostResponse = await fetch(location.href, {
         method: "POST",
@@ -248,7 +257,21 @@ const update = () => {
 class TrackedElementEvent {
     private lastCall?: number;
     private timeoutHandle?: number;
+    private nextEvent?: ContextInputEvent;
     public handler = (e: Event) => this.handle(e);
+
+    public produceEvent(): ContextInputEvent[] {
+        if (this.timeoutHandle) {
+            clearTimeout(this.timeoutHandle);
+        }
+        const result: ContextInputEvent[] = [];
+        if (this.nextEvent) {
+            this.lastCall = (new Date()).getTime();
+            result.push(this.nextEvent);
+            this.nextEvent = undefined;
+        }
+        return result;
+    }
 
     private handle(e: Event) {
         if (e.target === null || !(e.target instanceof Element)) {
@@ -269,16 +292,13 @@ class TrackedElementEvent {
             eventData[outField] = objectPath.withInheritedProps.get(e, eventField);
         }
 
-        const runEvent = () => {
-            this.lastCall = (new Date()).getTime();
-            inputEvents.push({
-                context_id: eventDesc.context_id,
-                data: eventData,
-                handler_name: eventDesc.handler_name
-            });
-            update();
-            this.timeoutHandle = undefined;
+        this.nextEvent = {
+            context_id: eventDesc.context_id,
+            data: eventData,
+            handler_name: eventDesc.handler_name
         };
+
+        inputEventProducers.push(this.produceEvent.bind(this));
 
         if (this.timeoutHandle) {
             clearTimeout(this.timeoutHandle);
@@ -295,10 +315,10 @@ class TrackedElementEvent {
         const waitTime = Math.max(0, ...waitTimes);
 
         if (waitTime === 0) {
-            runEvent();
+            update();
         }
         else {
-            this.timeoutHandle = setTimeout(runEvent, waitTime);
+            this.timeoutHandle = setTimeout(update, waitTime);
         }
     }
 }
