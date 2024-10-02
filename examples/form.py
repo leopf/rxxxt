@@ -27,7 +27,7 @@ class Form(Component):
     ])
 
 page_builder = PageBuilder(Page)
-page_builder.add_header(El.style(content=["form * {display: block;}"]))
+page_builder.add_header(El.style(content=["form * { display: block; }"]))
 
 app = App(page_layout=page_builder, app_data={ "title": "Form" })
 

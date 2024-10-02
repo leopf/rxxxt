@@ -11,7 +11,7 @@ from pydantic_core import PydanticUndefined
 from rxxxt.elements import CustomAttribute, Element
 from rxxxt.execution import Context
 from rxxxt.helpers import to_awaitable
-from rxxxt.state import get_state_infos_for_object_type
+from rxxxt.state import StateBase, get_state_infos_for_object_type
 
 EHP = ParamSpec('EHP')
 EHR = TypeVar('EHR')
@@ -123,7 +123,7 @@ class Component(Element, ABC):
     self.context = context.sub(self.__class__.__qualname__)
 
     for state_info in get_state_infos_for_object_type(self.__class__):
-      setattr(self, state_info.attr_name, await self.context.get_state(state_info.state_name, state_info.state_type, state_info.is_global))
+      self.__dict__[state_info.attr_name] = await self.context.get_state(state_info.state_name, state_info.state_maker, state_info.is_global)
 
     for e in self.context.pop_events():
       handler = getattr(self, e.handler_name, None)
@@ -140,3 +140,14 @@ class Component(Element, ABC):
     # to text
 
     return await result.to_html(self.context)
+
+  def __getattribute__(self, name: str) -> Any:
+    if name != "__dict__":
+      _pstate = self.__dict__.get(name, None)
+      if isinstance(_pstate, StateBase): return _pstate.get_value()
+    return super().__getattribute__(name)
+
+  def __setattr__(self, name: str, value: Any) -> NoneType:
+    _pstate = self.__dict__.get(name, None)
+    if isinstance(_pstate, StateBase): return _pstate.set_value(value)
+    return super().__setattr__(name, value)

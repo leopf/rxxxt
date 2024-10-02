@@ -6,15 +6,47 @@ import hashlib
 from io import BytesIO
 import json
 import sys
-from typing import TYPE_CHECKING, Awaitable, ByteString, Literal, get_type_hints
+from typing import TYPE_CHECKING, Any, Awaitable, ByteString, Callable, Literal, get_type_hints
 from pydantic import BaseModel
 import hmac
 
 if TYPE_CHECKING:
   from rxxxt.execution import Context
 
-class State(BaseModel):
+class StateBase(ABC):
   def init(self, context: 'Context') -> None | Awaitable[None]: pass
+
+  @abstractmethod
+  def get_value(self) -> Any: pass
+  def set_value(self, value: Any) -> None: pass
+  @abstractmethod
+  def to_json(self) -> str: pass
+
+StateMaker = Callable[[str | None], StateBase]
+
+class State(StateBase, BaseModel):
+  def to_json(self) -> str: return self.model_dump_json()
+  def get_value(self) -> Any: return self
+  @classmethod
+  def state_maker(cls, json_data: str | None):
+    if json_data is None: return cls()
+    else: return cls.model_validate_json(json_data)
+
+class StateField(StateBase):
+  def __init__(self, value: Any) -> None:
+    super().__init__()
+    self.value = value
+
+  def get_value(self) -> Any: return self.value
+  def set_value(self, value: Any) -> None: self.value = value
+  def to_json(self) -> str: return json.dumps(self.value)
+
+@dataclass
+class StateInfo:
+  is_global: bool
+  attr_name: str
+  state_name: str
+  state_maker: StateMaker
 
 @dataclass
 class PartialStateInfo:
@@ -22,12 +54,19 @@ class PartialStateInfo:
   name: str | None
 
 @dataclass
-class StateInfo:
-  is_global: bool
-  attr_name: str
-  state_name: str
-  state_type: type[State]
+class StateFieldInfo:
+  default_value: Any = None
+  default_facotry: None | Callable[[], Any] = None
 
+  def state_maker(self, json_data: str | None):
+    if json_data is None:
+      if self.default_value is not None: return StateField(self.default_value)
+      elif self.default_facotry is not None: return StateField(self.default_facotry())
+      else: return StateField(None)
+    else: return StateField(json.loads(json_data))
+
+def state_field(default_value: Any = None, default_facotry: None | Callable[[], Any] = None):
+  return StateFieldInfo(default_value=default_value, default_facotry=default_facotry)
 def global_state(name: str | None = None): return PartialStateInfo(is_global=True, name=name)
 
 def get_state_infos_for_object_type(t: type[object]):
@@ -35,14 +74,16 @@ def get_state_infos_for_object_type(t: type[object]):
   for base_class in reversed(t.__mro__):
     type_hints = get_type_hints(base_class, globalns=global_ns)
     for attr_name, attr_type in type_hints.items():
+      attr_value = getattr(t, attr_name, None)
       if isinstance(attr_type, type) and issubclass(attr_type, State):
         if hasattr(t, attr_name):
-          partial_state_info = getattr(t, attr_name)
-          if not isinstance(partial_state_info, PartialStateInfo):
+          if not isinstance(attr_value, PartialStateInfo):
             raise ValueError("State field must not be defined as anything but a PartialStateInfo in the class.")
-          yield StateInfo(is_global=partial_state_info.is_global, attr_name=attr_name, state_name=partial_state_info.name or attr_name, state_type=attr_type)
+          yield StateInfo(is_global=attr_value.is_global, attr_name=attr_name, state_name=attr_value.name or attr_name, state_maker=attr_type.state_maker)
         else:
-          yield StateInfo(is_global=False, state_name=attr_name, attr_name=attr_name, state_type=attr_type)
+          yield StateInfo(is_global=False, state_name=attr_name, attr_name=attr_name, state_maker=attr_type.state_maker)
+      elif isinstance(attr_value, StateFieldInfo):
+        yield StateInfo(is_global=False, attr_name=attr_name, state_name=attr_name, state_maker=attr_value.state_maker)
 
 class StateResolverError(BaseException): pass
 
