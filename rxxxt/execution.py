@@ -1,6 +1,8 @@
+import base64
 from dataclasses import dataclass
 from datetime import datetime
 import functools
+import hashlib
 import re
 from typing import Any, Literal
 from pydantic import BaseModel, field_serializer, field_validator
@@ -137,11 +139,12 @@ class AppExecution:
 
   def get_context_id(self, prefix: str):
     counter = 0
-    ctx_id = prefix + "#" + str(counter)
-    while ctx_id in self._unique_ids:
+    raw_ctx_id = prefix + "#" + str(counter)
+    while raw_ctx_id in self._unique_ids:
       counter += 1
-      ctx_id = prefix + "#" + str(counter)
-    self._unique_ids.add(ctx_id)
+      raw_ctx_id = prefix + "#" + str(counter)
+    self._unique_ids.add(raw_ctx_id)
+    ctx_id = base64.urlsafe_b64encode(hashlib.sha1(raw_ctx_id.encode("utf-8")).digest()).decode("utf-8")
     return ctx_id
 
   def pop_context_events(self, context_id: str): return self._input_events.pop(context_id, [])
