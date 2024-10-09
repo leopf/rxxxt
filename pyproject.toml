@@ -4,10 +4,13 @@ requires = ["setuptools"]
 
 [project]
 name = "rxxxt"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
   {name = "leopf"},
 ]
+description = "Server side rendered, reactive web applications with python."
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {file = "LICENSE"}
 dependencies = [
   "pydantic",
 ]
@@ -17,6 +20,10 @@ dev = [
   "ruff",
   "uvicorn"
 ]
+
+[project.urls]
+Homepage = "https://github.com/leopf/rxxxt"
+Repository = "https://github.com/leopf/rxxxt"
 
 [tool.setuptools.packages.find]
 where = ["."]
