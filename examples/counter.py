@@ -1,8 +1,5 @@
 import uvicorn
-from rxxxt import App
-from rxxxt.component import Component, event_handler
-from rxxxt.elements import El, Element
-from rxxxt.state import state_field
+from rxxxt import state_field, Component, event_handler, El, Element, App
 
 class Counter(Component):
   count: int = state_field(default_value=0)

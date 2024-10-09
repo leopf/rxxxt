@@ -4,12 +4,7 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
-from rxxxt import App
-from rxxxt.page import Page, PageBuilder
-from rxxxt.component import Component, event_handler
-from rxxxt.execution import Context
-from rxxxt.elements import El, Element, VEl
-from rxxxt.state import State
+from rxxxt import State, Context, Component, event_handler, VEl, El, Element, PageBuilder, Page, App
 
 class ExampleState(State):
   count: int = 0

@@ -2,13 +2,9 @@ from typing import Annotated
 import uvicorn
 import logging
 
-from rxxxt.page import Page, PageBuilder
-
 logging.basicConfig(level=logging.DEBUG)
 
-from rxxxt import App
-from rxxxt.component import Component, event_handler
-from rxxxt.elements import El, Element, VEl
+from rxxxt import Component, event_handler, VEl, El, Element, PageBuilder, Page, App
 
 class Form(Component):
   @event_handler(prevent_default=True)
