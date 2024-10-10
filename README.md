@@ -1,4 +1,4 @@
-# rxxxt
+# rxxxt (R-3-X-T)
 Server side rendered, reactive web applications with python.
 
 **1 dependency (pydantic).**
@@ -51,4 +51,96 @@ app.add_route("/", Counter)
 
 server.mount("/", app)
 uvicorn.run(server)
+```
+
+## Documentation
+
+A rxxxt app is an [ASGI](https://asgi.readthedocs.io/en/latest/specs/main.html) application. It can be used, run and served like any other ASGI application.
+
+Applications have routes. Routes must implement the `ElementFactory` protocol, which means a callable taking no params returning an object of type `Element`.
+
+This means you can use a component, that can be initialized without any parameters as a route, or create a function returning an element.
+
+```python
+from rxxxt import El, App
+
+app = App()
+
+@app.route("/")
+def root(): return El.div(content=["Hello World"])
+
+...
+```
+
+### Elements
+- `El` - A way to create html elements quickly. Write `El.<tag name>` or `El["<tag name>"]` to create an element with this tag name. You may specify attributes by passing them as key values parameters. The inner content is set by specifying the list `content` with `str | Element` as children.
+
+- `VEl` - A way to create html void elements (like `input`, `meta`, `link` etc.) quickly. Write `VEl.<tag name>` or `VEl["<tag name>"]` to create an element with this tag name. You may specify attributes by passing them as key values parameters. Void elements have no inner content.
+
+- `UnescapedHTMLElement` - Use this to return raw html strings. Example: `UnescapedHTMLElement("<h1>Hello World</h1>")`
+
+- `HTMLFragment` - To create fragments, a container for elements on the same level. Works like react fragments. Example:
+```python
+html = await HTMLFragment([ 
+  El.div(content=["Hello"]), 
+  El.b(content=[" World"])
+]).to_html(context)
+assert html == "<div>Hello</div><b> World</b>"
+```
+
+- `HTMLVoidElement` - long form of `VEl`, pass `tag: str, attributes: dict[str, str | CustomAttribute | NoneType]` to the constructor
+- `HTMLElement` - long form of `El`, pass `tag: str, attributes: dict[str, str | CustomAttribute | NoneType] = {}, content: list[Element | str] = [], key: str | None = None` to the constructor
+
+### Components
+
+To create a component, create a class inheriting from the `Component` class.
+
+You must implement `def render(self) -> Element: ...`. This function will return the elements you would like to be rendered by this component.
+
+You may implement `def init(self) -> None | Awaitable[None]: ...`. This will be called before the component is rendered.
+
+Example:
+```python
+from rxxxt import Component, El, Element
+
+class HelloWorld(Component):
+  def render(self) -> Element:
+    return El.h1(content=["Hello World"])
+```
+
+#### Event handlers
+
+To do anything useful, you will need to handle events. You can do so by creating event handlers.
+
+```python
+class HelloButton(Component):
+  @event_handler()
+  def on_click(self): print("Hello!")
+
+  def render(self) -> Element:
+    return El.button(onclick=self.on_click, content=[f"Click me!"])
+```
+
+Event handlers can be configured with key value parameters complying with the `EventHandlerOptions` model:
+
+```python
+class EventHandlerOptions(BaseModel):
+  debounce: int | None = None
+  throttle: int | None = None
+  prevent_default: bool = False
+```
+
+To access browser state, you can access [event](https://developer.mozilla.org/en-US/docs/Web/Events) attributes using the `Annotated` type.
+
+```python
+from typing import Annotated
+from rxxxt import Component, event_handler, VEl, Element
+
+class InputExample(Component):
+  @event_handler()
+  def on_change(self, value: Annotated[str, "target.value"]):
+    print("The user entered ", value)
+
+  def render(self) -> Element:
+    return VEl.input(onchange=self.on_change, type="text")
 ```
