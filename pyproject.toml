@@ -12,7 +12,7 @@ description = "Server side rendered, reactive web applications with python."
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {file = "LICENSE"}
 dependencies = [
-  "pydantic",
+  "pydantic>=2.9.0",
 ]
 
 [project.optional-dependencies]
