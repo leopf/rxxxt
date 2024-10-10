@@ -110,6 +110,14 @@ def event_handler(**kwargs):
   def _inner(fn): return ClassEventHandler(fn, options)
   return _inner
 
+class HandleNavigate(CustomAttribute):
+  def __init__(self, location: str) -> NoneType:
+    super().__init__()
+    self.location = location
+
+  def get_html_attribute_key_value(self, original_key: str) -> str:
+    return (original_key, f"window.rxxxt.navigate('{self.location}');")
+
 class Component(Element, ABC):
   def __init__(self) -> None:
     super().__init__()

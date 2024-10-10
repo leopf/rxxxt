@@ -4,7 +4,7 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
-from rxxxt import State, Context, Component, event_handler, VEl, El, Element, PageBuilder, Page, App
+from rxxxt import State, Context, Component, event_handler, VEl, El, Element, PageBuilder, Page, App, HandleNavigate
 
 class ExampleState(State):
   count: int = 0
@@ -28,6 +28,9 @@ class Example(Component):
   @event_handler()
   def on_navigate(self): self.context.navigate("/page2")
 
+  @event_handler()
+  def on_navigate_google(self): self.context.navigate("https://www.google.com/")
+
   def render(self) -> Element:
     return El.div(content=[
       El.div(onclick=self.on_click, content=[ f"Count: {self.state.count}" ]),
@@ -35,7 +38,9 @@ class Example(Component):
         El.b(content=[self.state.text])
       ]),
       VEl.input(oninput=self.on_input, value=self.state.text),
-      El.button(content=["nav"], onclick=self.on_navigate)
+      El.button(content=["nav"], onclick=self.on_navigate),
+      El.button(content=["nav to google"], onclick=self.on_navigate_google),
+      El.button(content=["nav to bing"], onclick=HandleNavigate("https://bing.com")),
     ])
 
 class ExamplePage2(Component):

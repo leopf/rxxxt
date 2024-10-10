@@ -17,11 +17,14 @@ class AppHttpRequest(BaseModel):
   stateToken: str
   events: list[ContextInputEvent]
 
-class AppHttpResult(BaseModel):
+class AppHttpResultBase(BaseModel):
   stateToken: str
   events: list[ExecutionOutputEvent]
 
-class AppHttpPostResponse(AppHttpResult):
+class AppInitData(AppHttpResultBase):
+  path: str
+
+class AppHttpPostResponse(AppHttpResultBase):
   html: str
 
 class AppWebsocketInitMessage(BaseModel):
@@ -203,7 +206,7 @@ class App:
         ])
         body_end_el = HTMLFragment([
           El.script(content=[
-            f"window.rxxxtInit({AppHttpResult(stateToken=state_token, events=output_events).model_dump_json()});"
+            f"window.rxxxt.init({AppInitData(stateToken=state_token, events=output_events, path=context.path).model_dump_json()});"
           ])
         ])
         content_el = UnescapedHTMLElement(html_output)

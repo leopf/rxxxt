@@ -59,12 +59,14 @@ interface AppWebsocketResponse {
 
 interface InitData {
     stateToken: string,
-    events: OutputEvent[]
+    events: OutputEvent[],
+    path: string
 }
 
 type OutputEvent = SetCookieOutputEvent | ForceRefreshOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent;
 type InputEventProducer = () => ContextInputEvent[];
 
+let baseUrl: URL | undefined;
 let stateToken: string = "";
 let enableStateUpdates: boolean = false;
 let updateScheduled: boolean = false;
@@ -103,8 +105,14 @@ const handleOutputEvents = (events: OutputEvent[]) => {
             refresh = true;
         }
         else if (event.event === "navigate") {
-            window.history.pushState({}, "", event.location);
-            refresh = true;
+            const targetUrl = new URL(event.location, location.href);
+            if (baseUrl === undefined || baseUrl.origin !== targetUrl.origin || !targetUrl.pathname.startsWith(baseUrl.pathname)) {
+                location.assign(targetUrl);
+            }
+            else {
+                window.history.pushState({}, "", event.location);
+                refresh = true;
+            }
         }
         else if (event.event === "use-websocket" && event.websocket) {
             upgradeToWebsocket();
@@ -141,7 +149,7 @@ const handleOutputEvents = (events: OutputEvent[]) => {
 };
 
 const applyHTML = (html?: string) => {
-    let target: Element; 
+    let target: Element;
 
     if (html === undefined) {
         const ttarget = document.getElementById(defaultTargetId);
@@ -364,9 +372,20 @@ class TrackedElement {
     }
 }
 
-(window as any).rxxxtInit = (data: InitData) => {
-    window.addEventListener("popstate", update);
-    stateToken = data.stateToken;
-    handleOutputEvents(data.events);
-    applyHTML();
-};
+(window as any).rxxxt = {
+    navigate: (url: string | URL) => handleOutputEvents([ { event: "navigate", location: (new URL(url, location.href)).href } ]),
+    init: (data: InitData) => {
+        baseUrl = new URL(location.href);
+        if (baseUrl.pathname.endsWith(data.path)) {
+            baseUrl.pathname = baseUrl.pathname.slice(0, baseUrl.pathname.length - data.path.length)
+        }
+        else {
+            console.warn("Invalid base url!")
+        }
+
+        window.addEventListener("popstate", update);
+        stateToken = data.stateToken;
+        handleOutputEvents(data.events);
+        applyHTML();
+    }
+}
