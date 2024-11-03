@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 class StateBase(ABC):
   def init(self, context: 'Context') -> None | Awaitable[None]: pass
 
+  def __hash__(self) -> int: return id(self)
+
   @abstractmethod
   def get_value(self) -> Any: pass
   def set_value(self, value: Any) -> None: pass

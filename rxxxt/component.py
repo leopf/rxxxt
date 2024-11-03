@@ -117,7 +117,7 @@ class Component(Element, ABC):
   def init(self) -> None | Awaitable[None]: pass
 
   async def to_html(self, context: Context) -> str:
-    self.context = context.sub(self.__class__.__qualname__)
+    self.context = context.sub_element(self)
 
     for state_info in get_state_infos_for_object_type(self.__class__):
       self.__dict__[state_info.attr_name] = await self.context.get_state(state_info.state_name, state_info.state_factory, state_info.is_global)

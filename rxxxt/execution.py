@@ -131,6 +131,9 @@ class AppExecution:
     self.executor = executor
     self.execution_input = input_data
     self.output_events: list[ExecutionOutputEvent] = []
+
+    self.state_users: dict[StateBase, list[str]] = {}
+    self.context_elements: dict[str, Element] = {}
     self._context_parents: dict[str, str] = {}
     self._unique_ids: set[str] = set()
 
@@ -172,7 +175,9 @@ class Context:
 
   async def get_state(self, name: str, state_factory: StateFactory, is_global: bool = False):
     context = Context("", self.execution) if is_global else self
-    return await self.execution.executor.get_state(name, context, state_factory)
+    state = await self.execution.executor.get_state(name, context, state_factory)
+    self.execution.state_users.setdefault(state, []).append(self.id)
+    return state
 
   def navigate(self, location: str): self.execution.output_events.append(NavigateOutputEvent(location=location))
   def use_websocket(self, websocket: bool = True): self.execution.output_events.append(UseWebsocketOutputEvent(websocket=websocket))
@@ -182,6 +187,11 @@ class Context:
     self.execution.output_events.append(SetCookieOutputEvent(name=name, value=value, expires=expires, path=path, secure=secure, http_only=http_only, domain=domain, max_age=max_age))
   def delete_cookie(self, name: str):
     self.execution.output_events.append(SetCookieOutputEvent(name=name, max_age=-1))
+
+  def sub_element(self, el: Element):
+    context_id = self.sub(el.__class__.__qualname__)
+    self.execution.context_elements[context_id] = el
+    return context_id
 
   def sub(self, key: str) -> 'Context':
     validate_key(key)
