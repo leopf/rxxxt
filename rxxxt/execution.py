@@ -9,7 +9,7 @@ from pydantic import BaseModel, field_serializer, field_validator
 
 from rxxxt.elements import Element
 from rxxxt.helpers import to_awaitable
-from rxxxt.state import StateBase, StateMaker
+from rxxxt.state import StateBase, StateFactory
 
 
 def validate_key(key: str):
@@ -110,16 +110,16 @@ class AppExecutor:
     html_output = await element.to_html(Context(context_prefix, execution))
     return html_output, execution.output_events
 
-  async def get_state(self, name: str, context: 'Context', state_maker: StateMaker):
+  async def get_state(self, name: str, context: 'Context', state_factory: StateFactory):
     key = context.id + "!" + name
     if key in self._state:
       state = self._state[key]
     elif key in self._raw_state:
       raw_state = self._raw_state[key]
-      state = state_maker(raw_state)
+      state = state_factory(raw_state)
       self._state[key] = state
     else:
-      state = self._state[key] = state_maker(None)
+      state = self._state[key] = state_factory(None)
       await to_awaitable(state.init, context)
     return state
 
@@ -171,9 +171,9 @@ class Context:
 
   def pop_events(self): return self.execution.pop_context_events(self.id)
 
-  async def get_state(self, name: str, state_maker: StateMaker, is_global: bool = False):
+  async def get_state(self, name: str, state_factory: StateFactory, is_global: bool = False):
     context = Context("", self.execution) if is_global else self
-    return await self.execution.executor.get_state(name, context, state_maker)
+    return await self.execution.executor.get_state(name, context, state_factory)
 
   def navigate(self, location: str): self.execution.output_events.append(NavigateOutputEvent(location=location))
   def use_websocket(self, websocket: bool = True): self.execution.output_events.append(UseWebsocketOutputEvent(websocket=websocket))

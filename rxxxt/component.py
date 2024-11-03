@@ -120,7 +120,7 @@ class Component(Element, ABC):
     self.context = context.sub(self.__class__.__qualname__)
 
     for state_info in get_state_infos_for_object_type(self.__class__):
-      self.__dict__[state_info.attr_name] = await self.context.get_state(state_info.state_name, state_info.state_maker, state_info.is_global)
+      self.__dict__[state_info.attr_name] = await self.context.get_state(state_info.state_name, state_info.state_factory, state_info.is_global)
 
     for e in self.context.pop_events():
       handler = getattr(self, e.handler_name, None)

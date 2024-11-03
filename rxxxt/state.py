@@ -22,13 +22,13 @@ class StateBase(ABC):
   @abstractmethod
   def to_json(self) -> str: pass
 
-StateMaker = Callable[[str | None], StateBase]
+StateFactory = Callable[[str | None], StateBase]
 
 class State(StateBase, BaseModel):
   def to_json(self) -> str: return self.model_dump_json()
   def get_value(self) -> Any: return self
   @classmethod
-  def state_maker(cls, json_data: str | None):
+  def state_factory(cls, json_data: str | None):
     if json_data is None: return cls()
     else: return cls.model_validate_json(json_data)
 
@@ -46,7 +46,7 @@ class StateInfo:
   is_global: bool
   attr_name: str
   state_name: str
-  state_maker: StateMaker
+  state_factory: StateFactory
 
 @dataclass
 class PartialStateInfo:
@@ -58,7 +58,7 @@ class StateFieldInfo:
   default_value: Any = None
   default_facotry: None | Callable[[], Any] = None
 
-  def state_maker(self, json_data: str | None):
+  def state_factory(self, json_data: str | None):
     if json_data is None:
       if self.default_value is not None: return StateField(self.default_value)
       elif self.default_facotry is not None: return StateField(self.default_facotry())
@@ -79,11 +79,11 @@ def get_state_infos_for_object_type(t: type[object]):
         if hasattr(t, attr_name):
           if not isinstance(attr_value, PartialStateInfo):
             raise ValueError("State field must not be defined as anything but a PartialStateInfo in the class.")
-          yield StateInfo(is_global=attr_value.is_global, attr_name=attr_name, state_name=attr_value.name or attr_name, state_maker=attr_type.state_maker)
+          yield StateInfo(is_global=attr_value.is_global, attr_name=attr_name, state_name=attr_value.name or attr_name, state_factory=attr_type.state_factory)
         else:
-          yield StateInfo(is_global=False, state_name=attr_name, attr_name=attr_name, state_maker=attr_type.state_maker)
+          yield StateInfo(is_global=False, state_name=attr_name, attr_name=attr_name, state_factory=attr_type.state_factory)
       elif isinstance(attr_value, StateFieldInfo):
-        yield StateInfo(is_global=False, attr_name=attr_name, state_name=attr_name, state_maker=attr_value.state_maker)
+        yield StateInfo(is_global=False, attr_name=attr_name, state_name=attr_name, state_factory=attr_value.state_factory)
 
 CompressedState = dict[str, str | dict[str, str]]
 CompressedStateAdapter = TypeAdapter(CompressedState)
