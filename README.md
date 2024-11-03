@@ -121,14 +121,6 @@ class HelloButton(Component):
     return El.button(onclick=self.on_click, content=[f"Click me!"])
 ```
 
-Event handlers can be configured with key value parameters complying with the `EventHandlerOptions` model:
-
-```python
-class EventHandlerOptions(BaseModel):
-  debounce: int | None = None
-  throttle: int | None = None
-  prevent_default: bool = False
-```
 
 To access browser state, you can access [event](https://developer.mozilla.org/en-US/docs/Web/Events) attributes using the `Annotated` type.
 
@@ -143,4 +135,67 @@ class InputExample(Component):
 
   def render(self) -> Element:
     return VEl.input(onchange=self.on_change, type="text")
+```
+
+Event handlers can be configured with key value parameters complying with the `EventHandlerOptions` model:
+
+```python
+class EventHandlerOptions(BaseModel):
+  debounce: int | None = None
+  throttle: int | None = None
+  prevent_default: bool = False
+```
+
+You can **debounce** events, making sure to wait a certain amount of time (in ms) until the event is sent to the server and you can **throttle** events making sure they only happen once per interval (in ms). In some cases you may want to **prevent the events default behavior**, like in the case of form submission.
+
+```python
+from typing import Annotated
+from rxxxt import Component, event_handler, VEl, Element
+
+class InputExample(Component):
+  @event_handler(debounce=500)
+  def on_input(self, value: Annotated[str, "target.value"]):
+    # called after no input event has occured for 500ms 
+    print("The user entered ", value) 
+
+  def render(self) -> Element:
+    return VEl.input(oninput=self.on_input, type="text")
+```
+
+#### State
+
+Components can have two types of state:
+1. **state fields**
+```python
+from typing import Annotated
+from rxxxt import Component, event_handler, VEl, Element, state_field
+
+class InputExample(Component):
+  text: str = state_field(default_value="")
+
+  @event_handler(debounce=500)
+  def on_input(self, value: Annotated[str, "target.value"]):
+    self.text = value
+
+  def render(self) -> Element:
+    return VEl.input(oninput=self.on_input, type="text", value=self.text)
+```
+
+2. **state classes**
+```python
+from typing import Annotated
+from rxxxt import Component, event_handler, VEl, Element, State
+
+class TextState(State):
+  text: str = ""
+
+class InputExample(Component):
+  state: TextState
+
+  @event_handler(debounce=500)
+  def on_input(self, value: Annotated[str, "target.value"]):
+    self.state.text = value
+
+  def render(self) -> Element:
+    return VEl.input(oninput=self.on_input, type="text", value=self.state.text)
 ```
