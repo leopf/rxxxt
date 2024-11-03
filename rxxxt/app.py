@@ -1,4 +1,3 @@
-import hashlib
 import importlib.resources
 import logging
 import os
@@ -110,32 +109,29 @@ class App:
       if route is None: continue
       params, element_factory = route
 
-      path_hash = hashlib.sha1(update_message.path.encode("utf-8")).hexdigest()
-      content_ctx_prefix = path_hash + ";content"
-
-      html_output, output_events = await executor.execute(content_ctx_prefix, self._create_root(element_factory), ExecutionInput(
+      html_output, execution = await executor.execute_root([update_message.path, "content"], self._create_root(element_factory), ExecutionInput(
         events=update_message.events,
         params=params,
         path=update_message.path,
         query_string=update_message.query_string
       ))
 
-      noutput_events: list[ExecutionOutputEvent] = []
-      for event in output_events:
+      output_events: list[ExecutionOutputEvent] = []
+      for event in execution.output_events:
         if event.event == "use-websocket":
           if not event.websocket: closing = True
-        else: noutput_events.append(event)
-      output_events = noutput_events
+        else: output_events.append(event)
 
       if len(update_message.events) > 0:
         if len(output_events) > 0: output_events.append(ForceRefreshOutputEvent())
         else:
-          html_output, output_events = await executor.execute(content_ctx_prefix, self._create_root(element_factory), ExecutionInput(
+          html_output, execution = await executor.execute_root([update_message.path, "content"], self._create_root(element_factory), ExecutionInput(
             events=[],
             params=params,
             path=context.path,
             query_string=context.query_string
           ))
+          output_events = execution.output_events
 
       state_token: str | None = None
       if init_message.enableStateUpdates or closing:
@@ -164,32 +160,29 @@ class App:
       else: state, events={}, []
 
       executor = AppExecutor(state, context.headers, self.app_data)
-      path_hash = hashlib.sha1(context.path.encode("utf-8")).hexdigest()
-      content_ctx_prefix = path_hash + ";content"
-
-      html_output, output_events = await executor.execute(content_ctx_prefix, self._create_root(element_factory), ExecutionInput(
+      html_output, execution = await executor.execute_root([context.path, "content"], self._create_root(element_factory), ExecutionInput(
         events=events,
         params=params,
         path=context.path,
         query_string=context.query_string
       ))
 
-      noutput_events: list[ExecutionOutputEvent] = []
-      for event in output_events:
+      output_events: list[ExecutionOutputEvent] = []
+      for event in execution.output_events:
         if event.event == "set-cookie": context.add_response_headers([(b"Set-Cookie", event.to_set_cookie_header().encode("utf-8"))])
         elif event.event == "use-websocket" and not event.websocket: pass
-        else: noutput_events.append(event)
-      output_events = noutput_events
+        else: output_events.append(event)
 
       if len(events) > 0:
         if len(output_events) > 0: output_events.append(ForceRefreshOutputEvent())
         else:
-          html_output, output_events = await executor.execute(content_ctx_prefix, self._create_root(element_factory), ExecutionInput(
+          html_output, execution = await executor.execute_root([context.path, "content"], self._create_root(element_factory), ExecutionInput(
             events=[],
             params=params,
             path=context.path,
             query_string=context.query_string
           ))
+          output_events = execution.output_events
 
       state_token = await self._create_state_token(executor.get_raw_state(), old_state_token)
 
@@ -210,7 +203,7 @@ class App:
           ])
         ])
         content_el = UnescapedHTMLElement(html_output)
-        page_html, _ = await executor.execute(path_hash + ";page", self.page_layout(header_el, content_el, body_end_el), ExecutionInput(
+        page_html, _ = await executor.execute_root([context.path, "page"], self.page_layout(header_el, content_el, body_end_el), ExecutionInput(
           events=[],
           params=params,
           path=context.path,

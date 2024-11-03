@@ -122,7 +122,7 @@ class Component(Element, ABC):
     for state_info in get_state_infos_for_object_type(self.__class__):
       self.__dict__[state_info.attr_name] = await self.context.get_state(state_info.state_name, state_info.state_factory, state_info.is_global)
 
-    for e in self.context.pop_events():
+    for e in self.context.get_events():
       handler = getattr(self, e.handler_name, None)
       if isinstance(handler, InstanceEventHandler):
         await to_awaitable(handler, **e.data)

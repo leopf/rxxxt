@@ -105,10 +105,11 @@ class AppExecutor:
       except ValueError: pass
     return result
 
-  async def execute(self, context_prefix: str, element: 'Element', exec_input: ExecutionInput):
-    execution = AppExecution(self, exec_input)
-    html_output = await element.to_html(Context(context_prefix, execution))
-    return html_output, execution.output_events
+  async def execute_root(self, context_parts: list[str], element: 'Element', exec_input: ExecutionInput):
+    context_id, execution = "", AppExecution(self, exec_input)
+    for part in context_parts: context_id = execution.get_context_id(context_id, part)
+    html_output = await element.to_html(Context(context_id, execution))
+    return html_output, execution
 
   async def get_state(self, name: str, context: 'Context', state_factory: StateFactory):
     key = context.id + "!" + name
@@ -128,26 +129,24 @@ class AppExecutor:
 class AppExecution:
   def __init__(self, executor: AppExecutor, input_data: ExecutionInput) -> None:
     self.executor = executor
-    self.query_string = input_data.query_string
-    self.path = input_data.path
-    self.params = input_data.params
+    self.execution_input = input_data
     self.output_events: list[ExecutionOutputEvent] = []
+    self._context_parents: dict[str, str] = {}
     self._unique_ids: set[str] = set()
-    self._input_events: dict[str, list[ContextInputEvent]] = { e.context_id: [] for e in input_data.events }
-    for e in input_data.events:
-      self._input_events[e.context_id].append(e)
 
-  def get_context_id(self, prefix: str):
+  def get_context_id(self, parent_id: str, suffix: str):
     counter = 0
+    prefix = parent_id + ";" + suffix
     raw_ctx_id = prefix + "#" + str(counter)
     while raw_ctx_id in self._unique_ids:
       counter += 1
       raw_ctx_id = prefix + "#" + str(counter)
     self._unique_ids.add(raw_ctx_id)
     ctx_id = base64.urlsafe_b64encode(hashlib.sha1(raw_ctx_id.encode("utf-8")).digest()).decode("utf-8")
+    self._context_parents[ctx_id] = parent_id
     return ctx_id
 
-  def pop_context_events(self, context_id: str): return self._input_events.pop(context_id, [])
+  def get_context_events(self, context_id: str): return (e for e in self.execution_input.events if e.context_id == context_id)
 
 class Context:
   def __init__(self, id: str, execution: AppExecution) -> None:
@@ -155,13 +154,13 @@ class Context:
     self.execution = execution
 
   @property
-  def query_string(self): return self.execution.query_string
+  def query_string(self): return self.execution.execution_input.query_string
 
   @property
-  def path(self): return self.execution.path
+  def path(self): return self.execution.execution_input.path
 
   @property
-  def params(self): return self.execution.params
+  def params(self): return self.execution.execution_input.params
 
   @property
   def headers(self): return self.execution.executor.headers
@@ -169,7 +168,7 @@ class Context:
   @property
   def app_data(self): return self.execution.executor.app_data
 
-  def pop_events(self): return self.execution.pop_context_events(self.id)
+  def get_events(self): return self.execution.get_context_events(self.id)
 
   async def get_state(self, name: str, state_factory: StateFactory, is_global: bool = False):
     context = Context("", self.execution) if is_global else self
@@ -186,4 +185,4 @@ class Context:
 
   def sub(self, key: str) -> 'Context':
     validate_key(key)
-    return Context(id=self.execution.get_context_id(self.id + ";" + key), execution=self.execution)
+    return Context(id=self.execution.get_context_id(self.id, key), execution=self.execution)
