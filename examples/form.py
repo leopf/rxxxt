@@ -4,7 +4,7 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
-from rxxxt import Component, event_handler, VEl, El, Element, PageBuilder, Page, App
+from rxxxt import Component, event_handler, VEl, El, Element, PageBuilder, Page, App, Router
 
 class Form(Component):
   @event_handler(prevent_default=True)
@@ -25,9 +25,10 @@ class Form(Component):
 page_builder = PageBuilder(Page)
 page_builder.add_header(El.style(content=["form * { display: block; }"]))
 
-app = App(page_layout=page_builder, app_data={ "title": "Form" })
 
-app.add_route("/", Form)
-app.add_route("/hello", lambda: El.h1(content=[ "Welcome!" ]))
+router = Router()
+router.add_route("/", Form)
+router.add_route("/hello", lambda: El.h1(content=[ "Welcome!" ]))
 
+app = App(router, page_layout=page_builder, app_data={ "title": "Form" })
 uvicorn.run(app)

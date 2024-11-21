@@ -83,7 +83,6 @@ ExecutionOutputEvent = SetCookieOutputEvent | NavigateOutputEvent | ForceRefresh
 class ExecutionInput:
   events: list[ContextInputEvent]
   path: str
-  params: dict[str, str]
   query_string: str | None
 
 class AppExecutor:
@@ -105,11 +104,9 @@ class AppExecutor:
       except ValueError: pass
     return result
 
-  async def execute_root(self, context_parts: list[str], element: 'Element', exec_input: ExecutionInput):
-    context_id, execution = "", AppExecution(self, exec_input)
-    for part in context_parts: context_id = execution.get_context_id(context_id, part)
-    html_output = await element.to_html(Context(context_id, execution))
-    return html_output, execution
+  async def execute_root(self, root_key: str, element: 'Element', exec_input: ExecutionInput):
+    execution = AppExecution(self, exec_input)
+    return await element.to_html(Context("", execution).sub(root_key)), execution
 
   async def get_state(self, name: str, context: 'Context', state_factory: StateFactory):
     key = context.id + "!" + name
@@ -161,9 +158,6 @@ class Context:
 
   @property
   def path(self): return self.execution.execution_input.path
-
-  @property
-  def params(self): return self.execution.execution_input.params
 
   @property
   def headers(self): return self.execution.executor.headers

@@ -4,7 +4,7 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
-from rxxxt import State, Context, Component, event_handler, VEl, El, Element, PageBuilder, Page, App, HandleNavigate
+from rxxxt import State, Context, Component, event_handler, VEl, El, Element, PageBuilder, Page, App, Router, HandleNavigate
 
 class ExampleState(State):
   count: int = 0
@@ -55,9 +55,9 @@ body {
 }
 """]))
 
-app = App(page_layout=page_builder)
+router = Router()
+router.add_route("/", Example)
+router.add_route("/page2", ExamplePage2)
 
-app.add_route("/", Example)
-app.add_route("/page2", ExamplePage2)
-
+app = App(router, page_layout=page_builder)
 uvicorn.run(app)

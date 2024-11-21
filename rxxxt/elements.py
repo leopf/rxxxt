@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import html
 from types import NoneType
-from typing import TYPE_CHECKING, Callable, Protocol, Union
+from typing import TYPE_CHECKING, Protocol, Union
 
 if TYPE_CHECKING:
     from rxxxt.execution import Context
@@ -100,4 +100,5 @@ class _VEl(type):
 
 class VEl(metaclass=_VEl): pass
 
-ElementFactory = Callable[[], Element]
+class ElementFactory(Protocol):
+ def __call__(self) -> Element: ...
