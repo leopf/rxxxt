@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 import base64
 import inspect
 import json
-from types import NoneType
 from typing import Annotated, Any, Awaitable, Callable, Generic, ParamSpec, TypeVar, get_args, get_origin
 import weakref
 from pydantic import BaseModel, Field, create_model
@@ -100,7 +99,7 @@ def event_handler(**kwargs):
   return _inner
 
 class HandleNavigate(CustomAttribute):
-  def __init__(self, location: str) -> NoneType:
+  def __init__(self, location: str) -> None:
     super().__init__()
     self.location = location
 
@@ -144,7 +143,7 @@ class Component(Element, ABC):
       if isinstance(_pstate, StateBase): return _pstate.get_value()
     return super().__getattribute__(name)
 
-  def __setattr__(self, name: str, value: Any) -> NoneType:
+  def __setattr__(self, name: str, value: Any) -> None:
     _pstate = self.__dict__.get(name, None)
     if isinstance(_pstate, StateBase): return _pstate.set_value(value)
     return super().__setattr__(name, value)

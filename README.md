@@ -81,15 +81,15 @@ def root(): return El.div(content=["Hello World"])
 
 - `HTMLFragment` - To create fragments, a container for elements on the same level. Works like react fragments. Example:
 ```python
-html = await HTMLFragment([ 
-  El.div(content=["Hello"]), 
+html = await HTMLFragment([
+  El.div(content=["Hello"]),
   El.b(content=[" World"])
 ]).to_html(context)
 assert html == "<div>Hello</div><b> World</b>"
 ```
 
-- `HTMLVoidElement` - long form of `VEl`, pass `tag: str, attributes: dict[str, str | CustomAttribute | NoneType]` to the constructor
-- `HTMLElement` - long form of `El`, pass `tag: str, attributes: dict[str, str | CustomAttribute | NoneType] = {}, content: list[Element | str] = [], key: str | None = None` to the constructor
+- `HTMLVoidElement` - long form of `VEl`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None]` to the constructor
+- `HTMLElement` - long form of `El`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None] = {}, content: list[Element | str] = [], key: str | None = None` to the constructor
 
 ### Components
 
@@ -155,8 +155,8 @@ from rxxxt import Component, event_handler, VEl, Element
 class InputExample(Component):
   @event_handler(debounce=500)
   def on_input(self, value: Annotated[str, "target.value"]):
-    # called after no input event has occured for 500ms 
-    print("The user entered ", value) 
+    # called after no input event has occured for 500ms
+    print("The user entered ", value)
 
   def render(self) -> Element:
     return VEl.input(oninput=self.on_input, type="text")

@@ -36,15 +36,15 @@ class WebsocketScope(TransportScope):
   scheme: Literal["ws", "wss"]
   subprotocols: Iterable[str]
 
-ASGIScope = HTTPScope | WebsocketScope | LifespanScope | dict
+ASGIScope = HTTPScope | WebsocketScope | LifespanScope
 ASGIFnSend = Callable[[dict], Awaitable[Any]]
 ASGIFnReceive = Callable[[], Awaitable[dict]]
 ASGIHandler = Callable[[ASGIScope, ASGIFnReceive, ASGIFnSend], Awaitable[Any]]
 
 
 class TransportContext:
-  def __init__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
-    self._scope: TransportScope = scope
+  def __init__(self, scope: TransportScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
+    self._scope = scope
     self._receive = receive
     self._send = send
 

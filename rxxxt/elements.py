@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import html
-from types import NoneType
-from typing import TYPE_CHECKING, Protocol, Union
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from rxxxt.execution import Context
@@ -15,13 +14,13 @@ class Element(ABC):
   async def to_html(self, context: 'Context') -> str: pass
 
 class UnescapedHTMLElement(Element):
-  def __init__(self, text: str) -> NoneType:
+  def __init__(self, text: str) -> None:
     super().__init__()
     self.text = text
   async def to_html(self, context: 'Context') -> str: return self.text
 
 class HTMLFragment(Element):
-  def __init__(self, content: list[Union[Element, str]], key: str | None = None) -> None:
+  def __init__(self, content: list[Element | str], key: str | None = None) -> None:
     super().__init__()
     self.key = key
     self.content = content
@@ -38,7 +37,7 @@ class HTMLFragment(Element):
     return "".join(parts)
 
 class HTMLBaseElement(Element):
-  def __init__(self, tag: str, attributes: dict[str, str | CustomAttribute | NoneType]) -> None:
+  def __init__(self, tag: str, attributes: dict[str, str | CustomAttribute | None]) -> None:
     super().__init__()
     self.tag = tag
     self.attributes = attributes
@@ -58,7 +57,7 @@ class HTMLVoidElement(HTMLBaseElement):
     return f"<{html.escape(self.tag)}{self._render_attributes()}>"
 
 class HTMLElement(HTMLBaseElement):
-  def __init__(self, tag: str, attributes: dict[str, str | CustomAttribute | NoneType] = {}, content: list[Element | str] = [], key: str | None = None) -> None:
+  def __init__(self, tag: str, attributes: dict[str, str | CustomAttribute | None] = {}, content: list[Element | str] = [], key: str | None = None) -> None:
     super().__init__(tag, attributes)
     self.key = key
     self.content = content
@@ -77,11 +76,11 @@ class HTMLElement(HTMLBaseElement):
     return f"<{tag}{self._render_attributes()}>{inner_html}</{tag}>"
 
 class CreateHTMLElement(Protocol):
-  def __call__(self, content: list[Element | str] = [], **kwargs: dict[str, str | CustomAttribute | NoneType]) -> HTMLElement: ...
+  def __call__(self, content: list[Element | str] = [], **kwargs: str | CustomAttribute | None) -> HTMLElement: ...
 
 class _El(type):
   def __getitem__(cls, name: str) -> CreateHTMLElement:
-    def _inner(content: list[Element | str] = [], **kwargs):
+    def _inner(content: list[Element | str] = [], **kwargs: str | CustomAttribute | None):
       return HTMLElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() }, content=content)
     return _inner
   def __getattribute__(cls, name: str): return cls[name]
@@ -89,11 +88,11 @@ class _El(type):
 class El(metaclass=_El): pass
 
 class CreateHTMLVoidElement(Protocol):
-  def __call__(self, **kwargs: dict[str, str | CustomAttribute | NoneType]) -> HTMLVoidElement: ...
+  def __call__(self, **kwargs: str | CustomAttribute | None) -> HTMLVoidElement: ...
 
 class _VEl(type):
   def __getitem__(cls, name: str) -> CreateHTMLVoidElement:
-    def _inner(**kwargs):
+    def _inner(**kwargs: str | CustomAttribute | None) -> HTMLVoidElement:
       return HTMLVoidElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() })
     return _inner
   def __getattribute__(cls, name: str): return cls[name]

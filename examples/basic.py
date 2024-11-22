@@ -10,7 +10,7 @@ class ExampleState(State):
   count: int = 0
   text: str = ""
 
-  def init(self, context: 'Context'): self.text = context.query_string
+  def init(self, context: 'Context'): self.text = context.query_string or ""
 
 class Example(Component):
   state: ExampleState
@@ -23,7 +23,7 @@ class Example(Component):
   @event_handler(debounce=500)
   def on_input(self, value: Annotated[str | None, "target.value"]):
     self.context.set_cookie("hello", "world", http_only=True)
-    self.state.text = value
+    self.state.text = value or ""
 
   @event_handler()
   def on_navigate(self): self.context.navigate("/page2")
