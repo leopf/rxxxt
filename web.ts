@@ -47,13 +47,13 @@ interface ContextInputEventDescription {
 interface AppHttpPostResponse {
     stateToken: string,
     events: OutputEvent[]
-    html: string
+    html_parts: string[]
 }
 
 interface AppWebsocketResponse {
     stateToken?: string
     events: OutputEvent[]
-    html: string
+    html_parts: string[]
     end: boolean
 }
 
@@ -213,7 +213,9 @@ const upgradeToWebsocket = () => {
         }
 
         const response: AppWebsocketResponse = JSON.parse(e.data);
-        applyHTML(response.html);
+        for (const part of response.html_parts) {
+            applyHTML(part);
+        }
         if (response.stateToken) {
             stateToken = response.stateToken;
         }
@@ -249,7 +251,9 @@ const httpUpdateHandler = async () => {
         credentials: "include",
     }).then(res => res.json());
 
-    applyHTML(response.html);
+    for (const part of response.html_parts) {
+        applyHTML(part);
+    }
     stateToken = response.stateToken;
     handleOutputEvents(response.events);
     finishUpdate();

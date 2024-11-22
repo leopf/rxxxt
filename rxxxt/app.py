@@ -2,13 +2,12 @@ import importlib.resources
 import logging
 import os
 import secrets
-import hashlib
 from typing import Any, Literal
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, HTTPContext, WebsocketContext
 from rxxxt.elements import CustomAttribute as CustomAttribute, El, Element, ElementFactory, HTMLFragment, UnescapedHTMLElement
-from rxxxt.execution import AppExecutor, ContextInputEvent, ExecutionInput, ExecutionOutputEvent, ForceRefreshOutputEvent, Context
+from rxxxt.execution import AppExecution, AppExecutor, ContextInputEvent, ExecutionInput, ExecutionOutputEvent, ForceRefreshOutputEvent, Context
 from rxxxt.helpers import PathPattern, to_awaitable
 from rxxxt.page import Page, PageFactory
 from rxxxt.state import JWTStateResolver, StateResolver, StateResolverError
@@ -25,7 +24,7 @@ class AppInitData(AppHttpResultBase):
   path: str
 
 class AppHttpPostResponse(AppHttpResultBase):
-  html: str
+  html_parts: list[str]
 
 class AppWebsocketInitMessage(BaseModel):
   type: Literal["init"]
@@ -48,7 +47,7 @@ class AppWebsocketUpdateMessage(BaseModel):
 class AppWebsocketResponseMessage(BaseModel):
   stateToken: str | None = None
   events: list[ExecutionOutputEvent]
-  html: str
+  html_parts: list[str]
   end: bool
 
 RawStateAdapter = TypeAdapter(dict[str, str])
@@ -60,7 +59,7 @@ class Router(ElementFactory):
 
     async def to_html(self, context: Context):
       element = self._get_element(context.path)
-      return await element.to_html(context.sub(hashlib.sha1(context.path.encode("utf-8")).hexdigest()))
+      return await element.to_html(context.sub(AppExecution.get_hashed_id(context.path)))
 
     def _get_element(self, path: str):
       for pattern, element_factory in self._routes:
@@ -119,7 +118,7 @@ class App:
 
     init_message = AppWebsocketInitMessage.model_validate_json(message)
     last_state_token = init_message.stateToken
-    executor = AppExecutor(await self._get_state_from_token(last_state_token), context.headers, self.app_data)
+    executor = AppExecutor(await self._get_state_from_token(last_state_token), context.headers)
 
     while not closing:
       typ, message = await context.receive()
@@ -156,7 +155,7 @@ class App:
 
       await context.send_message(AppWebsocketResponseMessage(
         events=output_events,
-        html=html_output,
+        html_parts=[html_output],
         stateToken=state_token,
         end=True
       ).model_dump_json())
@@ -173,7 +172,7 @@ class App:
         state, events = await self._get_state_from_token(req.stateToken), req.events
       else: state, events={}, []
 
-      executor = AppExecutor(state, context.headers, self.app_data)
+      executor = AppExecutor(state, context.headers)
       html_output, execution = await executor.execute_root("content", self._render_content(), ExecutionInput(
         events=events,
         path=context.path,
@@ -202,7 +201,7 @@ class App:
         await context.respond_json_string(AppHttpPostResponse(
           stateToken=state_token,
           events=output_events,
-          html=html_output
+          html_parts=[html_output]
         ).model_dump_json())
       else:
         header_el = HTMLFragment([ El.script(src="/rxxxt-client.js"), El.style(content=["rxxxt-meta { display: contents; }"]) ])

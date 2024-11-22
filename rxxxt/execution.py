@@ -4,7 +4,8 @@ from datetime import datetime
 import functools
 import hashlib
 import re
-from typing import Any, Literal
+import asyncio
+from typing import Literal
 from pydantic import BaseModel, field_serializer, field_validator
 
 from rxxxt.elements import Element
@@ -86,8 +87,7 @@ class ExecutionInput:
   query_string: str | None
 
 class AppExecutor:
-  def __init__(self, raw_state: dict[str, str], headers: dict[str, list[str]], app_data: dict[str, Any]) -> None:
-    self.app_data = app_data
+  def __init__(self, raw_state: dict[str, str], headers: dict[str, list[str]]) -> None:
     self.headers = headers
     self._raw_state = raw_state
     self._state: dict[str, StateBase] = {}
@@ -107,6 +107,11 @@ class AppExecutor:
   async def execute_root(self, root_key: str, element: 'Element', exec_input: ExecutionInput):
     execution = AppExecution(self, exec_input)
     return await element.to_html(Context("", execution).sub(root_key)), execution
+
+  async def execute_partial(self, execution: 'AppExecution'):
+    context_ids = set(event.context_id for event in execution.execution_input.events) # TODO handle changed states as well
+    roots = execution.prepare_roots(context_ids)
+    return await asyncio.gather(*(root.to_html(Context(context_id, execution)) for context_id, root in roots))
 
   async def get_state(self, name: str, context: 'Context', state_factory: StateFactory):
     key = context.id + "!" + name
@@ -130,23 +135,57 @@ class AppExecution:
     self.output_events: list[ExecutionOutputEvent] = []
 
     self.state_users: dict[StateBase, list[str]] = {}
+
     self.context_elements: dict[str, Element] = {}
     self._context_parents: dict[str, str] = {}
     self._unique_ids: set[str] = set()
 
   def get_context_id(self, parent_id: str, suffix: str):
-    counter = 0
-    prefix = parent_id + ";" + suffix
-    raw_ctx_id = prefix + "#" + str(counter)
-    while raw_ctx_id in self._unique_ids:
-      counter += 1
-      raw_ctx_id = prefix + "#" + str(counter)
-    self._unique_ids.add(raw_ctx_id)
-    ctx_id = base64.urlsafe_b64encode(hashlib.sha1(raw_ctx_id.encode("utf-8")).digest()).decode("utf-8")
+    ctx_id = AppExecution.get_hashed_id(parent_id + ";" + suffix)
+    while ctx_id in self._unique_ids: ctx_id = AppExecution.get_hashed_id(ctx_id + "#")
+    self._unique_ids.add(ctx_id)
     self._context_parents[ctx_id] = parent_id
     return ctx_id
 
   def get_context_events(self, context_id: str): return (e for e in self.execution_input.events if e.context_id == context_id)
+
+  def prepare_roots(self, context_ids: set[str]):
+    root_ids = self._get_context_roots(context_ids)
+    context_children = self._get_context_children(root_ids)
+
+    for child_id in context_children:
+      self._context_parents.pop(child_id, None)
+      self.context_elements.pop(child_id, None)
+
+    self._unique_ids.difference_update(context_children)
+    self.state_users = { state: [u for u in users if u not in context_children] for state, users in self.state_users.items() }
+    return [ (root_id, self.context_elements[root_id]) for root_id in root_ids ] # NOTE: all roots should be tracked
+
+  def _get_context_roots(self, context_ids: set[str]):
+    return set(context_id for context_id in context_ids if all(parent not in context_ids for parent in self._get_context_parents(context_id)))
+
+  def _get_context_children(self, context_ids: set[str]):
+      context_children: dict[str, list[str]] = {}
+      for c, p in self._context_parents: context_children.setdefault(p, []).append(c)
+      total = set(context_ids)
+      current = set(context_ids)
+
+      while len(current) > 0:
+        new_current = set()
+        for ctx_id in (ctx_id for par_id in current for ctx_id in context_children.get(par_id, [])):
+          if not ctx_id in total: new_current.add(ctx_id)
+        total.update(new_current)
+        current = new_current
+
+      total.difference_update(context_ids)
+      return total
+
+  def _get_context_parents(self, context_id: str):
+    parent_id = context_id
+    while (parent_id := self._context_parents.get(parent_id)) is not None: yield parent_id
+
+  @staticmethod
+  def get_hashed_id(raw: str): return base64.urlsafe_b64encode(hashlib.sha256(raw.encode("utf-8")).digest()).decode("utf-8")
 
 class Context:
   def __init__(self, id: str, execution: AppExecution) -> None:
@@ -161,9 +200,6 @@ class Context:
 
   @property
   def headers(self): return self.execution.executor.headers
-
-  @property
-  def app_data(self): return self.execution.executor.app_data
 
   def get_events(self): return self.execution.get_context_events(self.id)
 
@@ -183,9 +219,9 @@ class Context:
     self.execution.output_events.append(SetCookieOutputEvent(name=name, max_age=-1))
 
   def sub_element(self, el: Element):
-    context_id = self.sub(el.__class__.__qualname__)
-    self.execution.context_elements[context_id] = el
-    return context_id
+    context = self.sub(el.__class__.__qualname__)
+    self.execution.context_elements[context.id] = el
+    return context
 
   def sub(self, key: str) -> 'Context':
     validate_key(key)

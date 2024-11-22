@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 class CustomAttribute(ABC):
   @abstractmethod
-  def get_html_attribute_key_value(self, original_key: str) -> str: pass
+  def get_html_attribute_key_value(self, original_key: str) -> tuple[str, str]: pass
 
 class Element(ABC):
   @abstractmethod
@@ -74,6 +74,11 @@ class HTMLElement(HTMLBaseElement):
     inner_html = "".join(parts)
     tag = html.escape(self.tag)
     return f"<{tag}{self._render_attributes()}>{inner_html}</{tag}>"
+
+class RenderedElement(Element, ABC):
+  @abstractmethod
+  def render(self) -> Element: pass
+  async def to_html(self, context: 'Context') -> str: return await self.render().to_html(context)
 
 class CreateHTMLElement(Protocol):
   def __call__(self, content: list[Element | str] = [], **kwargs: str | CustomAttribute | None) -> HTMLElement: ...

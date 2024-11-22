@@ -1,11 +1,10 @@
 from typing import Protocol
-from rxxxt.component import Component
-from rxxxt.elements import El, Element, HTMLFragment, VEl
+from rxxxt.elements import El, Element, HTMLFragment, VEl, RenderedElement
 
 class PageFactory(Protocol):
   def __call__(self, header: Element, content: Element, body_end: Element) -> Element: ...
 
-class Page(Component):
+class Page(RenderedElement):
   def __init__(self, header: Element, content: Element, body_end: Element) -> None:
     super().__init__()
     self.el_header = header
@@ -29,7 +28,6 @@ class Page(Component):
     return HTMLFragment([
       VEl.meta(charset="UTF-8"),
       VEl.meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-      El.title(content=[self.context.app_data.get("title", "Document")])
     ])
 
 class PageBuilder(PageFactory):

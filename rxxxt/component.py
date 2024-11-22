@@ -7,7 +7,7 @@ import weakref
 from pydantic import BaseModel, Field, create_model
 from pydantic_core import PydanticUndefined
 
-from rxxxt.elements import CustomAttribute, Element
+from rxxxt.elements import CustomAttribute, Element, El
 from rxxxt.execution import Context
 from rxxxt.helpers import to_awaitable
 from rxxxt.state import StateBase, get_state_infos_for_object_type
@@ -118,8 +118,13 @@ class Component(Element, ABC):
   async def to_html(self, context: Context) -> str:
     self.context = context.sub_element(self)
 
+    # init
     for state_info in get_state_infos_for_object_type(self.__class__):
       self.__dict__[state_info.attr_name] = await self.context.get_state(state_info.state_name, state_info.state_factory, state_info.is_global)
+
+    await to_awaitable(self.init)
+
+    # events
 
     for e in self.context.get_events():
       handler = getattr(self, e.handler_name, None)
@@ -128,10 +133,9 @@ class Component(Element, ABC):
       else:
         raise ValueError("Invalid event handler.")
 
-    # run
+    # render
 
-    await to_awaitable(self.init)
-    result = self.render()
+    result = El["rxxxt-meta"](id=context.id, content=[self.render()])
 
     # to text
 
