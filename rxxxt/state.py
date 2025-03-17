@@ -2,13 +2,59 @@ from abc import ABC, abstractmethod
 import base64
 from datetime import datetime, timedelta, timezone
 import hashlib
+import inspect
 from io import BytesIO
 import json
 import os
 import secrets
-from typing import Awaitable, Literal
+from typing import Awaitable, Callable, Generic, Literal, TypeVar, cast
 from pydantic import TypeAdapter, ValidationError
 import hmac
+
+from rxxxt.component import Component
+
+T = TypeVar("T")
+
+class StateDescriptor(Generic[T]):
+  def __init__(self, is_global: bool, default_factory: Callable[[], T], state_name: str | None = None) -> None:
+    self._is_global = is_global
+    self._state_name = state_name
+    self._default_factory = default_factory
+
+    if default_factory in { bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple}:
+      self._val_type_adapter = TypeAdapter(default_factory)
+    else:
+      sig = inspect.signature(default_factory)
+      self._val_type_adapter = TypeAdapter(sig.return_annotation)
+
+  def __set_name__(self, owner, name):
+    if self._state_name is None:
+      self._state_name = name
+
+  def __set__(self, obj, value):
+    if not isinstance(obj, Component):
+      raise TypeError("StateDescriptor used on non-component!")
+    svalue = self._val_type_adapter.dump_json(value).decode("utf-8")
+    obj.context.set_state(self._get_state_name(obj), svalue)
+
+  def __get__(self, obj, objtype=None):
+    if not isinstance(obj, Component):
+      raise TypeError("StateDescriptor used on non-component!")
+
+    svalue = obj.context.get_state(self._get_state_name(obj))
+    if svalue is None: return self._default_factory()
+    else: return cast(T, self._val_type_adapter.validate_json(svalue))
+
+  def _get_state_name(self, comp: Component):
+    if self._state_name is None: raise ValueError("state name is not set!")
+    if self._is_global: return f"global;{self._state_name}"
+    else: return f"#local;{comp.context.sid};{self._state_name}"
+
+def local_state(default_factory: Callable[[], T], name: str | None = None):
+  return StateDescriptor(False, default_factory, state_name=name)
+
+def gloabl_state(default_factory: Callable[[], T], name: str | None = None):
+  return StateDescriptor(True, default_factory, state_name=name)
 
 CompressedState = dict[str, str | dict[str, str]]
 CompressedStateAdapter = TypeAdapter(CompressedState)

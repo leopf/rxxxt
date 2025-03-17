@@ -4,19 +4,16 @@ from rxxxt import Component, event_handler, El, Element, App, Router
 import logging
 
 from rxxxt.component import HandleNavigate
+from rxxxt.state import local_state
 
 logging.basicConfig(level=logging.DEBUG)
 
 class Counter(Component):
-  @property
-  def state_id(self): return f"{self.context.sid}count"
-
-  @property
-  def count(self): return int(self.context.get_state(self.state_id) or "0")
+  count = local_state(int)
 
   @event_handler()
   def increment(self):
-    self.context.set_state(self.state_id, str(self.count + 1))
+    self.count += 1
 
   async def on_init(self) -> None:
     self.add_background_task(self.auto_incrementer())
