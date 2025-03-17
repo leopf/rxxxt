@@ -82,16 +82,14 @@ class HandleNavigate(CustomAttribute):
 class Component(Element):
   def __init__(self) -> None:
     super().__init__()
-    self.context: Context | None = None
+    self.context: Context
     self.background_tasks: list[Coroutine] = []
 
   @abstractmethod
   def render(self) -> Element | Awaitable[Element]: ...
 
   def add_background_task(self, a: Coroutine): self.background_tasks.append(a)
-  def request_update(self):
-    if self.context is None: raise ValueError("Not configured!")
-    self.context.request_update()
+  def request_update(self): self.context.request_update()
 
   def lc_configure(self, context: Context): self.context = context
   async def lc_init(self) -> None: return await self.on_init()
@@ -100,7 +98,7 @@ class Component(Element):
   async def lc_handle_event(self, event: dict[str, int | float | str | bool]):
     handler_name = event.pop("$handler_name", None)
     if isinstance(handler_name, str):
-      handler = getattr(self, handler_name, None)
+      handler = getattr(self, handler_name, None) # NOTE: this is risky!!
       if isinstance(handler, InstanceEventHandler):
         await to_awaitable(handler, **event)
 
@@ -126,6 +124,9 @@ class ComponentNode(Node):
     if self.context.config.persistent:
       for a in self.element.background_tasks:
         self.background_tasks.append(asyncio.create_task(a))
+      self.element.background_tasks.clear()
+    else:
+      for a in self.element.background_tasks: a.close()
 
     await self._render_inner()
 

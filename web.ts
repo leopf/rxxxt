@@ -365,7 +365,10 @@ class TrackedElement {
 }
 
 (window as any).rxxxt = {
-    navigate: (url: string | URL) => handleOutputEvents([ { event: "navigate", location: (new URL(url, location.href)).href } ]),
+    navigate: (url: string | URL) => {
+        handleOutputEvents([{ event: "navigate", location: (new URL(url, location.href)).href }]);
+        update();
+    },
     init: (data: InitData) => {
         baseUrl = new URL(location.href);
         if (baseUrl.pathname.endsWith(data.path)) {

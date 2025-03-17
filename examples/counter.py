@@ -10,8 +10,16 @@ class Counter(Component):
   def render(self) -> Element:
     return El.div(onclick=self.on_click, content=[f"Count: {self.count}"])
 
+def stack():
+  return El.div(content=[
+    El.div(content=["Counter 1:"]),
+    Counter(),
+    El.div(content=["Counter 2:"]),
+    Counter(),
+  ])
+
 router = Router()
-router.add_route("/", Counter)
+router.add_route("/", stack)
 
 app = App(router)
 uvicorn.run(app)

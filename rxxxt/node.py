@@ -42,7 +42,7 @@ class VoidElementNode(Node):
     io.write(f"<{html.escape(self.tag)}")
     for k, v in self.attributes.items():
       io.write(f" {html.escape(k)}")
-      if v is not None: io.write(f"={html.escape(v)}")
+      if v is not None: io.write(f"=\"{html.escape(v)}\"")
     io.write(">")
 
 class ElementNode(VoidElementNode):

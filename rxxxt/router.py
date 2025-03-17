@@ -63,6 +63,7 @@ class PathPattern:
 class Router(ElementFactory):
   class RoutedComponent(Component):
     def __init__(self, routes: list[tuple[PathPattern, ElementFactory]]):
+      super().__init__()
       self._routes = routes
 
     def render(self) -> Element:

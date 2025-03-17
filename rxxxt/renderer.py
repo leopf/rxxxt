@@ -13,9 +13,7 @@ class Renderer:
     self._root = root
     self._pending_renders: set[ContextStack] = set()
 
-  async def expand(self):
-    await self._root.expand()
-    self._pending_renders.add(self._root.context.id)
+  async def expand(self): await self._root.expand()
 
   async def update(self, ids: set[ContextStack]):
     for node in self._find_roots(ids):
