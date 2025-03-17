@@ -4,22 +4,15 @@ requires = ["setuptools"]
 
 [project]
 name = "rxxxt"
-version = "0.1.1"
-authors = [
-  {name = "leopf"},
-]
+version = "0.2.0"
+authors = [{ name = "leopf" }]
 description = "Server side rendered, reactive web applications with python."
-readme = {file = "README.md", content-type = "text/markdown"}
-license = {file = "LICENSE"}
-dependencies = [
-  "pydantic>=2.9.0",
-]
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { file = "LICENSE" }
+dependencies = ["pydantic>=2.9.0"]
 
 [project.optional-dependencies]
-dev = [
-  "ruff",
-  "uvicorn"
-]
+dev = ["ruff", "uvicorn"]
 
 [project.urls]
 Homepage = "https://github.com/leopf/rxxxt"
@@ -35,22 +28,14 @@ indent-width = 2
 target-version = "py311"
 preview = true
 
-lint.select = [
-    "F",
-    "W293",
-    "W291",
-    "W191",
-    "W292",
-    "W391",
-    "E703"
-]
+lint.select = ["F", "W293", "W291", "W191", "W292", "W391", "E703"]
 
 include = [
     "rxxxt/*.py",
     "tests/**.py",
     "extra/**.py",
     "examples/**.py",
-    "setup.py"
+    "setup.py",
 ]
 
 [tool.setuptools.package-data]
