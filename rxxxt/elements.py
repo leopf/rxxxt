@@ -40,10 +40,10 @@ class HTMLVoidElement(Element):
     self._attributes: dict[str, str | None] = {}
     for k, v in attributes.items():
       if isinstance(v, CustomAttribute): k, v = v.get_key_value(k)
-      elif isinstance(v, (int, float)): v = str(v)
       elif isinstance(v, bool):
         if not v: continue
         v = None
+      elif isinstance(v, (int, float)): v = str(v)
       self._attributes[k] = v
 
   def tonode(self, context: Context) -> 'Node':
@@ -76,11 +76,11 @@ class UnescapedHTMLElement(Element):
   def tonode(self, context: Context) -> 'Node': return TextNode(context, self._text)
 
 class CreateHTMLElement(Protocol):
-  def __call__(self, content: list[Element | str] = [], key: str | None = None, **kwargs: str | CustomAttribute | None) -> Element: ...
+  def __call__(self, content: list[Element | str] = [], key: str | None = None, **kwargs: HTMLAttributeValue) -> Element: ...
 
 class _El(type):
   def __getitem__(cls, name: str) -> CreateHTMLElement:
-    def _inner(content: ElementContent = [], key: str | None = None, **kwargs: str | CustomAttribute | None):
+    def _inner(content: ElementContent = [], key: str | None = None, **kwargs: HTMLAttributeValue):
       el = HTMLElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() }, content=content)
       if key is not None: el = KeyedElement(key, el)
       return el
@@ -90,11 +90,11 @@ class _El(type):
 class El(metaclass=_El): ...
 
 class CreateHTMLVoidElement(Protocol):
-  def __call__(self, **kwargs: str | CustomAttribute | None) -> HTMLVoidElement: ...
+  def __call__(self, **kwargs: HTMLAttributeValue) -> HTMLVoidElement: ...
 
 class _VEl(type):
   def __getitem__(cls, name: str) -> CreateHTMLVoidElement:
-    def _inner(**kwargs: str | CustomAttribute | None) -> HTMLVoidElement:
+    def _inner(**kwargs: HTMLAttributeValue) -> HTMLVoidElement:
       return HTMLVoidElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() })
     return _inner
   def __getattribute__(cls, name: str): return cls[name]

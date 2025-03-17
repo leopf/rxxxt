@@ -7,7 +7,7 @@ from io import BytesIO
 import json
 import os
 import secrets
-from typing import Awaitable, Callable, Generic, Literal, TypeVar, cast
+from typing import Awaitable, Callable, Generic, Literal, TypeVar, cast, get_origin
 from pydantic import TypeAdapter, ValidationError
 import hmac
 
@@ -16,12 +16,14 @@ from rxxxt.component import Component
 T = TypeVar("T")
 
 class StateDescriptor(Generic[T]):
+  _native_types = { bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple }
+
   def __init__(self, is_global: bool, default_factory: Callable[[], T], state_name: str | None = None) -> None:
     self._is_global = is_global
     self._state_name = state_name
     self._default_factory = default_factory
 
-    if default_factory in { bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple}:
+    if default_factory in StateDescriptor._native_types or get_origin(default_factory) in StateDescriptor._native_types:
       self._val_type_adapter = TypeAdapter(default_factory)
     else:
       sig = inspect.signature(default_factory)
