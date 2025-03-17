@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Response
 import uvicorn
-from rxxxt import local_state, Component, event_handler, El, Element, App, PageBuilder, VEl, Router
+from rxxxt import local_state, Component, event_handler, El, Element, App, PageBuilder, VEl
 
 class Counter(Component):
   count = local_state(int)
@@ -19,9 +19,6 @@ def get_css(): return Response("body { margin: 0; font-family: sans-serif; }", m
 page_builder = PageBuilder()
 page_builder.add_header(VEl.link(rel="stylesheet", href="/main.css"))
 
-router = Router()
-router.add_route("/", Counter)
-app = App(router, page_layout=page_builder)
-
+app = App(Counter, page_layout=page_builder)
 server.mount("/", app)
 uvicorn.run(server)

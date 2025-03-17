@@ -5,11 +5,11 @@ Server side rendered, reactive web applications with python.
 
 ## Usage
 ```python
+from rxxxt import Component, event_handler, El, Element, App, local_state
 import uvicorn
-from rxxxt import state_field, Component, event_handler, El, Element, App
 
 class Counter(Component):
-  count: int = state_field(default_value=0)
+  count = local_state(int)
 
   @event_handler()
   def on_click(self): self.count += 1
@@ -17,9 +17,7 @@ class Counter(Component):
   def render(self) -> Element:
     return El.div(onclick=self.on_click, content=[f"Count: {self.count}"])
 
-app = App()
-app.add_route("/", Counter)
-
+app = App(Counter)
 uvicorn.run(app)
 ```
 
@@ -27,10 +25,10 @@ uvicorn.run(app)
 ```python
 from fastapi import FastAPI, Response
 import uvicorn
-from rxxxt import state_field, Component, event_handler, El, Element, App, PageBuilder, Page, VEl
+from rxxxt import local_state, Component, event_handler, El, Element, App, PageBuilder, VEl
 
 class Counter(Component):
-  count: int = state_field(default_value=0)
+  count = local_state(int)
 
   @event_handler()
   def on_click(self): self.count += 1
@@ -43,12 +41,10 @@ server = FastAPI()
 @server.get("/main.css")
 def get_css(): return Response("body { margin: 0; font-family: sans-serif; }", media_type="text/css")
 
-page_builder = PageBuilder(Page)
+page_builder = PageBuilder()
 page_builder.add_header(VEl.link(rel="stylesheet", href="/main.css"))
 
-app = App(page_layout=page_builder)
-app.add_route("/", Counter)
-
+app = App(Counter, page_layout=page_builder)
 server.mount("/", app)
 uvicorn.run(server)
 ```
@@ -57,21 +53,6 @@ uvicorn.run(server)
 
 A rxxxt app is an [ASGI](https://asgi.readthedocs.io/en/latest/specs/main.html) application. It can be used, run and served like any other ASGI application.
 
-Applications have routes. Routes must implement the `ElementFactory` protocol, which means a callable taking no params returning an object of type `Element`.
-
-This means you can use a component, that can be initialized without any parameters as a route, or create a function returning an element.
-
-```python
-from rxxxt import El, App
-
-app = App()
-
-@app.route("/")
-def root(): return El.div(content=["Hello World"])
-
-...
-```
-
 ### Elements
 - `El` - A way to create html elements quickly. Write `El.<tag name>` or `El["<tag name>"]` to create an element with this tag name. You may specify attributes by passing them as key values parameters. The inner content is set by specifying the list `content` with `str | Element` as children.
 
@@ -79,14 +60,7 @@ def root(): return El.div(content=["Hello World"])
 
 - `UnescapedHTMLElement` - Use this to return raw html strings. Example: `UnescapedHTMLElement("<h1>Hello World</h1>")`
 
-- `HTMLFragment` - To create fragments, a container for elements on the same level. Works like react fragments. Example:
-```python
-html = await HTMLFragment([
-  El.div(content=["Hello"]),
-  El.b(content=[" World"])
-]).to_html(context)
-assert html == "<div>Hello</div><b> World</b>"
-```
+- `HTMLFragment` - To create fragments, a container for elements on the same level. Works like react fragments.
 
 - `HTMLVoidElement` - long form of `VEl`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None]` to the constructor
 - `HTMLElement` - long form of `El`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None] = {}, content: list[Element | str] = [], key: str | None = None` to the constructor
@@ -97,7 +71,7 @@ To create a component, create a class inheriting from the `Component` class.
 
 You must implement `def render(self) -> Element: ...`. This function will return the elements you would like to be rendered by this component.
 
-You may implement `def init(self) -> None | Awaitable[None]: ...`. This will be called before the component is rendered.
+You may implement `def on_init(self) -> None | Awaitable[None]: ...`. This will be called when the component is initialized.
 
 Example:
 ```python
@@ -165,13 +139,13 @@ class InputExample(Component):
 #### State
 
 Components can have two types of state:
-1. **state fields**
+1. **local_state** - which is confined to a single component instance
 ```python
 from typing import Annotated
-from rxxxt import Component, event_handler, VEl, Element, state_field
+from rxxxt import Component, event_handler, VEl, Element, local_state
 
 class InputExample(Component):
-  text: str = state_field(default_value="")
+  text = local_state(str)
 
   @event_handler(debounce=500)
   def on_input(self, value: Annotated[str, "target.value"]):
@@ -181,21 +155,19 @@ class InputExample(Component):
     return VEl.input(oninput=self.on_input, type="text", value=self.text)
 ```
 
-2. **state classes**
+2. **global_state** - which is shared accross the entire application
+
 ```python
 from typing import Annotated
-from rxxxt import Component, event_handler, VEl, Element, State
-
-class TextState(State):
-  text: str = ""
+from rxxxt import Component, event_handler, VEl, Element, global_state
 
 class InputExample(Component):
-  state: TextState
+  text = global_state(str)
 
   @event_handler(debounce=500)
   def on_input(self, value: Annotated[str, "target.value"]):
-    self.state.text = value
+    self.text = value
 
   def render(self) -> Element:
-    return VEl.input(oninput=self.on_input, type="text", value=self.state.text)
+    return VEl.input(oninput=self.on_input, type="text", value=self.text)
 ```

@@ -1,5 +1,5 @@
+from rxxxt import Component, event_handler, El, Element, App, local_state
 import uvicorn
-from rxxxt import Component, event_handler, El, Element, App, Router, local_state
 
 class Counter(Component):
   count = local_state(int)
@@ -10,8 +10,5 @@ class Counter(Component):
   def render(self) -> Element:
     return El.div(onclick=self.on_click, content=[f"Count: {self.count}"])
 
-router = Router()
-router.add_route("/", Counter)
-
-app = App(router)
+app = App(Counter)
 uvicorn.run(app)
