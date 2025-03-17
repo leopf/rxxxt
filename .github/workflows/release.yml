@@ -24,18 +24,18 @@ jobs:
         with:
           version: 9
 
-      - name: Use Node.js 
+      - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Build web assets
         run: pnpm install && pnpm build:prod
 
       - name: Build the package
         run: python -m build -s
-        
+
       - name: Upload sdist artifact
         uses: actions/upload-artifact@v4
         with:
@@ -70,21 +70,21 @@ jobs:
           body: Release ${{ steps.extract_version.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
+
   publish-to-pypi:
     name: publish python distribution to PyPI
     needs: [build-sdist]
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/streamtasks
+      url: https://pypi.org/p/rxxxt
     permissions:
       id-token: write
     steps:
-    - name: Download sdist artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: py-sdist
-        path: dist
-    - name: Publish distribution 📦 to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Download sdist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: py-sdist
+          path: dist
+      - name: Publish distribution 📦 to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
