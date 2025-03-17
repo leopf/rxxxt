@@ -1,4 +1,3 @@
-from ast import Try
 import asyncio
 import uvicorn
 from rxxxt import Component, event_handler, El, Element, App, Router

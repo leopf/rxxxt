@@ -45,12 +45,12 @@ class App:
         import traceback
         traceback.print_exc()
         logging.debug(e)
-        return await context.respond_status(400)
+        return await context.respond_text("bad request", 400)
       except BaseException as e:
         import traceback
         traceback.print_exc()
         logging.debug(e)
-        return await context.respond_status(500)
+        return await context.respond_text("internal server error", 500)
     elif scope["type"] == "websocket":
       context = WebsocketContext(scope, receive, send)
       try: await self._ws_session(context)
@@ -61,10 +61,8 @@ class App:
         if context.connected: await context.close()
 
   async def _ws_session(self, context: WebsocketContext):
-    await context.accept()
-    typ, message = await context.receive()
-    if typ != "message" or message is None: raise ValueError("Invalid init message!")
-
+    await context.setup()
+    message = await context.receive_message()
     init_message = AppWebsocketInitMessage.model_validate_json(message)
 
     async with Session(self._get_session_config(True), self.content()) as session:
@@ -73,9 +71,7 @@ class App:
       session.set_headers(context.headers)
 
       while True:
-        typ, message = await context.receive()
-        if typ != "message" or message is None: return
-
+        message = await context.receive_message()
         update_message = AppWebsocketUpdateMessage.model_validate_json(message)
         session.set_location(update_message.location)
         await session.handle_events(update_message.events)
@@ -107,7 +103,7 @@ class App:
 
       if context.method == "POST":
         result = await session.render_update(include_state_token=True, render_full=False)
-        await context.respond_json_string(result.model_dump_json())
+        await context.respond_text(result.model_dump_json(), mime_type="application/json")
       else:
         result = await session.render_page()
         await context.respond_text(result, mime_type="text/html")
@@ -117,7 +113,7 @@ class App:
       with importlib.resources.path("rxxxt.assets", "main.js") as file_path:
         await context.respond_file(file_path)
     elif context.method in [ "GET", "POST" ]: await self._http_session(context)
-    else: await context.respond_status(404)
+    else: await context.respond_text("not found", 404)
 
   def _get_session_config(self, persistent: bool):
     return SessionConfig(page_facotry=self.page_layout, state_resolver=self.state_resolver, persistent=persistent)

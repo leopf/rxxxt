@@ -1,7 +1,6 @@
 from abc import abstractmethod
 import asyncio
 import base64
-import functools
 import inspect
 import json
 from typing import Annotated, Any, Callable, Coroutine, Generic, ParamSpec, TypeVar, get_args, get_origin
