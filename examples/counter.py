@@ -1,8 +1,8 @@
 import uvicorn
-from rxxxt import state_field, Component, event_handler, El, Element, App, Router
+from rxxxt import Component, event_handler, El, Element, App, Router, local_state
 
 class Counter(Component):
-  count: int = state_field(default_value=0)
+  count = local_state(int)
 
   @event_handler()
   def on_click(self): self.count += 1
@@ -10,16 +10,8 @@ class Counter(Component):
   def render(self) -> Element:
     return El.div(onclick=self.on_click, content=[f"Count: {self.count}"])
 
-def stack():
-  return El.div(content=[
-    El.div(content=["Counter 1:"]),
-    Counter(),
-    El.div(content=["Counter 2:"]),
-    Counter(),
-  ])
-
 router = Router()
-router.add_route("/", stack)
+router.add_route("/", Counter)
 
 app = App(router)
 uvicorn.run(app)

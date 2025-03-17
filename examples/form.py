@@ -4,7 +4,7 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
-from rxxxt import Component, event_handler, VEl, El, Element, PageBuilder, Page, App, Router
+from rxxxt import Component, event_handler, VEl, El, Element, PageBuilder, App, Router
 
 class Form(Component):
   @event_handler(prevent_default=True)
@@ -22,13 +22,12 @@ class Form(Component):
         VEl.input(type="submit", value="login")
     ])
 
-page_builder = PageBuilder(Page)
+page_builder = PageBuilder()
 page_builder.add_header(El.style(content=["form * { display: block; }"]))
-
 
 router = Router()
 router.add_route("/", Form)
 router.add_route("/hello", lambda: El.h1(content=[ "Welcome!" ]))
 
-app = App(router, page_layout=page_builder, app_data={ "title": "Form" })
+app = App(router, page_layout=page_builder)
 uvicorn.run(app)
