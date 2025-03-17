@@ -192,7 +192,7 @@ const upgradeToWebsocket = () => {
         updateSocket?.send(JSON.stringify({
             type: "init",
             state_token: stateToken,
-            enableStateUpdates: enableStateUpdates
+            enable_state_updates: enableStateUpdates
         }));
         finishUpdate();
     });

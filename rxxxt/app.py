@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import importlib.resources
 import logging
 from typing import Any, Literal
@@ -16,7 +18,7 @@ class AppHttpRequest(BaseModel):
 class AppWebsocketInitMessage(BaseModel):
   type: Literal["init"]
   state_token: str
-  enableStateUpdates: bool
+  enable_state_updates: bool
 
 class AppWebsocketUpdateMessage(BaseModel):
   type: Literal["update"]
@@ -42,13 +44,9 @@ class App:
       context = HTTPContext(scope, receive, send)
       try: await self._handle_http(context)
       except (ValidationError, ValueError) as e:
-        import traceback
-        traceback.print_exc()
         logging.debug(e)
         return await context.respond_text("bad request", 400)
       except BaseException as e:
-        import traceback
-        traceback.print_exc()
         logging.debug(e)
         return await context.respond_text("internal server error", 500)
     elif scope["type"] == "websocket":
@@ -65,37 +63,42 @@ class App:
     message = await context.receive_message()
     init_message = AppWebsocketInitMessage.model_validate_json(message)
 
-    async with Session(self._get_session_config(True), self.content()) as session:
-      await session.init(init_message.state_token)
+    with contextlib.suppress(ConnectionError):
+      async with Session(self._get_session_config(True), self.content()) as session:
+        async def updater():
+          while context.connected:
+            await session.wait_for_update()
+            await session.update()
+            data = await session.render_update(include_state_token=init_message.enable_state_updates, render_full=False)
+            await context.send_message(data.model_dump_json())
 
-      session.set_headers(context.headers)
+        await session.init(init_message.state_token)
 
-      while True:
-        message = await context.receive_message()
-        update_message = AppWebsocketUpdateMessage.model_validate_json(message)
-        session.set_location(update_message.location)
-        await session.handle_events(update_message.events)
-        await session.update()
+        session.set_location(context.location)
+        session.set_headers(context.headers)
 
-        data = await session.render_update(include_state_token=init_message.enableStateUpdates, render_full=False)
-        await context.send_message(data.model_dump_json())
+        updater_task = asyncio.create_task(updater())
+        try:
+          while True:
+            message = await context.receive_message()
+            update_message = AppWebsocketUpdateMessage.model_validate_json(message)
+            session.set_location(update_message.location)
+            await session.handle_events(update_message.events)
+        finally: updater_task.cancel()
 
   async def _http_session(self, context: HTTPContext):
     async with Session(self._get_session_config(False), self.content()) as session:
-      location = context.path
-      if context.query_string is not None: location += f"?{context.query_string}"
 
       if context.method == "POST":
         req = AppHttpRequest.model_validate_json(await context.receive_json_raw())
         await session.init(req.state_token)
         events = req.events
       else:
-        session.set_location(location)
+        session.set_location(context.location)
         await session.init(None)
         events = []
 
-
-      session.set_location(location)
+      session.set_location(context.location)
       session.set_headers(context.headers)
 
       await session.handle_events(events)

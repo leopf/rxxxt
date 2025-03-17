@@ -23,7 +23,7 @@ class Counter(Component):
 
   async def auto_incrementer(self):
     while True:
-      await asyncio.sleep(2)
+      await asyncio.sleep(1)
       self.increment()
 
   def render(self) -> Element:

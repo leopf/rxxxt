@@ -40,6 +40,8 @@ class Session:
   async def __aenter__(self): return self
   async def __aexit__(self, *_): await self.destroy()
 
+  async def wait_for_update(self): await self._update_event.wait()
+
   async def init(self, state_token: str | None):
     if state_token is not None:
       self._last_token = state_token
