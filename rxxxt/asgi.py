@@ -123,11 +123,12 @@ class WebsocketContext(TransportContext):
       event = await self._wreceive()
       if event.get("type", None) == "websocket.disconnect": return
 
-  async def receive(self) -> tuple[Literal["message", "connect", "disconnect"], str | ByteString | None]:
+  async def receive(self) -> tuple[Literal["message"], bytes | bytearray | str] | tuple[Literal["connect"], None] | tuple[Literal["disconnect"], None]:
     event = await self._wreceive()
     if event["type"] == "websocket.connect": return "connect", None
     if event["type"] == "websocket.disconnect": return "disconnect", None
     if event["type"] == "websocket.receive": return "message", event.get("bytes", None) or event.get("text", None)
+    raise ValueError("Invalid websocket message!")
 
   async def send_message(self, data: str | ByteString):
     event: dict[str, Any] = { "type": "websocket.send", "bytes": None, "text": None }

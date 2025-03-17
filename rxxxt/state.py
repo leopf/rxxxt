@@ -1,91 +1,14 @@
 from abc import ABC, abstractmethod
 import base64
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
 from io import BytesIO
 import json
-import sys
-from typing import TYPE_CHECKING, Any, Awaitable, ByteString, Callable, Literal, get_type_hints
-from pydantic import BaseModel, TypeAdapter, ValidationError
+import os
+import secrets
+from typing import Awaitable, Literal
+from pydantic import TypeAdapter, ValidationError
 import hmac
-
-if TYPE_CHECKING:
-  from rxxxt.execution import Context
-
-class StateBase(ABC):
-  def init(self, context: 'Context') -> None | Awaitable[None]: pass
-
-  def __hash__(self) -> int: return id(self)
-
-  @abstractmethod
-  def get_value(self) -> Any: pass
-  def set_value(self, value: Any) -> None: pass
-  @abstractmethod
-  def to_json(self) -> str: pass
-
-StateFactory = Callable[[str | None], StateBase]
-
-class State(StateBase, BaseModel):
-  def to_json(self) -> str: return self.model_dump_json()
-  def get_value(self) -> Any: return self
-  @classmethod
-  def state_factory(cls, json_data: str | None):
-    if json_data is None: return cls()
-    else: return cls.model_validate_json(json_data)
-
-class StateField(StateBase):
-  def __init__(self, value: Any) -> None:
-    super().__init__()
-    self.value = value
-
-  def get_value(self) -> Any: return self.value
-  def set_value(self, value: Any) -> None: self.value = value
-  def to_json(self) -> str: return json.dumps(self.value)
-
-@dataclass
-class StateInfo:
-  is_global: bool
-  attr_name: str
-  state_name: str
-  state_factory: StateFactory
-
-@dataclass
-class PartialStateInfo:
-  is_global: bool
-  name: str | None
-
-@dataclass
-class StateFieldInfo:
-  default_value: Any = None
-  default_facotry: None | Callable[[], Any] = None
-
-  def state_factory(self, json_data: str | None):
-    if json_data is None:
-      if self.default_value is not None: return StateField(self.default_value)
-      elif self.default_facotry is not None: return StateField(self.default_facotry())
-      else: return StateField(None)
-    else: return StateField(json.loads(json_data))
-
-def state_field(default_value: Any = None, default_facotry: None | Callable[[], Any] = None):
-  return StateFieldInfo(default_value=default_value, default_facotry=default_facotry)
-def global_state(name: str | None = None): return PartialStateInfo(is_global=True, name=name)
-
-def get_state_infos_for_object_type(t: type[object]):
-  global_ns = vars(sys.modules[t.__module__])
-  for base_class in reversed(t.__mro__):
-    type_hints = get_type_hints(base_class, globalns=global_ns)
-    for attr_name, attr_type in type_hints.items():
-      attr_value = getattr(t, attr_name, None)
-      if isinstance(attr_type, type) and issubclass(attr_type, State):
-        if hasattr(t, attr_name):
-          if not isinstance(attr_value, PartialStateInfo):
-            raise ValueError("State field must not be defined as anything but a PartialStateInfo in the class.")
-          yield StateInfo(is_global=attr_value.is_global, attr_name=attr_name, state_name=attr_value.name or attr_name, state_factory=attr_type.state_factory)
-        else:
-          yield StateInfo(is_global=False, state_name=attr_name, attr_name=attr_name, state_factory=attr_type.state_factory)
-      elif isinstance(attr_value, StateFieldInfo):
-        yield StateInfo(is_global=False, attr_name=attr_name, state_name=attr_name, state_factory=attr_value.state_factory)
 
 CompressedState = dict[str, str | dict[str, str]]
 CompressedStateAdapter = TypeAdapter(CompressedState)
@@ -133,7 +56,7 @@ class JWTStateResolver(StateResolver):
     self.digest = { "HS256": hashlib.sha256, "HS384": hashlib.sha384, "HS512": hashlib.sha512 }[algorithm]
     self.max_age: timedelta = timedelta(days=1) if max_age is None else max_age
 
-  def create_token(self, data: dict[str, str], _: str | None) -> str:
+  def create_token(self, data: dict[str, str], old_token: str | None) -> str:
     payload = { "exp": int((datetime.now(tz=timezone.utc) + self.max_age).timestamp()), "data": compress_state(data) }
     stream = BytesIO()
     stream.write(JWTStateResolver.b64url_encode(json.dumps({
@@ -179,6 +102,12 @@ class JWTStateResolver(StateResolver):
     return decompress_state(compressed_state)
 
   @staticmethod
-  def b64url_encode(value: ByteString): return base64.urlsafe_b64encode(value).rstrip(b"=")
+  def b64url_encode(value: bytes | bytearray): return base64.urlsafe_b64encode(value).rstrip(b"=")
   @staticmethod
-  def b64url_decode(value: ByteString): return base64.urlsafe_b64decode(value + b"=" * (4 - len(value) % 4))
+  def b64url_decode(value: bytes | bytearray): return base64.urlsafe_b64decode(value + b"=" * (4 - len(value) % 4))
+
+def default_state_resolver():
+  jwt_secret = os.getenv("JWT_SECRET", None)
+  if jwt_secret is None: jwt_secret = secrets.token_bytes(64)
+  else: jwt_secret = jwt_secret.encode("utf-8")
+  return JWTStateResolver(jwt_secret)

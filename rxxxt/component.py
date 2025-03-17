@@ -1,16 +1,16 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
+import asyncio
 import base64
+import functools
 import inspect
 import json
-from typing import Annotated, Any, Awaitable, Callable, Generic, ParamSpec, TypeVar, get_args, get_origin
-import weakref
-from pydantic import BaseModel, Field, create_model
-from pydantic_core import PydanticUndefined
-
-from rxxxt.elements import CustomAttribute, Element, El
-from rxxxt.execution import Context
+from typing import Annotated, Any, Callable, Coroutine, Generic, ParamSpec, TypeVar, get_args, get_origin
+from pydantic import BaseModel, validate_call
+from typing_extensions import Awaitable
+from rxxxt.elements import CustomAttribute, Element, meta_element
+from rxxxt.execution import Context, InputEvent
 from rxxxt.helpers import to_awaitable
-from rxxxt.state import StateBase, get_state_infos_for_object_type
+from rxxxt.node import Node
 
 EHP = ParamSpec('EHP')
 EHR = TypeVar('EHR')
@@ -28,46 +28,26 @@ class ClassEventHandler(Generic[EHP, EHR]):
   def __call__(self, *args: EHP.args, **kwargs: EHP.kwargs) -> EHR: raise RuntimeError("The event handler can only be called when attached to an instance!")
 
 class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute):
-  _fn_spec_cache: weakref.WeakKeyDictionary[Callable, tuple[BaseModel, dict[int, str], dict[str, str]]] = weakref.WeakKeyDictionary()
-  _valid_types = (str, float, int, bool)
-
   def __init__(self, fn: Callable[EHP, EHR], options: EventHandlerOptions, instance: Any) -> None:
-    super().__init__(fn, options)
+    super().__init__(validate_call(fn), options)
     if not isinstance(instance, Component): raise ValueError("The provided instance must be a component!")
     self.instance = instance
 
-  def __call__(self, *args: EHP.args, **kwargs: EHP.kwargs) -> EHR:
-    model, arg_map, _ = self._get_function_specs()
-    params = {**kwargs}
-    for i, arg in enumerate(args):
-      i = i + 1
-      if i not in arg_map:
-        raise ValueError(f"Argument {i} is not allowed!")
-      params[arg_map[i]] = arg
+  def __call__(self, *args: EHP.args, **kwargs: EHP.kwargs) -> EHR: return self.fn(self.instance, *args, **kwargs)
 
-    new_kwargs = model.model_validate(params).model_dump()
-    return self.fn(self.instance, **new_kwargs)
-
-  def get_html_attribute_key_value(self, original_key: str):
+  def get_key_value(self, original_key: str):
     if not original_key.startswith("on"): raise ValueError("Event handler must be applied to an attribute starting with 'on'.")
     if self.instance.context is None: raise ValueError("The instance must have a context_id to create an event value.")
-    _, _, param_map = self._get_function_specs()
     v = base64.b64encode(json.dumps({
-      "context_id": self.instance.context.id,
+      "context_id": self.instance.context.sid,
       "handler_name": self.fn.__name__,
-      "param_map": param_map,
+      "param_map": self._get_param_map(),
       "options": self.options.model_dump(exclude_defaults=True)
     }).encode("utf-8")).decode("utf-8")
     return (f"rxxxt-on-{original_key[2:]}", v)
 
-  def _get_function_specs(self):
-    specs = InstanceEventHandler._fn_spec_cache.get(self.fn, None)
-    if specs is not None: return specs
-
-    fields: dict[str, tuple[type, Field]] = {}
-    args_map: dict[int, str] = {}
+  def _get_param_map(self):
     param_map: dict[str, str] = {}
-
     sig = inspect.signature(self.fn)
 
     for i, (name, param) in enumerate(sig.parameters.items()):
@@ -75,27 +55,20 @@ class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute
 
       if get_origin(param.annotation) is Annotated:
         args = get_args(param.annotation)
-        main_type = args[0]
         metadata = args[1:]
 
         if len(metadata) < 1:
           raise ValueError(f"Parameter '{name}' is missing the second annotation.")
 
-        field_default = PydanticUndefined if param.default is param.empty else param.default
-        fields[name] = (main_type, Field(description=metadata[0], default=field_default))
-        args_map[i] = name
         param_map[name] = metadata[0]
       else:
         raise TypeError(f"Parameter '{name}' must be of type Annotated.")
 
-    model: BaseModel = create_model(f"{self.fn.__name__}Model", **fields)
-    spec = model, args_map, param_map
-    InstanceEventHandler._fn_spec_cache[self.fn] = spec
-    return spec
+    return param_map
 
 def event_handler(**kwargs):
   options = EventHandlerOptions.model_validate(kwargs)
-  def _inner(fn): return ClassEventHandler(fn, options)
+  def _inner(fn) -> ClassEventHandler: return ClassEventHandler(fn, options)
   return _inner
 
 class HandleNavigate(CustomAttribute):
@@ -103,51 +76,86 @@ class HandleNavigate(CustomAttribute):
     super().__init__()
     self.location = location
 
-  def get_html_attribute_key_value(self, original_key: str) -> str:
+  def get_key_value(self, original_key: str) -> tuple[str, str]:
     return (original_key, f"window.rxxxt.navigate('{self.location}');")
 
-class Component(Element, ABC):
+class Component(Element):
   def __init__(self) -> None:
     super().__init__()
-    self.context: Context
+    self.context: Context | None = None
+    self.background_tasks: list[Coroutine] = []
 
   @abstractmethod
-  def render(self) -> Element: pass
-  def init(self) -> None | Awaitable[None]: pass
+  def render(self) -> Element | Awaitable[Element]: ...
 
-  async def to_html(self, context: Context) -> str:
-    self.context = context.sub_element(self)
+  def add_background_task(self, a: Coroutine): self.background_tasks.append(a)
+  def request_update(self):
+    if self.context is None: raise ValueError("Not configured!")
+    self.context.request_update()
 
-    # init
-    for state_info in get_state_infos_for_object_type(self.__class__):
-      self.__dict__[state_info.attr_name] = await self.context.get_state(state_info.state_name, state_info.state_factory, state_info.is_global)
-
-    await to_awaitable(self.init)
-
-    # events
-
-    for e in self.context.get_events():
-      handler = getattr(self, e.handler_name, None)
+  def lc_configure(self, context: Context): self.context = context
+  async def lc_init(self) -> None: return await self.on_init()
+  async def lc_before_destroyed(self) -> None: return await self.on_before_destroy()
+  async def lc_after_destroy(self) -> None: return await self.on_after_destroy()
+  async def lc_handle_event(self, event: dict[str, int | float | str | bool]):
+    handler_name = event.pop("$handler_name", None)
+    if isinstance(handler_name, str):
+      handler = getattr(self, handler_name, None)
       if isinstance(handler, InstanceEventHandler):
-        await to_awaitable(handler, **e.data)
-      else:
-        raise ValueError("Invalid event handler.")
+        await to_awaitable(handler, **event)
 
-    # render
+  async def on_init(self) -> None: ...
+  async def on_before_destroy(self) -> None: ...
+  async def on_after_destroy(self) -> None: ...
 
-    result = El["rxxxt-meta"](id=context.id, content=[self.render()])
+  def tonode(self, context: Context) -> 'Node': return ComponentNode(context, self)
 
-    # to text
+class ComponentNode(Node):
+  def __init__(self, context: Context, element: Component) -> None:
+    super().__init__(context, [])
+    self.element = element
+    self.background_tasks: list[asyncio.Task] = []
 
-    return await result.to_html(self.context)
+  async def expand(self):
+    if len(self.children) > 0:
+      raise ValueError("Can not expand already expanded element!")
 
-  def __getattribute__(self, name: str) -> Any:
-    if name != "__dict__":
-      _pstate = self.__dict__.get(name, None)
-      if isinstance(_pstate, StateBase): return _pstate.get_value()
-    return super().__getattribute__(name)
+    self.element.lc_configure(self.context)
+    await self.element.lc_init()
 
-  def __setattr__(self, name: str, value: Any) -> None:
-    _pstate = self.__dict__.get(name, None)
-    if isinstance(_pstate, StateBase): return _pstate.set_value(value)
-    return super().__setattr__(name, value)
+    if self.context.config.persistent:
+      for a in self.element.background_tasks:
+        self.background_tasks.append(asyncio.create_task(a))
+
+    await self._render_inner()
+
+  async def update(self):
+    for c in self.children: await c.destroy()
+    self.children.clear()
+    await self._render_inner()
+
+  async def handle_events(self, events: list[InputEvent]):
+    for e in events:
+      if self.context.sid == e.context_id:
+        await self.element.lc_handle_event(dict(e.data))
+    await super().handle_events(events)
+
+  async def destroy(self):
+    for c in self.children: await c.destroy()
+    self.children.clear()
+
+    await self.element.lc_before_destroyed()
+
+    for t in self.background_tasks: t.cancel()
+    try:
+      if len(self.background_tasks) > 0:
+        await asyncio.wait(self.background_tasks)
+    except asyncio.CancelledError: pass
+
+    await self.element.lc_after_destroy()
+    self.context.unregister()
+
+  async def _render_inner(self):
+    inner = await to_awaitable(self.element.render)
+    self.children.append(meta_element(self.context.sid, inner).tonode(self.context.sub("inner")))
+    await self.children[0].expand()

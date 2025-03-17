@@ -13,10 +13,6 @@ interface SetCookieOutputEvent {
     domain?: string
 }
 
-interface ForceRefreshOutputEvent {
-    event: "force-refresh"
-}
-
 interface NavigateOutputEvent {
     event: "navigate"
     location: string
@@ -29,7 +25,6 @@ interface UseWebsocketOutputEvent {
 
 interface ContextInputEvent {
     context_id: string;
-    handler_name: string;
     data: Record<string, number | string | boolean>;
 }
 
@@ -45,25 +40,24 @@ interface ContextInputEventDescription {
 }
 
 interface AppHttpPostResponse {
-    stateToken: string,
+    state_token: string,
     events: OutputEvent[]
     html_parts: string[]
 }
 
 interface AppWebsocketResponse {
-    stateToken?: string
+    state_token?: string
     events: OutputEvent[]
     html_parts: string[]
-    end: boolean
 }
 
 interface InitData {
-    stateToken: string,
+    state_token: string,
     events: OutputEvent[],
     path: string
 }
 
-type OutputEvent = SetCookieOutputEvent | ForceRefreshOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent;
+type OutputEvent = SetCookieOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent;
 type InputEventProducer = () => ContextInputEvent[];
 
 let baseUrl: URL | undefined;
@@ -75,7 +69,7 @@ let updateHandler: () => void;
 let updateSocket: WebSocket | undefined;
 const inputEventProducers: InputEventProducer[] = [];
 const trackedElements = new WeakMap<Node, TrackedElement>();
-const defaultTargetId = "rxxxt-root";
+const defaultTargetId = "root";
 const eventPrefix = "rxxxt-on-";
 
 const startUpdate = () => {
@@ -99,24 +93,23 @@ const produceInputEvents = () => {
 };
 
 const handleOutputEvents = (events: OutputEvent[]) => {
-    let refresh: boolean = false;
     for (const event of events) {
-        if (event.event === "force-refresh") {
-            refresh = true;
-        }
-        else if (event.event === "navigate") {
+        if (event.event === "navigate") {
             const targetUrl = new URL(event.location, location.href);
             if (baseUrl === undefined || baseUrl.origin !== targetUrl.origin || !targetUrl.pathname.startsWith(baseUrl.pathname)) {
                 location.assign(targetUrl);
             }
             else {
                 window.history.pushState({}, "", event.location);
-                refresh = true;
             }
         }
-        else if (event.event === "use-websocket" && event.websocket) {
-            upgradeToWebsocket();
-            refresh = true;
+        else if (event.event === "use-websocket") {
+          if (event.websocket) {
+              upgradeToWebsocket();
+          }
+          else {
+              updateSocket?.close()
+          }
         }
         else if (event.event === "set-cookie") {
             const parts: string[] = [`${event.name}=${event.value ?? ""}`];
@@ -141,10 +134,6 @@ const handleOutputEvents = (events: OutputEvent[]) => {
 
             document.cookie = parts.join(";");
         }
-    }
-
-    if (refresh) {
-        update();
     }
 };
 
@@ -202,7 +191,7 @@ const upgradeToWebsocket = () => {
         updateHandler = websocketUpdateHandler;
         updateSocket?.send(JSON.stringify({
             type: "init",
-            stateToken: stateToken,
+            state_token: stateToken,
             enableStateUpdates: enableStateUpdates
         }));
         finishUpdate();
@@ -216,13 +205,11 @@ const upgradeToWebsocket = () => {
         for (const part of response.html_parts) {
             applyHTML(part);
         }
-        if (response.stateToken) {
-            stateToken = response.stateToken;
+        if (response.state_token) {
+            stateToken = response.state_token;
         }
         handleOutputEvents(response.events);
-        if (response.end) {
-            finishUpdate();
-        }
+        finishUpdate();
     });
 };
 
@@ -238,7 +225,7 @@ const websocketUpdateHandler = async () => {
 const httpUpdateHandler = async () => {
     startUpdate();
     const body = JSON.stringify({
-        stateToken,
+        state_token: stateToken,
         events: produceInputEvents()
     });
 
@@ -254,7 +241,7 @@ const httpUpdateHandler = async () => {
     for (const part of response.html_parts) {
         applyHTML(part);
     }
-    stateToken = response.stateToken;
+    stateToken = response.state_token;
     handleOutputEvents(response.events);
     finishUpdate();
 };
@@ -302,7 +289,9 @@ class TrackedElementEvent {
         }
 
         const eventDesc: ContextInputEventDescription = JSON.parse(atob(eventDescB64));
-        const eventData: Record<string, number | boolean | string> = {};
+        const eventData: Record<string, number | boolean | string> = {
+          "$handler_name": eventDesc.handler_name,
+        };
 
         for (const outField of Object.keys(eventDesc.param_map)) {
             const eventField = eventDesc.param_map[outField];
@@ -312,7 +301,6 @@ class TrackedElementEvent {
         this.nextEvent = {
             context_id: eventDesc.context_id,
             data: eventData,
-            handler_name: eventDesc.handler_name
         };
 
         inputEventProducers.push(this.produceEvent.bind(this));
@@ -388,7 +376,7 @@ class TrackedElement {
         }
 
         window.addEventListener("popstate", update);
-        stateToken = data.stateToken;
+        stateToken = data.state_token;
         handleOutputEvents(data.events);
         applyHTML();
     }
