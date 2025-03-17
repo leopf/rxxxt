@@ -82,18 +82,29 @@ class Component(Element):
   def __init__(self) -> None:
     super().__init__()
     self.context: Context
-    self.background_tasks: list[Coroutine] = []
+    self._bg_tasks: list[asyncio.Task] = []
 
   @abstractmethod
   def render(self) -> Element | Awaitable[Element]: ...
 
-  def add_background_task(self, a: Coroutine): self.background_tasks.append(a)
+  def add_background_task(self, a: Coroutine):
+    if not self.context.config.persistent:
+      a.close()
+      return
+    self._bg_tasks.append(asyncio.create_task(a))
   def request_update(self): self.context.request_update()
 
-  def lc_configure(self, context: Context): self.context = context
-  async def lc_init(self) -> None: return await self.on_init()
-  async def lc_before_destroyed(self) -> None: return await self.on_before_destroy()
-  async def lc_after_destroy(self) -> None: return await self.on_after_destroy()
+  async def lc_init(self, context: Context) -> None:
+    self.context = context
+    await self.on_init()
+  async def lc_destroy(self) -> None:
+    await self.on_before_destroy()
+    if len(self._bg_tasks) > 0:
+      for t in self._bg_tasks: t.cancel()
+      try: await asyncio.wait(self._bg_tasks)
+      except asyncio.CancelledError: pass
+      self._bg_tasks.clear()
+    await self.on_after_destroy()
   async def lc_handle_event(self, event: dict[str, int | float | str | bool]):
     handler_name = event.pop("$handler_name", None)
     if isinstance(handler_name, str):
@@ -111,22 +122,12 @@ class ComponentNode(Node):
   def __init__(self, context: Context, element: Component) -> None:
     super().__init__(context, [])
     self.element = element
-    self.background_tasks: list[asyncio.Task] = []
 
   async def expand(self):
     if len(self.children) > 0:
       raise ValueError("Can not expand already expanded element!")
 
-    self.element.lc_configure(self.context)
-    await self.element.lc_init()
-
-    if self.context.config.persistent:
-      for a in self.element.background_tasks:
-        self.background_tasks.append(asyncio.create_task(a))
-      self.element.background_tasks.clear()
-    else:
-      for a in self.element.background_tasks: a.close()
-
+    await self.element.lc_init(self.context)
     await self._render_inner()
 
   async def update(self):
@@ -144,15 +145,7 @@ class ComponentNode(Node):
     for c in self.children: await c.destroy()
     self.children.clear()
 
-    await self.element.lc_before_destroyed()
-
-    for t in self.background_tasks: t.cancel()
-    try:
-      if len(self.background_tasks) > 0:
-        await asyncio.wait(self.background_tasks)
-    except asyncio.CancelledError: pass
-
-    await self.element.lc_after_destroy()
+    await self.element.lc_destroy()
     self.context.unregister()
 
   async def _render_inner(self):
