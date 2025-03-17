@@ -65,12 +65,15 @@ class App:
 
     with contextlib.suppress(ConnectionError):
       async with Session(self._get_session_config(True), self.content()) as session:
+        updating_lock = asyncio.Lock()
+
         async def updater():
           while context.connected:
             await session.wait_for_update()
-            await session.update()
-            data = await session.render_update(include_state_token=init_message.enable_state_updates, render_full=False)
-            await context.send_message(data.model_dump_json())
+            async with updating_lock:
+              await session.update()
+              data = await session.render_update(include_state_token=init_message.enable_state_updates, render_full=False)
+              await context.send_message(data.model_dump_json())
 
         await session.init(init_message.state_token)
 
@@ -81,9 +84,10 @@ class App:
         try:
           while True:
             message = await context.receive_message()
-            update_message = AppWebsocketUpdateMessage.model_validate_json(message)
-            session.set_location(update_message.location)
-            await session.handle_events(update_message.events)
+            async with updating_lock:
+              update_message = AppWebsocketUpdateMessage.model_validate_json(message)
+              session.set_location(update_message.location)
+              await session.handle_events(update_message.events)
         finally: updater_task.cancel()
 
   async def _http_session(self, context: HTTPContext):
