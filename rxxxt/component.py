@@ -170,5 +170,7 @@ class ComponentNode(Node):
 
   async def _render_inner(self):
     inner = await to_awaitable(self.element.render)
-    self.children.append(meta_element(self.context.sid, inner).tonode(self.context.sub("inner")))
+    if self.context.config.render_meta:
+      inner = meta_element(self.context.sid, inner)
+    self.children.append(inner.tonode(self.context.sub("inner")))
     await self.children[0].expand()

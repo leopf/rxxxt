@@ -128,6 +128,7 @@ class State:
 @dataclass(frozen=True)
 class ContextConfig:
   persistent: bool
+  render_meta: bool
 
 class Context:
   def __init__(self, state: State, config: ContextConfig, stack: ContextStack) -> None:

@@ -7,7 +7,7 @@ from rxxxt.execution import Context, ContextConfig, State
 
 async def render_element(el: Element):
   state = State(asyncio.Event())
-  context = Context(state, ContextConfig(persistent=False), ("root",))
+  context = Context(state, ContextConfig(persistent=False, render_meta=False), ("root",))
   node = el.tonode(context)
   await node.expand()
   io = StringIO()

@@ -25,15 +25,14 @@ class SessionConfig:
   page_facotry: PageFactory
   state_resolver: StateResolver
 
-  def get_context_config(self): return ContextConfig(persistent=self.persistent)
-
 class Session:
   def __init__(self, config: SessionConfig, base: Element) -> None:
     self._update_event = asyncio.Event()
     self.config = config
     self.state = State(self._update_event)
 
-    root_node = meta_element("root", base).tonode(Context(self.state, config.get_context_config(), ("root",)))
+    context_config = ContextConfig(persistent=config.persistent, render_meta=True)
+    root_node = meta_element("root", base).tonode(Context(self.state, context_config, ("root",)))
     self._root_renderer = Renderer(root_node)
     self._last_token: str | None = None
 
@@ -83,7 +82,7 @@ class Session:
     body_end_el = HTMLFragment([ El.script(content=[ UnescapedHTMLElement(f"window.rxxxt.init({init_data.model_dump_json()});") ]) ])
 
     page = self.config.page_facotry(header_el, content_el, body_end_el)
-    node = page.tonode(Context(self.state, ContextConfig(persistent=False), ("page",)))
+    node = page.tonode(Context(self.state, ContextConfig(persistent=False, render_meta=False), ("page",)))
     await node.expand()
     res = render_node(node)
     await node.destroy()
