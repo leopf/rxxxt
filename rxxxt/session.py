@@ -55,6 +55,7 @@ class Session:
 
   async def update(self):
     await self._root_renderer.update(self.state.pop_updates())
+    self.state.cleanup()
 
   async def handle_events(self, events: list[InputEvent]):
     await self._root_renderer.handle_events(events)
