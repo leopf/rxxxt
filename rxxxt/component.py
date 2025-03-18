@@ -82,29 +82,49 @@ class Component(Element):
   def __init__(self) -> None:
     super().__init__()
     self.context: Context
-    self._bg_tasks: list[asyncio.Task] = []
+    self._worker_tasks: list[asyncio.Task] = []
+    self._job_tasks: list[asyncio.Task] = []
 
   @abstractmethod
   def render(self) -> Element | Awaitable[Element]: ...
 
-  def add_background_task(self, a: Coroutine):
-    if not self.context.config.persistent:
-      a.close()
-      return
-    self._bg_tasks.append(asyncio.create_task(a))
+  def add_job(self, a: Coroutine):
+    """
+    Runs a background job until completion. Only runs when the session is persistent.
+    args:
+      a: Coroutine - the coroutine that should be run
+    """
+    if self.context.config.persistent:
+      self._worker_tasks.append(asyncio.create_task(a))
+    else: a.close()
+  def add_worker(self, a: Coroutine):
+    """
+    Runs a background worker, which may be cancelled at any time. Only runs when the session is persistent.
+    args:
+      a: Coroutine - the coroutine that should be run
+    """
+    if self.context.config.persistent:
+      self._worker_tasks.append(asyncio.create_task(a))
+    else: a.close()
   def request_update(self): self.context.request_update()
 
   async def lc_init(self, context: Context) -> None:
     self.context = context
     await self.on_init()
+
   async def lc_destroy(self) -> None:
     await self.on_before_destroy()
-    if len(self._bg_tasks) > 0:
-      for t in self._bg_tasks: t.cancel()
-      try: await asyncio.wait(self._bg_tasks)
+    if len(self._job_tasks) > 0:
+      try: await asyncio.wait(self._job_tasks)
       except asyncio.CancelledError: pass
-      self._bg_tasks.clear()
+      self._job_tasks.clear()
+    if len(self._worker_tasks) > 0:
+      for t in self._worker_tasks: t.cancel()
+      try: await asyncio.wait(self._worker_tasks)
+      except asyncio.CancelledError: pass
+      self._worker_tasks.clear()
     await self.on_after_destroy()
+
   async def lc_handle_event(self, event: dict[str, int | float | str | bool]):
     handler_name = event.pop("$handler_name", None)
     if isinstance(handler_name, str):

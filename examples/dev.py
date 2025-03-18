@@ -16,7 +16,7 @@ class Counter(Component):
     self.count += 1
 
   async def on_init(self) -> None:
-    self.add_background_task(self.auto_incrementer())
+    self.add_worker(self.auto_incrementer())
 
   async def auto_incrementer(self):
     while True:

@@ -2,7 +2,6 @@ from rxxxt import Component, local_state, App, event_handler, El, VEl, PageBuild
 from typing import Annotated
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI
-import asyncio
 import uvicorn
 import ollama
 import os
@@ -18,8 +17,11 @@ class Chat(Component):
     self.context.use_websocket()
 
   async def generate_response(self):
-    result = await asyncio.to_thread(ollama.chat, MODEL_NAME, self.messages, options=ollama.Options(num_predict=500))
-    self.messages += [result.message]
+    gen_opts = ollama.Options(num_predict=500)
+    response = await ollama.AsyncClient().chat(MODEL_NAME, self.messages[:-1], stream=True, options=gen_opts)
+    async for part in response:
+      new_content = (self.messages[-1].content or "") + (part.message.content or "")
+      self.messages = self.messages[:-1] + [ollama.Message(role="assistant", content=new_content)]
     self.generating = False
 
   @event_handler(prevent_default=True)
@@ -27,7 +29,8 @@ class Chat(Component):
     self.messages += [ ollama.Message(role="user", content=self.current_message) ]
     self.current_message = ""
     self.generating = True
-    self.add_background_task(self.generate_response())
+    self.messages += [ollama.Message(role="assistant", content="")]
+    self.add_job(self.generate_response())
 
   @event_handler(throttle=500, debounce=500)
   def on_message_input(self, text: Annotated[str, "target.value"]):
