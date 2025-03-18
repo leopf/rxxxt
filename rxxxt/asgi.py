@@ -4,46 +4,18 @@ from io import BytesIO
 import json
 import mimetypes
 import pathlib
-from typing import Any, Awaitable, Callable, Iterable, Literal, NotRequired, TypedDict
+from typing import Any, Awaitable, Callable, Iterable, MutableMapping
 
 BytesLike = bytes | bytearray
 ASGIHeaders = Iterable[tuple[BytesLike, BytesLike]]
 
-class ASGIScopeBase(TypedDict):
-  asgi: dict[Literal["version", "spec_version"], str]
-  state: NotRequired[dict[str,Any]]
-
-class LifespanScope(ASGIScopeBase):
-  type: Literal["lifespan"]
-
-class TransportScope(ASGIScopeBase):
-  http_version: str
-  path: str
-  raw_path: BytesLike | None
-  query_string: BytesLike | None
-  root_path: str
-  headers: ASGIHeaders
-  client: tuple[str, int]
-  server: tuple[str, int]
-
-class HTTPScope(TransportScope):
-  type: Literal["http"]
-  scheme: Literal["http", "https"]
-  method: str
-
-class WebsocketScope(TransportScope):
-  type: Literal["websocket"]
-  scheme: Literal["ws", "wss"]
-  subprotocols: Iterable[str]
-
-ASGIScope = HTTPScope | WebsocketScope | LifespanScope
-ASGIFnSend = Callable[[dict], Awaitable[Any]]
-ASGIFnReceive = Callable[[], Awaitable[dict]]
+ASGIScope = MutableMapping[str, Any]
+ASGIFnSend = Callable[[MutableMapping[str, Any]], Awaitable[Any]]
+ASGIFnReceive = Callable[[], Awaitable[MutableMapping[str, Any]]]
 ASGIHandler = Callable[[ASGIScope, ASGIFnReceive, ASGIFnSend], Awaitable[Any]]
 
-
 class TransportContext:
-  def __init__(self, scope: TransportScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
+  def __init__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
     self._scope = scope
     self._receive = receive
     self._send = send
@@ -55,7 +27,7 @@ class TransportContext:
   @property
   def fullpath(self): return (self._scope["raw_path"] or b"").decode("utf-8").split("?", 1)[0]
   @property
-  def scope(self) -> TransportScope: return { **self._scope }
+  def scope(self) -> ASGIScope: return { **self._scope }
   @functools.cached_property
   def headers(self):
     res: dict[str, list[str]] = {}
@@ -81,11 +53,11 @@ class TransportContext:
     return location
 
 class WebsocketContext(TransportContext):
-  def __init__(self, scope: WebsocketScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
+  def __init__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
     super().__init__(scope, receive, send)
     self._connected = False
     self._accepted = False
-    self._scope: WebsocketScope
+    self._scope: ASGIScope
 
   @property
   def connected(self): return self._connected
@@ -139,10 +111,10 @@ def content_headers(content_length: int, mime_type: str, charset: str | None = N
   ]
 
 class HTTPContext(TransportContext):
-  def __init__(self, scope: HTTPScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
+  def __init__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
     super().__init__(scope, receive, send)
     self._add_response_headers: list[tuple[BytesLike, BytesLike]] = []
-    self._scope: HTTPScope
+    self._scope: ASGIScope
 
   @property
   def method(self): return self._scope["method"]
