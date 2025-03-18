@@ -26,10 +26,12 @@ class Chat(Component):
 
   @event_handler(prevent_default=True)
   def on_message(self):
-    self.messages += [ ollama.Message(role="user", content=self.current_message) ]
+    self.messages += [
+      ollama.Message(role="user", content=self.current_message),
+      ollama.Message(role="assistant", content="")
+    ]
     self.current_message = ""
     self.generating = True
-    self.messages += [ollama.Message(role="assistant", content="")]
     self.add_job(self.generate_response())
 
   @event_handler(throttle=500, debounce=500)
