@@ -69,7 +69,7 @@ class ContextInputEvent(BaseModel):
 
 InputEvent = ContextInputEvent
 OutputEvent = SetCookieOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent
-HeaderTypeAdapter = TypeAdapter(dict[str, list[str]])
+HeaderValuesAdapter = TypeAdapter(list[str])
 
 class State:
   def __init__(self, update_event: asyncio.Event) -> None:
@@ -82,6 +82,9 @@ class State:
   @property
   def data(self): return dict(self._state)
 
+  @property
+  def keys(self): return list(self._state.keys())
+
   def get_state(self, context_id: ContextStack, key: str) -> str | None:
     self._state_subscribers.setdefault(key, set()).add(context_id)
     return self._state.get(key)
@@ -91,6 +94,11 @@ class State:
       for cid in self._state_subscribers.get(key, []): self.request_update(cid)
       if value is None: self._state.pop(key, None)
       else: self._state[key] = value
+
+  def cleanup(self):
+    used_keys = set(k for k, v in self._state_subscribers.items() if len(v) > 0)
+    keep_keys = set(k for k in self._state.keys() if not k.startswith("#")) | used_keys
+    self._state = { k: v for k, v in self._state.items() if k in keep_keys }
 
   def add_output_event(self, event: OutputEvent): self._output_events.append(event)
   def pop_output_events(self):
@@ -144,7 +152,7 @@ class Context:
 
   @property
   def location(self):
-    res = self._state.get_state(self._stack, "location")
+    res = self._state.get_state(self._stack, "#location")
     if res is None: raise ValueError("No location!")
     else: return res
 
@@ -158,11 +166,8 @@ class Context:
     else: return parts[1]
 
   @property
-  def headers(self): return HeaderTypeAdapter.validate_json(self.get_state("headers") or "")
-
-  @property
   def cookies(self) -> dict[str, str]:
-    values = self.headers.get("cookie", [])
+    values = self.get_header("cookie")
     if len(values) == 0: return {}
     result: dict[str, str] = {}
     for cookie in values[0].split(";"):
@@ -179,6 +184,10 @@ class Context:
 
   def set_state(self, key: str, value: str): self._state.set_state(key, value)
   def get_state(self, key: str): return self._state.get_state(self.id, key)
+  def get_header(self, name: str) -> list[str]:
+    header_json = self.get_state(f"#header;{name}")
+    if header_json is None: return []
+    else: return HeaderValuesAdapter.validate_json(header_json)
 
   def request_update(self): self._state.request_update(self._stack)
   def unregister(self): self._state.unregister(self._stack)

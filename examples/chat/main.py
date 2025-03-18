@@ -55,7 +55,7 @@ class Chat(Component):
     ])
 
 page_layout = PageBuilder()
-page_layout.add_header(VEl.link(rel="stylesheet", href="/assets/main.css"))
+page_layout.add_stylesheet("/assets/main.css")
 
 server = FastAPI()
 server.mount("/assets", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "assets")))

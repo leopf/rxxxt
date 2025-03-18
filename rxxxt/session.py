@@ -59,8 +59,13 @@ class Session:
   async def handle_events(self, events: list[InputEvent]):
     await self._root_renderer.handle_events(events)
 
-  def set_location(self, location: str): self.state.set_state("location", location)
-  def set_headers(self, headers: dict[str, list[str]]): self.state.set_state("headers", json.dumps(headers))
+  def set_location(self, location: str): self.state.set_state("#location", location)
+  def set_headers(self, headers: dict[str, list[str]]):
+    headers_kvs = { f"#header;{k}": json.dumps(v) for k, v in headers.items() }
+    olds_header_keys = set(k for k in self.state.keys if k.startswith("#header;"))
+    olds_header_keys.difference_update(headers_kvs.keys())
+    for k in olds_header_keys: self.state.set_state(k, None)
+    for k, v in headers_kvs.items(): self.state.set_state(k, v)
 
   async def render_update(self, include_state_token: bool, render_full: bool):
     state_token: str | None = None
@@ -84,5 +89,6 @@ class Session:
     return res
 
   async def _update_state_token(self):
+    self.state.cleanup()
     self._last_token = await to_awaitable(self.config.state_resolver.create_token, self.state.data, self._last_token)
     return self._last_token
