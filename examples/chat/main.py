@@ -51,7 +51,8 @@ class Chat(Component):
 
   def _render_user_input(self):
     return El.form(onsubmit=self.on_message, _class="user-input", content=[
-      VEl.input(oninput=self.on_message_input, value=self.current_message), El.button(disabled=self.generating, content=["submit"])
+      VEl.input(oninput=self.on_message_input, value=self.current_message),
+      El.button(disabled=self.generating, content=["submit"])
     ])
 
 page_layout = PageBuilder()
