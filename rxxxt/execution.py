@@ -72,6 +72,12 @@ OutputEvent = SetCookieOutputEvent | NavigateOutputEvent | UseWebsocketOutputEve
 HeaderValuesAdapter = TypeAdapter(list[str])
 
 class State:
+  """
+  State keys may have prefixes. These prefixes inidcate how and when and if a key should be removed from the state.
+  Prefixes:
+    "#" = temporary - removed from the user data and session state, if no longer used
+    "!" = protocol - removed from user state, if not used but not purged from the session
+  """
   def __init__(self, update_event: asyncio.Event) -> None:
     self._state: dict[str, str] = {}
     self._state_subscribers: dict[str, set[ContextStack]] = {}
@@ -80,7 +86,7 @@ class State:
     self._update_event = update_event
 
   @property
-  def data(self): return dict(self._state)
+  def user_data(self): return self._clean_state({ "#", "!" })
 
   @property
   def keys(self): return list(self._state.keys())
@@ -95,10 +101,7 @@ class State:
       if value is None: self._state.pop(key, None)
       else: self._state[key] = value
 
-  def cleanup(self):
-    used_keys = set(k for k, v in self._state_subscribers.items() if len(v) > 0)
-    keep_keys = set(k for k in self._state.keys() if not k.startswith("#")) | used_keys
-    self._state = { k: v for k, v in self._state.items() if k in keep_keys }
+  def cleanup(self): self._state = self._clean_state({ "#" })
 
   def add_output_event(self, event: OutputEvent): self._output_events.append(event)
   def pop_output_events(self):
@@ -120,6 +123,11 @@ class State:
 
     for subs in self._state_subscribers.values():
       if cid in subs: subs.remove(cid)
+
+  def _clean_state(self, prefixes: set[str]):
+    used_keys = set(k for k, v in self._state_subscribers.items() if len(v) > 0)
+    keep_keys = set(k for k in self._state.keys() if len(k) == 0 or k[0] not in prefixes) | used_keys
+    return { k: v for k, v in self._state.items() if k in keep_keys }
 
   def _set_update_event(self):
     if len(self._pending_updates) > 0: self._update_event.set()
@@ -153,7 +161,7 @@ class Context:
 
   @property
   def location(self):
-    res = self._state.get_state(self._stack, "#location")
+    res = self._state.get_state(self._stack, "!location")
     if res is None: raise ValueError("No location!")
     else: return res
 
@@ -186,7 +194,7 @@ class Context:
   def set_state(self, key: str, value: str): self._state.set_state(key, value)
   def get_state(self, key: str): return self._state.get_state(self.id, key)
   def get_header(self, name: str) -> list[str]:
-    header_json = self.get_state(f"#header;{name}")
+    header_json = self.get_state(f"!header;{name}")
     if header_json is None: return []
     else: return HeaderValuesAdapter.validate_json(header_json)
 
@@ -194,7 +202,7 @@ class Context:
   def unregister(self): self._state.unregister(self._stack)
 
   def navigate(self, location: str):
-    self.set_state("location", location)
+    self.set_state("!location", location)
     self._state.add_output_event(NavigateOutputEvent(location=location))
   def use_websocket(self, websocket: bool = True): self._state.add_output_event(UseWebsocketOutputEvent(websocket=websocket))
   def set_cookie(self, name: str, value: str, expires: datetime | None = None, path: str | None = None,
