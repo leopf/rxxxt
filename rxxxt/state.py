@@ -55,7 +55,7 @@ class StateDescriptor(Generic[T]):
 def local_state(default_factory: Callable[[], T], name: str | None = None):
   return StateDescriptor(False, default_factory, state_name=name)
 
-def gloabl_state(default_factory: Callable[[], T], name: str | None = None):
+def global_state(default_factory: Callable[[], T], name: str | None = None):
   return StateDescriptor(True, default_factory, state_name=name)
 
 CompressedState = dict[str, str | dict[str, str]]

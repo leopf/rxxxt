@@ -1,0 +1,37 @@
+site_name: rxxxt
+site_url: https://github.com/leopf/rxxxt
+repo_url: https://github.com/leopf/rxxxt
+theme:
+  name: material
+  logo: null
+  favicon: null
+  palette:
+    scheme: slate
+    primary: black
+    accent: lime
+nav:
+  - Home: index.md
+  - api.md
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tilde
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_options:
+              ignore_init_summary: true
+            heading_level: 3
+            merge_init_into_class: true
+            separate_signature: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_source: true
+            summary: true
