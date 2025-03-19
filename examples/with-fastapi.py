@@ -19,6 +19,6 @@ def get_css(): return Response("body { margin: 0; font-family: sans-serif; }", m
 page_builder = PageBuilder()
 page_builder.add_header(VEl.link(rel="stylesheet", href="/main.css"))
 
-app = App(Counter, page_layout=page_builder)
+app = App(Counter, page_factory=page_builder)
 server.mount("/", app)
 uvicorn.run(server)

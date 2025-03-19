@@ -3,10 +3,17 @@ import griffe
 
 shutil.copyfile("README.md", "docs/index.md")
 
-imports = list(griffe.load("rxxxt/__init__.py").imports.items())
-imports.sort(key=lambda i: i[0].lower())
+imports = list(griffe.load("rxxxt/__init__.py").imports.values())
+imports.extend([
+  "rxxxt.state.StateResolver",
+  "rxxxt.state.JWTStateResolver",
+  "rxxxt.state.default_state_resolver",
+  "rxxxt.component.EventHandlerOptions"
+])
+
+imports.sort(key=lambda n: n.lower())
 
 with open("docs/api.md", "w") as fd:
   fd.write("# API\n")
-  for _, import_name in imports:
+  for import_name in imports:
     fd.write(f"::: {import_name}\n")

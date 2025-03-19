@@ -34,9 +34,9 @@ class AppWebsocketUpdateMessage(BaseModel):
     return parts[1] if len(parts) > 1 else None
 
 class App:
-  def __init__(self, content: ElementFactory, state_resolver: StateResolver | None = None, page_layout: PageFactory = default_page) -> None:
+  def __init__(self, content: ElementFactory, state_resolver: StateResolver | None = None, page_factory: PageFactory = default_page) -> None:
     self.content = content
-    self.page_layout: PageFactory = page_layout
+    self.page_factory: PageFactory = page_factory
     self.state_resolver = state_resolver or default_state_resolver()
 
   async def __call__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> Any:
@@ -123,4 +123,4 @@ class App:
     else: await context.respond_text("not found", 404)
 
   def _get_session_config(self, persistent: bool):
-    return SessionConfig(page_facotry=self.page_layout, state_resolver=self.state_resolver, persistent=persistent)
+    return SessionConfig(page_facotry=self.page_factory, state_resolver=self.state_resolver, persistent=persistent)

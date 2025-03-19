@@ -55,10 +55,10 @@ class Chat(Component):
       El.button(disabled=self.generating, content=["submit"])
     ])
 
-page_layout = PageBuilder()
-page_layout.add_stylesheet("/assets/main.css")
+page_factory = PageBuilder()
+page_factory.add_stylesheet("/assets/main.css")
 
 server = FastAPI()
 server.mount("/assets", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "assets")))
-server.mount("/", App(Chat, page_layout=page_layout))
+server.mount("/", App(Chat, page_factory=page_factory))
 uvicorn.run(server)

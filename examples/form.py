@@ -29,5 +29,5 @@ router = Router()
 router.add_route("/", Form)
 router.add_route("/hello", lambda: El.h1(content=[ "Welcome!" ]))
 
-app = App(router, page_layout=page_builder)
+app = App(router, page_factory=page_builder)
 uvicorn.run(app)

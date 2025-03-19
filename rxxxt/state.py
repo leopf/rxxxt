@@ -154,7 +154,12 @@ class JWTStateResolver(StateResolver):
   @staticmethod
   def b64url_decode(value: bytes | bytearray): return base64.urlsafe_b64decode(value + b"=" * (4 - len(value) % 4))
 
-def default_state_resolver():
+def default_state_resolver() -> JWTStateResolver:
+  """
+  Creates a JWTStateResolver.
+  Uses the environment variable `JWT_SECRET` as its secret, if set, otherwise creates a new random, temporary secret.
+  """
+
   jwt_secret = os.getenv("JWT_SECRET", None)
   if jwt_secret is None: jwt_secret = secrets.token_bytes(64)
   else: jwt_secret = jwt_secret.encode("utf-8")
