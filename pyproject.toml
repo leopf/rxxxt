@@ -16,7 +16,7 @@ dev = ["ruff", "uvicorn"]
 docs = ["mkdocs", "mkdocstrings[python]", "mkdocs-material"]
 
 [project.urls]
-Homepage = "https://github.com/leopf/rxxxt"
+Homepage = "https://leopf.github.io/rxxxt/"
 Repository = "https://github.com/leopf/rxxxt"
 
 [tool.setuptools.packages.find]
