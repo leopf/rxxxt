@@ -79,7 +79,7 @@ class Session:
 
     content_el = UnescapedHTMLElement(self._root_renderer.render_full())
     header_el = HTMLFragment([ El.script(src="/rxxxt-client.js"), El.style(content=["rxxxt-meta { display: contents; }"]) ])
-    body_end_el = HTMLFragment([ El.script(content=[ UnescapedHTMLElement(f"window.rxxxt.init({init_data.model_dump_json()});") ]) ])
+    body_end_el = HTMLFragment([ El.script(content=[ UnescapedHTMLElement(f"window.rxxxt.init({init_data.model_dump_json(exclude_defaults=True)});") ]) ])
 
     page = self.config.page_facotry(header_el, content_el, body_end_el)
     node = page.tonode(Context(self.state, ContextConfig(persistent=False, render_meta=False), ("page",)))

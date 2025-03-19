@@ -5,13 +5,20 @@ from functools import cached_property
 import hashlib
 import re
 from typing import Literal
-
-from pydantic import BaseModel, TypeAdapter, field_serializer, field_validator
+from pydantic import BaseModel, TypeAdapter, field_serializer, field_validator, model_serializer
 
 ContextStackKey = str | int
 ContextStack = tuple[ContextStackKey, ...]
 
-class SetCookieOutputEvent(BaseModel):
+class EventBase(BaseModel):
+  @model_serializer(mode="wrap")
+  def serialize_model(self, old_serizalizer):
+    other = old_serizalizer(self)
+    event_name = getattr(self, "event", None)
+    if event_name is not None: other["event"] = event_name
+    return other
+
+class SetCookieOutputEvent(EventBase):
   event: Literal["set-cookie"] = "set-cookie"
   name: str
   value: str | None = None
@@ -55,13 +62,13 @@ class SetCookieOutputEvent(BaseModel):
     if self.http_only: parts.append("httponly")
     return ";".join(parts)
 
-class UseWebsocketOutputEvent(BaseModel):
+class UseWebsocketOutputEvent(EventBase):
   event: Literal["use-websocket"] = "use-websocket"
   websocket: bool
 
-class NavigateOutputEvent(BaseModel):
-  location: str
+class NavigateOutputEvent(EventBase):
   event: Literal["navigate"] = "navigate"
+  location: str
 
 class ContextInputEvent(BaseModel):
   context_id: str

@@ -73,7 +73,7 @@ class App:
             async with updating_lock:
               await session.update()
               data = await session.render_update(include_state_token=init_message.enable_state_updates, render_full=False)
-              await context.send_message(data.model_dump_json())
+              await context.send_message(data.model_dump_json(exclude_defaults=True))
 
         await session.init(init_message.state_token)
 
@@ -110,7 +110,7 @@ class App:
 
       if context.method == "POST":
         result = await session.render_update(include_state_token=True, render_full=False)
-        await context.respond_text(result.model_dump_json(), mime_type="application/json")
+        await context.respond_text(result.model_dump_json(exclude_defaults=True), mime_type="application/json")
       else:
         result = await session.render_page()
         await context.respond_text(result, mime_type="text/html")
