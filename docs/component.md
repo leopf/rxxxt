@@ -71,3 +71,31 @@ Events:
 - `on_init` - when the component is initialized
 - `on_before_destroy` - before all background tasks are destroyed
 - `on_after_destroy` - after all background tasks are destroyed
+
+## Context
+A lot of functionallity that is available to components lives inside the components [`Context`](./api.md#rxxxt.execution.Context).
+
+#### use websocket, request updates
+- `use_websocket`
+- `request_update`
+
+#### access headers, path, query_string, navigate, set/get cookies
+properties:
+
+- `cookies`
+- `location`
+- `path`
+- `query_string`
+
+methods:
+
+- `get_header`
+- `set_cookie`
+- `delete_cookie`
+- `navidate`
+
+#### add/remove events to the window or elements selected by a query selector
+- `add_query_selector_event`
+- `add_window_event`
+- `remove_query_selector_event`
+- `remove_window_event`
