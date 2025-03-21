@@ -12,7 +12,7 @@ license = { file = "LICENSE" }
 dependencies = ["pydantic>=2.9.0"]
 
 [project.optional-dependencies]
-dev = ["ruff", "uvicorn"]
+dev = ["ruff", "uvicorn[standard]"]
 docs = ["mkdocs", "mkdocstrings[python]", "mkdocs-material"]
 
 [project.urls]
