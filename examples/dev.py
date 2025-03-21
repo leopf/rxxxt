@@ -1,4 +1,5 @@
 import asyncio
+from typing import Annotated
 import uvicorn
 from rxxxt import Component, event_handler, El, Element, App, Router
 import logging
@@ -29,10 +30,15 @@ class Counter(Component):
 class Outer(Component):
 
   async def on_init(self) -> None:
+    self.context.on_window_event("resize", self.window_resize_logger)
     if not self.context.config.persistent: self.context.use_websocket()
 
   @event_handler()
   def nav2_hdl(self): self.context.navigate("/?nav2")
+
+  @event_handler(throttle=500)
+  def window_resize_logger(self, width: Annotated[float, "target.innerWidth"]):
+    print("inner width is:", width)
 
   def render(self) -> Element:
     return El.div(content=[

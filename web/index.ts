@@ -1,76 +1,37 @@
 import morphdom from "morphdom";
-import objectPath from "object-path";
-
-interface SetCookieOutputEvent {
-    event: "set-cookie"
-    name: string
-    value?: string
-    expires?: string
-    path?: string
-    max_age?: number
-    secure?: boolean
-    http_only?: boolean
-    domain?: string
-}
-
-interface NavigateOutputEvent {
-    event: "navigate"
-    location: string
-}
-
-interface UseWebsocketOutputEvent {
-    event: "use-websocket"
-    websocket: boolean
-}
-
-interface ContextInputEvent {
-    context_id: string;
-    data: Record<string, number | string | boolean>;
-}
-
-interface ContextInputEventDescription {
-    context_id: string;
-    handler_name: string;
-    param_map: Record<string, string>,
-    options: {
-        throttle?: number,
-        debounce?: number,
-        prevent_default?: boolean
-    }
-}
-
-interface AppHttpPostResponse {
-    state_token: string,
-    events: OutputEvent[]
-    html_parts: string[]
-}
-
-interface AppWebsocketResponse {
-    state_token?: string
-    events: OutputEvent[]
-    html_parts: string[]
-}
-
-interface InitData {
-    state_token: string,
-    events: OutputEvent[],
-    path: string
-}
-
-type OutputEvent = SetCookieOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent;
-type InputEventProducer = () => ContextInputEvent[];
+import {
+    InputEventProducer,
+    ContextInputEvent,
+    OutputEvent,
+    AppWebsocketResponse,
+    AppHttpPostResponse,
+    ContextInputEventDescriptor,
+    InitData,
+} from "./types";
+import {
+    ContextEventHandler,
+    ElementEventManager,
+    GlobalEventManager,
+} from "./input-event";
 
 let baseUrl: URL | undefined;
 let stateToken: string = "";
 let enableStateUpdates: boolean = false;
-let updateScheduled: boolean = false;
-let updatesRunning: number = 0;
 let updateHandler: () => void;
 let updateSocket: WebSocket | undefined;
-const inputEventProducers: InputEventProducer[] = [];
-const trackedElements = new WeakMap<Node, TrackedElement>();
 const defaultTargetId = "root";
-const eventPrefix = "rxxxt-on-";
+
+const pendingContextEvents = new Set<ContextEventHandler>();
+let updateScheduled: boolean = false;
+let updatesRunning: number = 0;
+
+const onPendingContextEvent = (e: ContextEventHandler) => {
+    pendingContextEvents.add(e);
+    update();
+};
+
+const elementEventManager = new ElementEventManager(onPendingContextEvent);
+const globalEventManager = new GlobalEventManager(onPendingContextEvent);
 
 const startUpdate = () => {
     updatesRunning++;
@@ -83,12 +44,15 @@ const finishUpdate = () => {
     }
 };
 
-const produceInputEvents = () => {
+const popInputEvents = () => {
     const events: ContextInputEvent[] = [];
-    let producer: InputEventProducer | undefined;
-    while (producer = inputEventProducers.shift()) {
-        events.push(...producer());
+    for (const pending of pendingContextEvents) {
+        const event = pending.popEvent();
+        if (event !== undefined) {
+            events.push(event);
+        }
     }
+    pendingContextEvents.clear();
     return events;
 };
 
@@ -96,28 +60,28 @@ const handleOutputEvents = (events: OutputEvent[]) => {
     for (const event of events) {
         if (event.event === "navigate") {
             const targetUrl = new URL(event.location, location.href);
-            if (baseUrl === undefined || baseUrl.origin !== targetUrl.origin || !targetUrl.pathname.startsWith(baseUrl.pathname)) {
+            if (
+                baseUrl === undefined ||
+                baseUrl.origin !== targetUrl.origin ||
+                !targetUrl.pathname.startsWith(baseUrl.pathname)
+            ) {
                 location.assign(targetUrl);
-            }
-            else {
+            } else {
                 window.history.pushState({}, "", event.location);
             }
-        }
-        else if (event.event === "use-websocket") {
-          if (event.websocket) {
-              upgradeToWebsocket();
-          }
-          else {
-              updateSocket?.close()
-          }
-        }
-        else if (event.event === "set-cookie") {
+        } else if (event.event === "use-websocket") {
+            if (event.websocket) {
+                upgradeToWebsocket();
+            } else {
+                updateSocket?.close();
+            }
+        } else if (event.event === "set-cookie") {
             const parts: string[] = [`${event.name}=${event.value ?? ""}`];
             if (typeof event.path === "string") {
                 parts.push(`path=${event.path}`);
             }
             if (typeof event.expires === "string") {
-                parts.push(`expires=${(new Date(event.expires)).toUTCString()}`);
+                parts.push(`expires=${new Date(event.expires).toUTCString()}`);
             }
             if (typeof event.max_age === "number") {
                 parts.push(`max-age=${event.max_age}`);
@@ -133,6 +97,25 @@ const handleOutputEvents = (events: OutputEvent[]) => {
             }
 
             document.cookie = parts.join(";");
+        } else if (event.event === "event-register-window") {
+            globalEventManager.registerEvent(
+                window,
+                event.name,
+                event.descriptor,
+            );
+        } else if (event.event === "event-register-query-selector") {
+            const elements: EventTarget[] = [];
+            if (event.all) {
+                elements.push(...document.querySelectorAll(event.selector));
+            } else {
+                const element = document.querySelector(event.selector);
+                if (element !== null) {
+                    elements.push(element);
+                }
+            }
+            for (const element of elements) {
+                globalEventManager.registerEvent(element, event.name, event.descriptor);
+            }
         }
     }
 };
@@ -146,13 +129,15 @@ const applyHTML = (html?: string) => {
             throw new Error("Update target not found!");
         }
         target = ttarget;
-    }
-    else {
+    } else {
         const temp = document.createElement("div");
         temp.innerHTML = html;
 
         const updateRoot = temp.children.item(0);
-        if (updateRoot === null || updateRoot.tagName !== "rxxxt-meta".toUpperCase()) {
+        if (
+            updateRoot === null ||
+            updateRoot.tagName !== "rxxxt-meta".toUpperCase()
+        ) {
             throw new Error("Invalid update root!");
         }
 
@@ -165,14 +150,7 @@ const applyHTML = (html?: string) => {
         morphdom(target, updateRoot);
     }
 
-    for (const element of target.getElementsByTagName("*")) {
-        let trackedElement = trackedElements.get(element);
-        if (trackedElement === undefined) {
-            trackedElement = new TrackedElement();
-            trackedElements.set(element, trackedElement);
-        }
-        trackedElement.track(element);
-    }
+    elementEventManager.apply(target);
 };
 
 const upgradeToWebsocket = () => {
@@ -189,11 +167,13 @@ const upgradeToWebsocket = () => {
     });
     updateSocket.addEventListener("open", () => {
         updateHandler = websocketUpdateHandler;
-        updateSocket?.send(JSON.stringify({
-            type: "init",
-            state_token: stateToken,
-            enable_state_updates: enableStateUpdates
-        }));
+        updateSocket?.send(
+            JSON.stringify({
+                type: "init",
+                state_token: stateToken,
+                enable_state_updates: enableStateUpdates,
+            }),
+        );
         finishUpdate();
     });
     updateSocket.addEventListener("message", (e) => {
@@ -215,28 +195,30 @@ const upgradeToWebsocket = () => {
 
 const websocketUpdateHandler = async () => {
     startUpdate();
-    updateSocket?.send(JSON.stringify({
-        type: "update",
-        events: produceInputEvents(),
-        location: location.href.substring(location.origin.length)
-    }));
+    updateSocket?.send(
+        JSON.stringify({
+            type: "update",
+            events: popInputEvents(),
+            location: location.href.substring(location.origin.length),
+        }),
+    );
 };
 
 const httpUpdateHandler = async () => {
     startUpdate();
     const body = JSON.stringify({
         state_token: stateToken,
-        events: produceInputEvents()
+        events: popInputEvents(),
     });
 
     const response: AppHttpPostResponse = await fetch(location.href, {
         method: "POST",
         body: body,
         headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         },
         credentials: "include",
-    }).then(res => res.json());
+    }).then((res) => res.json());
 
     for (const part of response.html_parts) {
         applyHTML(part);
@@ -258,129 +240,27 @@ const update = () => {
     }
 };
 
-class TrackedElementEvent {
-    private lastCall?: number;
-    private timeoutHandle?: number;
-    private nextEvent?: ContextInputEvent;
-    public handler = (e: Event) => this.handle(e);
-
-    public produceEvent(): ContextInputEvent[] {
-        if (this.timeoutHandle) {
-            clearTimeout(this.timeoutHandle);
-        }
-        const result: ContextInputEvent[] = [];
-        if (this.nextEvent) {
-            this.lastCall = (new Date()).getTime();
-            result.push(this.nextEvent);
-            this.nextEvent = undefined;
-        }
-        return result;
-    }
-
-    private handle(e: Event) {
-        if (e.target === null || !(e.target instanceof Element)) {
-            return;
-        }
-        const targetAttribute = eventPrefix + e.type;
-        const eventDescB64 = e.target.getAttribute(targetAttribute);
-
-        if (eventDescB64 === null) {
-            return;
-        }
-
-        const eventDesc: ContextInputEventDescription = JSON.parse(atob(eventDescB64));
-        const eventData: Record<string, number | boolean | string> = {
-          "$handler_name": eventDesc.handler_name,
-        };
-
-        for (const outField of Object.keys(eventDesc.param_map)) {
-            const eventField = eventDesc.param_map[outField];
-            eventData[outField] = objectPath.withInheritedProps.get(e, eventField);
-        }
-
-        this.nextEvent = {
-            context_id: eventDesc.context_id,
-            data: eventData,
-        };
-
-        inputEventProducers.push(this.produceEvent.bind(this));
-
-        if (this.timeoutHandle) {
-            clearTimeout(this.timeoutHandle);
-            this.timeoutHandle = undefined;
-        }
-
-        if (eventDesc.options.prevent_default) {
-            e.preventDefault();
-        }
-
-        const waitTimes: number[] = [];
-        if (eventDesc.options.debounce) {
-            waitTimes.push(eventDesc.options.debounce);
-        }
-        if (eventDesc.options.throttle && this.lastCall) {
-            const currTime = (new Date()).getTime();
-            waitTimes.push(eventDesc.options.throttle + this.lastCall - currTime);
-        }
-        const waitTime = Math.max(0, ...waitTimes);
-
-        if (waitTime === 0) {
-            update();
-        }
-        else {
-            this.timeoutHandle = setTimeout(update, waitTime);
-        }
-    }
-}
-
-class TrackedElement {
-    private eventMap = new Map<string, TrackedElementEvent>();
-
-    public track(element: Element) {
-        const pendingEvents = new Set<string>();
-        for (const attributeName of element.getAttributeNames()) {
-            if (attributeName.startsWith(eventPrefix)) {
-                const eventName = attributeName.substring(eventPrefix.length);
-                pendingEvents.add(eventName);
-            }
-        }
-
-        for (const entry of this.eventMap.entries()) {
-            const eventName = entry[0];
-            const event = entry[1];
-            if (!pendingEvents.has(eventName)) {
-                element.removeEventListener(eventName, event.handler);
-                this.eventMap.delete(eventName);
-            }
-        }
-
-        for (const eventName of pendingEvents) {
-            if (!this.eventMap.has(eventName)) {
-                const event = new TrackedElementEvent();
-                this.eventMap.set(eventName, event);
-                element.addEventListener(eventName, event.handler);
-            }
-        }
-    }
-}
-
 (window as any).rxxxt = {
     navigate: (url: string | URL) => {
-        handleOutputEvents([{ event: "navigate", location: (new URL(url, location.href)).href }]);
+        handleOutputEvents([
+            { event: "navigate", location: new URL(url, location.href).href },
+        ]);
         update();
     },
     init: (data: InitData) => {
         baseUrl = new URL(location.href);
         if (baseUrl.pathname.endsWith(data.path)) {
-            baseUrl.pathname = baseUrl.pathname.slice(0, baseUrl.pathname.length - data.path.length)
-        }
-        else {
-            console.warn("Invalid base url!")
+            baseUrl.pathname = baseUrl.pathname.slice(
+                0,
+                baseUrl.pathname.length - data.path.length,
+            );
+        } else {
+            console.warn("Invalid base url!");
         }
 
         window.addEventListener("popstate", update);
         stateToken = data.state_token;
         handleOutputEvents(data.events);
         applyHTML();
-    }
-}
+    },
+};
