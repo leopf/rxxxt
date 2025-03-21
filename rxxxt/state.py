@@ -15,6 +15,8 @@ from rxxxt.component import Component
 
 T = TypeVar("T")
 
+StateDataAdapter = TypeAdapter(dict[str, str])
+
 class StateDescriptor(Generic[T]):
   _native_types = { bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple }
 
@@ -58,36 +60,6 @@ def local_state(default_factory: Callable[[], T], name: str | None = None):
 def global_state(default_factory: Callable[[], T], name: str | None = None):
   return StateDescriptor(True, default_factory, state_name=name)
 
-CompressedState = dict[str, str | dict[str, str]]
-CompressedStateAdapter = TypeAdapter(CompressedState)
-
-def compress_state(state: dict[str, str]) -> CompressedState:
-  prefixed_state: dict[str, dict[str, str]] = {}
-  for k, v in state.items():
-    sep_idx = k.rfind("!") + 1
-    k1 = k[:sep_idx]
-    k2 = k[sep_idx:]
-    if k1 not in prefixed_state: prefixed_state[k1] = {}
-    prefixed_state[k1][k2] = v
-
-  compressed_state: CompressedState = {}
-  for prefix, substate in prefixed_state.items():
-    if len(substate) == 1:
-      for suffix, value in substate.items():
-        compressed_state[prefix + suffix] = value
-    else:
-      compressed_state[prefix] = substate
-  return compressed_state
-
-def decompress_state(compressed_state: CompressedState):
-  state: dict[str, str] = {}
-  for prefix, substate in compressed_state.items():
-    if isinstance(substate, str): state[prefix] = substate
-    else:
-      for suffix, value in substate.items():
-        state[prefix + suffix] = value
-  return state
-
 class StateResolverError(BaseException): pass
 
 class StateResolver(ABC):
@@ -105,7 +77,7 @@ class JWTStateResolver(StateResolver):
     self.max_age: timedelta = timedelta(days=1) if max_age is None else max_age
 
   def create_token(self, data: dict[str, str], old_token: str | None) -> str:
-    payload = { "exp": int((datetime.now(tz=timezone.utc) + self.max_age).timestamp()), "data": compress_state(data) }
+    payload = { "exp": int((datetime.now(tz=timezone.utc) + self.max_age).timestamp()), "data": data }
     stream = BytesIO()
     stream.write(JWTStateResolver.b64url_encode(json.dumps({
       "typ": "JWT",
@@ -145,9 +117,9 @@ class JWTStateResolver(StateResolver):
     if expires_dt < datetime.now(tz=timezone.utc):
       raise StateResolverError("JWT expired!")
 
-    try: compressed_state = CompressedStateAdapter.validate_python(payload["data"])
+    try: state_data = StateDataAdapter.validate_python(payload["data"])
     except ValidationError as e: raise StateResolverError(e)
-    return decompress_state(compressed_state)
+    return state_data
 
   @staticmethod
   def b64url_encode(value: bytes | bytearray): return base64.urlsafe_b64encode(value).rstrip(b"=")
