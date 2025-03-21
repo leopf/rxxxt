@@ -27,8 +27,10 @@ class PageBuilder(PageFactory):
     self._page_factory = page_factory
 
   def add_stylesheet(self, url: str, **kwargs: str): self.add_header(VEl.link(rel="stylesheet", href=url, **kwargs))
-  def add_header_script(self, url: str, **kwargs: str): self.add_header(VEl.script(src=url, **kwargs))
-  def add_body_script(self, url: str, **kwargs: str): self.add_body_end(VEl.script(src=url, **kwargs))
+  def add_header_script(self, url: str, content: list[Element | str] = [], **kwargs: str):
+    self.add_header(El.script(src=url, content=content, **kwargs))
+  def add_body_script(self, url: str, content: list[Element | str] = [], **kwargs: str):
+    self.add_body_end(El.script(src=url, content=content, **kwargs))
 
   def add_header(self, el: Element): self._header_elements.append(el)
   def add_body_end(self, el: Element): self._body_end_elements.append(el)
