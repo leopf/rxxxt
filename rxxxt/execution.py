@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime
@@ -11,6 +12,22 @@ from pydantic import BaseModel, TypeAdapter, field_serializer, field_validator, 
 ContextStackKey = str | int
 ContextStack = tuple[ContextStackKey, ...]
 
+class ContextInputEventHandlerOptions(BaseModel):
+  debounce: int | None = None
+  throttle: int | None = None
+  prevent_default: bool = False
+
+class ContextInputEventDescriptor(BaseModel):
+  context_id: str
+  handler_name: str
+  param_map: dict[str, str]
+  options: ContextInputEventHandlerOptions
+
+class ContextInputEventDescriptorGenerator(ABC): # NOTE: this is a typing hack
+  @property
+  @abstractmethod
+  def descriptor(self) -> ContextInputEventDescriptor: pass
+
 class EventBase(BaseModel):
   @model_serializer(mode="wrap")
   def serialize_model(self, old_serizalizer):
@@ -18,6 +35,18 @@ class EventBase(BaseModel):
     event_name = getattr(self, "event", None)
     if event_name is not None: other["event"] = event_name
     return other
+
+class EventRegisterWindowEvent(EventBase):
+  event: Literal["event-register-window"] = "event-register-window"
+  name: str
+  descriptor: ContextInputEventDescriptor
+
+class EventRegisterQuerySelectorEvent(EventBase):
+  event: Literal["event-register-query-selector"] = "event-register-query-selector"
+  name: str
+  selector: str
+  all: bool
+  descriptor: ContextInputEventDescriptor
 
 class SetCookieOutputEvent(EventBase):
   event: Literal["set-cookie"] = "set-cookie"
@@ -76,7 +105,7 @@ class ContextInputEvent(BaseModel):
   data: dict[str, int | float | str | bool]
 
 InputEvent = ContextInputEvent
-OutputEvent = SetCookieOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent
+OutputEvent = SetCookieOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent | EventRegisterWindowEvent | EventRegisterQuerySelectorEvent
 HeaderValuesAdapter = TypeAdapter(list[str])
 
 class State:
@@ -218,6 +247,17 @@ class Context:
 
   def request_update(self): self._state.request_update(self._stack)
   def unregister(self): self._state.unregister(self._stack)
+
+  def on_window_event(self, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator):
+    descriptor = descriptor.descriptor if isinstance(descriptor, ContextInputEventDescriptorGenerator) else descriptor
+    self._state.add_output_event(EventRegisterWindowEvent(name=name, descriptor=descriptor))
+  def on_query_selector_event(self, selector: str, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator, all: bool = False):
+    descriptor = descriptor.descriptor if isinstance(descriptor, ContextInputEventDescriptorGenerator) else descriptor
+    self._state.add_output_event(EventRegisterQuerySelectorEvent(
+      name=name,
+      selector=selector,
+      all=all,
+      descriptor=descriptor))
 
   def navigate(self, location: str):
     self.set_state("!location", location)

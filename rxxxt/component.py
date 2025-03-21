@@ -2,47 +2,43 @@ from abc import abstractmethod
 import asyncio
 import base64
 import inspect
-import json
 from typing import Annotated, Any, Callable, Coroutine, Generic, ParamSpec, TypeVar, get_args, get_origin
-from pydantic import BaseModel, validate_call
+from pydantic import validate_call
 from typing_extensions import Awaitable
 from rxxxt.elements import CustomAttribute, Element, meta_element
-from rxxxt.execution import Context, InputEvent
+from rxxxt.execution import Context, ContextInputEventDescriptor, ContextInputEventDescriptorGenerator, ContextInputEventHandlerOptions, InputEvent
 from rxxxt.helpers import to_awaitable
 from rxxxt.node import Node
 
 EHP = ParamSpec('EHP')
 EHR = TypeVar('EHR')
 
-class EventHandlerOptions(BaseModel):
-  debounce: int | None = None
-  throttle: int | None = None
-  prevent_default: bool = False
-
 class ClassEventHandler(Generic[EHP, EHR]):
-  def __init__(self, fn:  Callable[EHP, EHR], options: EventHandlerOptions) -> None:
+  def __init__(self, fn:  Callable[EHP, EHR], options: ContextInputEventHandlerOptions) -> None:
     self.fn = fn
     self.options = options
   def __get__(self, instance, owner): return InstanceEventHandler(self.fn, self.options, instance)
   def __call__(self, *args: EHP.args, **kwargs: EHP.kwargs) -> EHR: raise RuntimeError("The event handler can only be called when attached to an instance!")
 
-class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute):
-  def __init__(self, fn: Callable[EHP, EHR], options: EventHandlerOptions, instance: Any) -> None:
+class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute, ContextInputEventDescriptorGenerator):
+  def __init__(self, fn: Callable[EHP, EHR], options: ContextInputEventHandlerOptions, instance: Any) -> None:
     super().__init__(validate_call(fn), options)
     if not isinstance(instance, Component): raise ValueError("The provided instance must be a component!")
     self.instance = instance
+
+  @property
+  def descriptor(self):
+    return ContextInputEventDescriptor(
+      context_id=self.instance.context.sid,
+      handler_name=self.fn.__name__,
+      param_map=self._get_param_map(),
+      options=self.options)
 
   def __call__(self, *args: EHP.args, **kwargs: EHP.kwargs) -> EHR: return self.fn(self.instance, *args, **kwargs)
 
   def get_key_value(self, original_key: str):
     if not original_key.startswith("on"): raise ValueError("Event handler must be applied to an attribute starting with 'on'.")
-    if self.instance.context is None: raise ValueError("The instance must have a context_id to create an event value.")
-    v = base64.b64encode(json.dumps({
-      "context_id": self.instance.context.sid,
-      "handler_name": self.fn.__name__,
-      "param_map": self._get_param_map(),
-      "options": self.options.model_dump(exclude_defaults=True)
-    }).encode("utf-8")).decode("utf-8")
+    v = base64.b64encode(self.descriptor.model_dump_json(exclude_defaults=True).encode("utf-8")).decode("utf-8")
     return (f"rxxxt-on-{original_key[2:]}", v)
 
   def _get_param_map(self):
@@ -66,7 +62,7 @@ class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute
     return param_map
 
 def event_handler(**kwargs):
-  options = EventHandlerOptions.model_validate(kwargs)
+  options = ContextInputEventHandlerOptions.model_validate(kwargs)
   def _inner(fn) -> ClassEventHandler: return ClassEventHandler(fn, options)
   return _inner
 
@@ -106,7 +102,6 @@ class Component(Element):
     if self.context.config.persistent:
       self._worker_tasks.append(asyncio.create_task(a))
     else: a.close()
-  def request_update(self): self.context.request_update()
 
   async def lc_init(self, context: Context) -> None:
     self.context = context
