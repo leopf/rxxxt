@@ -35,9 +35,9 @@ class AppWebsocketUpdateMessage(BaseModel):
 
 class App:
   def __init__(self, content: ElementFactory, state_resolver: StateResolver | None = None, page_factory: PageFactory = default_page) -> None:
-    self.content = content
-    self.page_factory: PageFactory = page_factory
-    self.state_resolver = state_resolver or default_state_resolver()
+    self._content = content
+    self._page_factory: PageFactory = page_factory
+    self._state_resolver = state_resolver or default_state_resolver()
 
   async def __call__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> Any:
     if scope["type"] == "http":
@@ -64,7 +64,7 @@ class App:
     init_message = AppWebsocketInitMessage.model_validate_json(message)
 
     with contextlib.suppress(ConnectionError):
-      async with Session(self._get_session_config(True), self.content()) as session:
+      async with Session(self._get_session_config(True), self._content()) as session:
         updating_lock = asyncio.Lock()
 
         async def updater():
@@ -91,7 +91,7 @@ class App:
         finally: updater_task.cancel()
 
   async def _http_session(self, context: HTTPContext):
-    async with Session(self._get_session_config(False), self.content()) as session:
+    async with Session(self._get_session_config(False), self._content()) as session:
 
       if context.method == "POST":
         req = AppHttpRequest.model_validate_json(await context.receive_json_raw())
@@ -123,4 +123,4 @@ class App:
     else: await context.respond_text("not found", 404)
 
   def _get_session_config(self, persistent: bool):
-    return SessionConfig(page_facotry=self.page_factory, state_resolver=self.state_resolver, persistent=persistent)
+    return SessionConfig(page_facotry=self._page_factory, state_resolver=self._state_resolver, persistent=persistent)
