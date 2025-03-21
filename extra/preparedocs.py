@@ -5,10 +5,11 @@ shutil.copyfile("README.md", "docs/index.md")
 
 imports = list(griffe.load("rxxxt/__init__.py").imports.values())
 imports.extend([
+  "rxxxt.elements.ElementFactory",
   "rxxxt.state.StateResolver",
   "rxxxt.state.JWTStateResolver",
   "rxxxt.state.default_state_resolver",
-  "rxxxt.component.EventHandlerOptions"
+  "rxxxt.execution.ContextInputEventHandlerOptions"
 ])
 
 imports.sort(key=lambda n: n.lower())

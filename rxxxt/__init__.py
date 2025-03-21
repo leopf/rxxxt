@@ -4,5 +4,5 @@ from rxxxt.page import default_page, PageBuilder # noqa: F401
 from rxxxt.execution import Context # noqa: F401
 from rxxxt.app import App # noqa: F401
 from rxxxt.router import Router, router_params # noqa: F401
-from rxxxt.state import local_state as local_state, global_state
-from rxxxt.utils import class_map
+from rxxxt.state import local_state, global_state # noqa: F401
+from rxxxt.utils import class_map # noqa: F401

@@ -12,6 +12,7 @@ nav:
   - app.md
   - elements.md
   - component.md
+  - router.md
   - state.md
   - api.md
 markdown_extensions:

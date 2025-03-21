@@ -29,7 +29,7 @@ def on_click(self):
   self.count += 1
 ```
 
-Event handlers can receive [`EventHandlerOptions`](./api.md#rxxxt.component.EventHandlerOptions).
+Event handlers can receive [`ContextInputEventHandlerOptions`](./api.md#rxxxt.component.ContextInputEventHandlerOptions).
 
 The event handlers can then be used as html attributes for the desired events. For example the, `onclick` event:
 ```python

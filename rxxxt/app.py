@@ -5,7 +5,7 @@ import logging
 from typing import Any, Literal
 from pydantic import BaseModel, ValidationError
 from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, HTTPContext, WebsocketContext
-from rxxxt.elements import CustomAttribute as CustomAttribute, ElementFactory
+from rxxxt.elements import ElementFactory
 from rxxxt.execution import InputEvent
 from rxxxt.page import PageFactory, default_page
 from rxxxt.session import Session, SessionConfig
