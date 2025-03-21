@@ -7,7 +7,7 @@ from io import BytesIO
 import json
 import os
 import secrets
-from typing import Any, Awaitable, Callable, Generic, Literal, TypeVar, cast, get_origin
+from typing import Awaitable, Callable, Generic, Literal, TypeVar, cast, get_origin
 from pydantic import TypeAdapter, ValidationError
 import hmac
 
@@ -17,10 +17,11 @@ from rxxxt.execution import Context
 T = TypeVar("T")
 StateDataAdapter = TypeAdapter(dict[str, str])
 
-class StateDescriptorBase(Generic[T], ABC):
-  def __init__(self, default_factory: Callable[[], T], state_name: str | None = None) -> None:
+class StateDescriptor(Generic[T], ABC):
+  def __init__(self, state_key_producer: Callable[[Context, str], str], default_factory: Callable[[], T], state_name: str | None = None) -> None:
     self._state_name = state_name
     self._default_factory = default_factory
+    self._state_key_producer = state_key_producer
 
     native_types = (bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple)
     if default_factory in native_types or get_origin(default_factory) in native_types:
@@ -37,48 +38,43 @@ class StateDescriptorBase(Generic[T], ABC):
     if not isinstance(obj, Component):
       raise TypeError("StateDescriptor used on non-component!")
     svalue = self._val_type_adapter.dump_json(value).decode("utf-8")
-    obj.context.set_state(self._get_state_name(obj.context), svalue)
+    obj.context.set_state(self._get_state_key(obj.context), svalue)
 
   def __get__(self, obj, objtype=None):
     if not isinstance(obj, Component):
       raise TypeError("StateDescriptor used on non-component!")
 
-    svalue = obj.context.get_state(self._get_state_name(obj.context))
+    svalue = obj.context.get_state(self._get_state_key(obj.context))
     if svalue is None: return self._default_factory()
     else: return cast(T, self._val_type_adapter.validate_json(svalue))
 
-  @abstractmethod
-  def _get_state_name(self, context: Context) -> str: pass
+  def _get_state_key(self, context: Context):
+    if not self._state_name: raise ValueError("State name not defined!")
+    return self._state_key_producer(context, self._state_name)
 
-class StateDescriptor(StateDescriptorBase[T]):
-  def __init__(self, is_global: bool, default_factory: Callable[[], T], state_name: str | None = None) -> None:
-    super().__init__(default_factory, state_name)
-    self._is_global = is_global
+def get_global_state_key(context: Context, name: str):
+  return f"global;{name}"
 
-  def _get_state_name(self, context: Context):
-    if self._state_name is None: raise ValueError("state name is not set!")
-    if self._is_global: return f"global;{self._state_name}"
-    else: return f"#local;{context.sid};{self._state_name}"
+def get_local_state_key(context: Context, name: str):
+  return f"#local;{context.sid};{name}"
 
-class ContextStateDescriptor(StateDescriptorBase[T]):
-  def _get_state_name(self, context: Context):
-    if self._state_name is None: raise ValueError("state name is not set!")
-    state_key = None
-    for sid in context.stack_sids:
-      state_key = f"#context;{sid};{self._state_name}"
-      if context.state_exists(state_key):
-        return state_key
-    if state_key is None: raise ValueError(f"State key not found for context '{self._state_name}'!")
-    return state_key # this is just the key for context.sid
+def get_context_state_key(context: Context, name: str):
+  state_key = None
+  for sid in context.stack_sids:
+    state_key = f"#context;{sid};{name}"
+    if context.state_exists(state_key):
+      return state_key
+  if state_key is None: raise ValueError(f"State key not found for context '{name}'!")
+  return state_key # this is just the key for context.sid
 
 def local_state(default_factory: Callable[[], T], name: str | None = None):
-  return StateDescriptor(False, default_factory, state_name=name)
+  return StateDescriptor(get_local_state_key, default_factory, state_name=name)
 
 def global_state(default_factory: Callable[[], T], name: str | None = None):
-  return StateDescriptor(True, default_factory, state_name=name)
+  return StateDescriptor(get_global_state_key, default_factory, state_name=name)
 
 def context_state(default_factory: Callable[[], T], name: str | None = None):
-  return ContextStateDescriptor(default_factory, state_name=name)
+  return StateDescriptor(get_context_state_key, default_factory, state_name=name)
 
 class StateResolverError(BaseException): pass
 

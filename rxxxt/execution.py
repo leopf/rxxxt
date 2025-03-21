@@ -56,7 +56,7 @@ class SetCookieOutputEvent(EventBase):
   def to_set_cookie_header(self):
     parts: list[str] = [f"{self.name}={self.value}"]
     if self.path is not None: parts.append(f"path={self.path}")
-    if self.expires is not None: parts.append(f"expires={self.expires.strftime("%a, %d %b %G %T %Z")}")
+    if self.expires is not None: parts.append(f"expires={self.expires.strftime('%a, %d %b %G %T %Z')}")
     if self.max_age is not None: parts.append(f"max-age={self.max_age}")
     if self.domain is not None: parts.append(f"domain={self.domain}")
     if self.secure: parts.append("secure")

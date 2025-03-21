@@ -112,6 +112,11 @@ class Component(Element):
     self.context = context
     await self.on_init()
 
+  async def lc_render(self) -> Element:
+    await self.on_before_update()
+    el = await to_awaitable(self.render)
+    await self.on_after_update()
+    return el
   async def lc_destroy(self) -> None:
     await self.on_before_destroy()
     if len(self._job_tasks) > 0:
@@ -133,6 +138,8 @@ class Component(Element):
         await to_awaitable(handler, **event)
 
   async def on_init(self) -> None: ...
+  async def on_before_update(self) -> None: ...
+  async def on_after_update(self) -> None: ...
   async def on_before_destroy(self) -> None: ...
   async def on_after_destroy(self) -> None: ...
 
@@ -169,7 +176,7 @@ class ComponentNode(Node):
     self.context.unregister()
 
   async def _render_inner(self):
-    inner = await to_awaitable(self.element.render)
+    inner = await self.element.lc_render()
     if self.context.config.render_meta:
       inner = meta_element(self.context.sid, inner)
     self.children.append(inner.tonode(self.context.sub("inner")))

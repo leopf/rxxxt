@@ -3,5 +3,5 @@ from rxxxt.component import Component, event_handler, HandleNavigate # noqa: F40
 from rxxxt.page import default_page, PageBuilder # noqa: F401
 from rxxxt.execution import Context # noqa: F401
 from rxxxt.app import App # noqa: F401
-from rxxxt.router import Router # noqa: F401
-from rxxxt.state import local_state, global_state
+from rxxxt.router import Router, router_params # noqa: F401
+from rxxxt.state import local_state as local_state, global_state as global_state
