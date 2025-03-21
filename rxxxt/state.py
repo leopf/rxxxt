@@ -7,25 +7,23 @@ from io import BytesIO
 import json
 import os
 import secrets
-from typing import Awaitable, Callable, Generic, Literal, TypeVar, cast, get_origin
+from typing import Any, Awaitable, Callable, Generic, Literal, TypeVar, cast, get_origin
 from pydantic import TypeAdapter, ValidationError
 import hmac
 
 from rxxxt.component import Component
+from rxxxt.execution import Context
 
 T = TypeVar("T")
-
 StateDataAdapter = TypeAdapter(dict[str, str])
 
-class StateDescriptor(Generic[T]):
-  _native_types = { bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple }
-
-  def __init__(self, is_global: bool, default_factory: Callable[[], T], state_name: str | None = None) -> None:
-    self._is_global = is_global
+class StateDescriptorBase(Generic[T], ABC):
+  def __init__(self, default_factory: Callable[[], T], state_name: str | None = None) -> None:
     self._state_name = state_name
     self._default_factory = default_factory
 
-    if default_factory in StateDescriptor._native_types or get_origin(default_factory) in StateDescriptor._native_types:
+    native_types = (bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple)
+    if default_factory in native_types or get_origin(default_factory) in native_types:
       self._val_type_adapter = TypeAdapter(default_factory)
     else:
       sig = inspect.signature(default_factory)
@@ -39,26 +37,48 @@ class StateDescriptor(Generic[T]):
     if not isinstance(obj, Component):
       raise TypeError("StateDescriptor used on non-component!")
     svalue = self._val_type_adapter.dump_json(value).decode("utf-8")
-    obj.context.set_state(self._get_state_name(obj), svalue)
+    obj.context.set_state(self._get_state_name(obj.context), svalue)
 
   def __get__(self, obj, objtype=None):
     if not isinstance(obj, Component):
       raise TypeError("StateDescriptor used on non-component!")
 
-    svalue = obj.context.get_state(self._get_state_name(obj))
+    svalue = obj.context.get_state(self._get_state_name(obj.context))
     if svalue is None: return self._default_factory()
     else: return cast(T, self._val_type_adapter.validate_json(svalue))
 
-  def _get_state_name(self, comp: Component):
+  @abstractmethod
+  def _get_state_name(self, context: Context) -> str: pass
+
+class StateDescriptor(StateDescriptorBase[T]):
+  def __init__(self, is_global: bool, default_factory: Callable[[], T], state_name: str | None = None) -> None:
+    super().__init__(default_factory, state_name)
+    self._is_global = is_global
+
+  def _get_state_name(self, context: Context):
     if self._state_name is None: raise ValueError("state name is not set!")
     if self._is_global: return f"global;{self._state_name}"
-    else: return f"#local;{comp.context.sid};{self._state_name}"
+    else: return f"#local;{context.sid};{self._state_name}"
+
+class ContextStateDescriptor(StateDescriptorBase[T]):
+  def _get_state_name(self, context: Context):
+    if self._state_name is None: raise ValueError("state name is not set!")
+    state_key = None
+    for sid in context.stack_sids:
+      state_key = f"#context;{sid};{self._state_name}"
+      if context.state_exists(state_key):
+        return state_key
+    if state_key is None: raise ValueError(f"State key not found for context '{self._state_name}'!")
+    return state_key # this is just the key for context.sid
 
 def local_state(default_factory: Callable[[], T], name: str | None = None):
   return StateDescriptor(False, default_factory, state_name=name)
 
 def global_state(default_factory: Callable[[], T], name: str | None = None):
   return StateDescriptor(True, default_factory, state_name=name)
+
+def context_state(default_factory: Callable[[], T], name: str | None = None):
+  return ContextStateDescriptor(default_factory, state_name=name)
 
 class StateResolverError(BaseException): pass
 

@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
+import functools
 import hashlib
 import re
 from typing import Literal
@@ -108,6 +109,8 @@ class State:
       if value is None: self._state.pop(key, None)
       else: self._state[key] = value
 
+  def state_exists(self, key: str): return key in self._state
+
   def cleanup(self): self._state = self._clean_state({ "#" })
 
   def add_output_event(self, event: OutputEvent): self._output_events.append(event)
@@ -140,6 +143,15 @@ class State:
     if len(self._pending_updates) > 0: self._update_event.set()
     else: self._update_event.clear()
 
+@functools.lru_cache(maxsize=256)
+def get_context_stack_sid(stack: ContextStack):
+  hasher = hashlib.sha256()
+  for k in stack:
+    if isinstance(k, str): k = k.replace(";", ";;")
+    else: k = str(k)
+    hasher.update((k + ";").encode("utf-8"))
+  return hasher.hexdigest()
+
 @dataclass(frozen=True)
 class ContextConfig:
   persistent: bool
@@ -158,13 +170,11 @@ class Context:
   def id(self): return self._stack
 
   @cached_property
-  def sid(self):
-    hasher = hashlib.sha256()
-    for k in self._stack:
-      if isinstance(k, str): k = k.replace(";", ";;")
-      else: k = str(k)
-      hasher.update((k + ";").encode("utf-8"))
-    return hasher.hexdigest()
+  def sid(self): return get_context_stack_sid(self._stack)
+
+  @property
+  def stack_sids(self):
+    return [ get_context_stack_sid(self._stack[:i]) for i in range(1, len(self._stack)) ]
 
   @property
   def location(self):
@@ -200,6 +210,7 @@ class Context:
 
   def set_state(self, key: str, value: str): self._state.set_state(key, value)
   def get_state(self, key: str): return self._state.get_state(self.id, key)
+  def state_exists(self, key: str): return self._state.state_exists(key)
   def get_header(self, name: str) -> list[str]:
     header_json = self.get_state(f"!header;{name}")
     if header_json is None: return []
