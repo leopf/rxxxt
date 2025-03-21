@@ -37,12 +37,14 @@ class EventBase(BaseModel):
     return other
 
 class EventRegisterWindowEvent(EventBase):
-  event: Literal["event-register-window"] = "event-register-window"
+  event: Literal["event-modify-window"] = "event-modify-window"
+  mode: Literal["add"] | Literal["remove"]
   name: str
   descriptor: ContextInputEventDescriptor
 
 class EventRegisterQuerySelectorEvent(EventBase):
-  event: Literal["event-register-query-selector"] = "event-register-query-selector"
+  event: Literal["event-modify-query-selector"] = "event-modify-query-selector"
+  mode: Literal["add"] | Literal["remove"]
   name: str
   selector: str
   all: bool
@@ -248,16 +250,15 @@ class Context:
   def request_update(self): self._state.request_update(self._stack)
   def unregister(self): self._state.unregister(self._stack)
 
-  def on_window_event(self, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator):
-    descriptor = descriptor.descriptor if isinstance(descriptor, ContextInputEventDescriptorGenerator) else descriptor
-    self._state.add_output_event(EventRegisterWindowEvent(name=name, descriptor=descriptor))
-  def on_query_selector_event(self, selector: str, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator, all: bool = False):
-    descriptor = descriptor.descriptor if isinstance(descriptor, ContextInputEventDescriptorGenerator) else descriptor
-    self._state.add_output_event(EventRegisterQuerySelectorEvent(
-      name=name,
-      selector=selector,
-      all=all,
-      descriptor=descriptor))
+  def add_window_event(self, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator):
+    self._modify_window_event(name, descriptor, "add")
+  def add_query_selector_event(self, selector: str, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator, all: bool = False):
+    self._modify_query_selector_event(selector, name, descriptor, all, "add")
+
+  def remove_window_event(self, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator):
+    self._modify_window_event(name, descriptor, "remove")
+  def remove_query_selector_event(self, selector: str, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator, all: bool = False):
+    self._modify_query_selector_event(selector, name, descriptor, all, "remove")
 
   def navigate(self, location: str):
     self.set_state("!location", location)
@@ -268,3 +269,15 @@ class Context:
     self._state.add_output_event(SetCookieOutputEvent(name=name, value=value, expires=expires, path=path, secure=secure, http_only=http_only, domain=domain, max_age=max_age))
   def delete_cookie(self, name: str):
     self._state.add_output_event(SetCookieOutputEvent(name=name, max_age=-1))
+
+  def _modify_window_event(self, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator, mode: Literal["add"] | Literal["remove"]):
+    descriptor = descriptor.descriptor if isinstance(descriptor, ContextInputEventDescriptorGenerator) else descriptor
+    self._state.add_output_event(EventRegisterWindowEvent(name=name, mode=mode, descriptor=descriptor))
+  def _modify_query_selector_event(self, selector: str, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator, all: bool, mode: Literal["add"] | Literal["remove"]):
+    descriptor = descriptor.descriptor if isinstance(descriptor, ContextInputEventDescriptorGenerator) else descriptor
+    self._state.add_output_event(EventRegisterQuerySelectorEvent(
+      name=name,
+      mode=mode,
+      selector=selector,
+      all=all,
+      descriptor=descriptor))

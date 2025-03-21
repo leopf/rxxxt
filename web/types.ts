@@ -29,13 +29,15 @@ export interface UseWebsocketOutputEvent {
 }
 
 export interface EventRegisterWindowEvent {
-    event: "event-register-window";
+    event: "event-modify-window";
+    mode: "add" | "remove";
     name: string;
     descriptor: ContextInputEventDescriptor;
 }
 
 export interface EventRegisterQuerySelectorEvent {
-    event: "event-register-query-selector";
+    event: "event-modify-query-selector";
+    mode: "add" | "remove";
     name: string;
     selector: string;
     all: boolean;

@@ -97,13 +97,21 @@ const handleOutputEvents = (events: OutputEvent[]) => {
             }
 
             document.cookie = parts.join(";");
-        } else if (event.event === "event-register-window") {
-            globalEventManager.registerEvent(
-                window,
-                event.name,
-                event.descriptor,
-            );
-        } else if (event.event === "event-register-query-selector") {
+        } else if (event.event === "event-modify-window") {
+            if (event.mode === "add") {
+                globalEventManager.registerEvent(
+                    window,
+                    event.name,
+                    event.descriptor,
+                );
+            } else if (event.mode === "remove") {
+                globalEventManager.unregisterEvent(
+                    window,
+                    event.name,
+                    event.descriptor,
+                );
+            }
+        } else if (event.event === "event-modify-query-selector") {
             const elements: EventTarget[] = [];
             if (event.all) {
                 elements.push(...document.querySelectorAll(event.selector));
@@ -114,7 +122,19 @@ const handleOutputEvents = (events: OutputEvent[]) => {
                 }
             }
             for (const element of elements) {
-                globalEventManager.registerEvent(element, event.name, event.descriptor);
+                if (event.mode === "add") {
+                    globalEventManager.registerEvent(
+                        element,
+                        event.name,
+                        event.descriptor,
+                    );
+                } else if (event.mode === "remove") {
+                    globalEventManager.unregisterEvent(
+                        element,
+                        event.name,
+                        event.descriptor,
+                    );
+                }
             }
         }
     }
