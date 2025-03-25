@@ -6,7 +6,8 @@ from typing import Annotated, Any, Callable, Coroutine, Generic, ParamSpec, Type
 from pydantic import validate_call
 from typing_extensions import Awaitable
 from rxxxt.elements import CustomAttribute, Element, meta_element
-from rxxxt.execution import Context, ContextInputEventDescriptor, ContextInputEventDescriptorGenerator, ContextInputEventHandlerOptions, InputEvent
+from rxxxt.events import ContextInputEventDescriptor, ContextInputEventDescriptorGenerator, ContextInputEventHandlerOptions, InputEvent
+from rxxxt.execution import Context
 from rxxxt.helpers import to_awaitable
 from rxxxt.node import Node
 

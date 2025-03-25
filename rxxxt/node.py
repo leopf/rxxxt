@@ -2,7 +2,8 @@
 from abc import ABC
 import html
 from io import StringIO
-from rxxxt.execution import Context, InputEvent
+from rxxxt.events import InputEvent
+from rxxxt.execution import Context
 
 class Node(ABC):
   def __init__(self, context: Context, children: list['Node']) -> None:

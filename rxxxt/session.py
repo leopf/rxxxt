@@ -3,7 +3,8 @@ from dataclasses import dataclass
 import json
 from pydantic import BaseModel
 from rxxxt.elements import El, Element, HTMLFragment, UnescapedHTMLElement, meta_element
-from rxxxt.execution import Context, ContextConfig, InputEvent, OutputEvent, State
+from rxxxt.events import InputEvent, OutputEvent
+from rxxxt.execution import Context, ContextConfig, State
 from rxxxt.helpers import to_awaitable
 from rxxxt.page import PageFactory
 from rxxxt.renderer import Renderer, render_node

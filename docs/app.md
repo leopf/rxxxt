@@ -25,7 +25,7 @@ import uvicorn
 
 class HelloWorld(Component):
   def render(self) -> Element:
-    return El.div(content=["HelloWorld"])
+    return El.div(content=["Hello World"])
 
 app = App(HelloWorld)
 uvicorn.run(app)
