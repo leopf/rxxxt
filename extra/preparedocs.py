@@ -9,7 +9,7 @@ imports.extend([
   "rxxxt.state.StateResolver",
   "rxxxt.state.JWTStateResolver",
   "rxxxt.state.default_state_resolver",
-  "rxxxt.execution.ContextInputEventHandlerOptions"
+  "rxxxt.events.ContextInputEventHandlerOptions"
 ])
 
 imports.sort(key=lambda n: n.lower())
