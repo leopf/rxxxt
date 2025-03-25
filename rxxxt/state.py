@@ -11,6 +11,7 @@ from typing import Awaitable, Callable, Generic, Literal, TypeVar, cast, get_ori
 from pydantic import TypeAdapter, ValidationError
 import hmac
 
+from rxxxt.cell import SerilializableStateCell
 from rxxxt.component import Component
 from rxxxt.execution import Context
 
@@ -37,20 +38,40 @@ class StateDescriptor(Generic[T], ABC):
   def __set__(self, obj, value):
     if not isinstance(obj, Component):
       raise TypeError("StateDescriptor used on non-component!")
-    svalue = self._val_type_adapter.dump_json(value).decode("utf-8")
-    obj.context.set_state(self._get_state_key(obj.context), svalue)
+
+    key = self._get_state_key(obj.context)
+    cell = self._get_cell(key, obj.context)
+    cell.value = value
+    obj.context.state.request_key_updates({ key })
 
   def __get__(self, obj, objtype=None):
     if not isinstance(obj, Component):
       raise TypeError("StateDescriptor used on non-component!")
 
-    svalue = obj.context.get_state(self._get_state_key(obj.context))
-    if svalue is None: return self._default_factory()
-    else: return cast(T, self._val_type_adapter.validate_json(svalue))
+    key = self._get_state_key(obj.context)
+    cell = self._get_cell(key, obj.context)
+    obj.context.subscribe(key)
+
+    return cast(T, cell.value)
 
   def _get_state_key(self, context: Context):
     if not self._state_name: raise ValueError("State name not defined!")
     return self._state_key_producer(context, self._state_name)
+
+  def _get_cell(self, key: str, context: Context):
+    if (cell:=context.state.get_key_cell(key)) is not None:
+      if not isinstance(cell, SerilializableStateCell):
+        raise ValueError(f"Cell is not serializable for key '{key}'!")
+      return cell
+
+    old_str_value = context.state.get_key_str(key)
+    if old_str_value is None:
+      value = self._default_factory()
+    else:
+      value = self._val_type_adapter.validate_json(old_str_value)
+    cell = SerilializableStateCell(value, lambda v: self._val_type_adapter.dump_json(v).decode("utf-8"))
+    context.state.set_key_cell(key, cell)
+    return cell
 
 def get_global_state_key(context: Context, name: str):
   return f"global;{name}"
@@ -60,9 +81,10 @@ def get_local_state_key(context: Context, name: str):
 
 def get_context_state_key(context: Context, name: str):
   state_key = None
+  exisiting_keys = context.state.keys
   for sid in context.stack_sids:
     state_key = f"#context;{sid};{name}"
-    if context.state_exists(state_key):
+    if state_key in exisiting_keys:
       return state_key
   if state_key is None: raise ValueError(f"State key not found for context '{name}'!")
   return state_key # this is just the key for context.sid
@@ -117,7 +139,7 @@ class JWTStateResolver(StateResolver):
     try: header = json.loads(JWTStateResolver._b64url_decode(parts[0]))
     except: raise StateResolverError("Invalid token header")
 
-    if not isinstance(header, dict) or header.get("typ", None) != "JWT" or header.get("alg", None) != self._algorithm:
+    if not isinstance(header, dict) or header.get("typ") != "JWT" or header.get("alg") != self._algorithm:
       raise StateResolverError("Invalid header contents")
 
     signature = JWTStateResolver._b64url_decode(rtoken[(sig_start + 1):])
@@ -126,7 +148,7 @@ class JWTStateResolver(StateResolver):
       raise StateResolverError("Invalid JWT signature!")
 
     payload = json.loads(JWTStateResolver._b64url_decode(parts[1]))
-    if not isinstance(payload, dict) or not isinstance(payload.get("exp", None), int) or not isinstance(payload.get("data", None), dict):
+    if not isinstance(payload, dict) or not isinstance(payload.get("exp"), int) or not isinstance(payload.get("data"), dict):
       raise StateResolverError("Invalid JWT payload!")
 
     expires_dt = datetime.fromtimestamp(payload["exp"], timezone.utc)

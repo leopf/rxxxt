@@ -37,7 +37,7 @@ class TransportContext:
     return res
   @functools.cached_property
   def content_type(self):
-    ct = self.headers.get("content-type", None)
+    ct = self.headers.get("content-type")
     if ct is None or len(ct) == 0: raise ValueError("No content type specified on request!")
     if len(ct) > 1: raise ValueError("More than one content-type was specified!")
     ct = ct[0]
@@ -83,7 +83,7 @@ class WebsocketContext(TransportContext):
         self._connected = False
         raise ConnectionError("Connection closed!")
       elif event["type"] == "websocket.receive":
-        return event.get("bytes", event.get("text", None))
+        return event.get("bytes", event.get("text"))
     raise ConnectionError("Connection closed!")
 
   async def send_message(self, data: str | BytesLike):
@@ -162,7 +162,7 @@ class HTTPContext(TransportContext):
     io = BytesIO()
     while more:
       event = await self._receive()
-      event_type = event.get("type", None)
+      event_type = event.get("type")
       if event_type == "http.request":
         more = event.get("more_body", False)
         io.write(event.get("body", b""))

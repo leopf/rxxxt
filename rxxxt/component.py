@@ -169,7 +169,7 @@ class ComponentNode(Node):
     self.children.clear()
 
     await self.element.lc_destroy()
-    self.context.unregister()
+    self.context.unsubscribe_all()
 
   async def _render_inner(self):
     inner = await self.element.lc_render()

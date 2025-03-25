@@ -1,8 +1,7 @@
-import json
 import re
 from rxxxt.elements import El, Element, ElementFactory
 from rxxxt.component import Component
-from rxxxt.state import context_state, get_context_state_key
+from rxxxt.state import context_state
 
 class PathPattern:
   def __init__(self, pattern: str) -> None:
@@ -62,22 +61,20 @@ class PathPattern:
       if param_name is not None: params[param_name] = param_val
     return params
 
-def router_params(name: str = "default"):
-  return context_state(dict[str, str], f"*rp*;{name}")
+def router_params(): return context_state(dict[str, str], "*rp*")
 
 class Router(ElementFactory):
   class RoutedComponent(Component):
-    def __init__(self, routes: list[tuple[PathPattern, ElementFactory]], name: str = "default"):
+    params = router_params()
+
+    def __init__(self, routes: list[tuple[PathPattern, ElementFactory]]):
       super().__init__()
       self._routes = routes
-      self._name = name
       self._selected_match: tuple[ElementFactory, dict[str, str]] | None = None
 
     async def on_before_update(self) -> None:
       self._selected_match = self._get_current_match()
-      rp: dict[str, str] = dict() if self._selected_match is None else self._selected_match[1]
-      state_key = get_context_state_key(self.context, f"*rp*;{self._name}")
-      self.context.set_state(state_key, json.dumps(rp))
+      self.params = dict() if self._selected_match is None else self._selected_match[1]
 
     def render(self) -> Element:
       if self._selected_match is None:

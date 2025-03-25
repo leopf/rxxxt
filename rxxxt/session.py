@@ -1,6 +1,5 @@
 import asyncio
 from dataclasses import dataclass
-import json
 from pydantic import BaseModel
 from rxxxt.elements import El, Element, HTMLFragment, UnescapedHTMLElement, meta_element
 from rxxxt.events import InputEvent, OutputEvent
@@ -45,13 +44,14 @@ class Session:
   async def init(self, state_token: str | None):
     if state_token is not None:
       self._last_token = state_token
-      state = await to_awaitable(self.config.state_resolver.resolve, state_token)
-      for k, v in state.items(): self.state.set_state(k, v)
+      user_data = await to_awaitable(self.config.state_resolver.resolve, state_token)
+      self.state.init(user_data)
 
     await self._root_renderer.expand()
 
   async def destroy(self):
     await self._root_renderer.destroy()
+    self.state.destroy()
 
   async def update(self):
     await self._root_renderer.update(self.state.pop_updates())
@@ -60,13 +60,14 @@ class Session:
   async def handle_events(self, events: list[InputEvent]):
     await self._root_renderer.handle_events(events)
 
-  def set_location(self, location: str): self.state.set_state("!location", location)
+  def set_location(self, location: str): self.state.update_state_strs({ "!location": location })
   def set_headers(self, headers: dict[str, list[str]]):
-    headers_kvs = { f"!header;{k}": json.dumps(v) for k, v in headers.items() }
+    headers_kvs = { f"!header;{k}": "\n".join(v) for k, v in headers.items() }
     olds_header_keys = set(k for k in self.state.keys if k.startswith("!header;"))
     olds_header_keys.difference_update(headers_kvs.keys())
-    for k in olds_header_keys: self.state.set_state(k, None)
-    for k, v in headers_kvs.items(): self.state.set_state(k, v)
+    for k in olds_header_keys: self.state.delete_key(k)
+    self.state.update_state_strs(headers_kvs)
+    self.state.request_key_updates(olds_header_keys)
 
   async def render_update(self, include_state_token: bool, render_full: bool):
     state_token: str | None = None
