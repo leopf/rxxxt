@@ -47,8 +47,6 @@ class App:
         logging.debug(e)
         return await context.respond_text("bad request", 400)
       except BaseException as e:
-        import traceback
-        traceback.print_exc()
         logging.debug(e)
         return await context.respond_text("internal server error", 500)
     elif scope["type"] == "websocket":
