@@ -36,9 +36,7 @@ class InputExample(Component):
   def render(self) -> Element:
     return VEl.input(oninput=self.on_input, type="text", value=self.text)
 ```
-
 2. **[`global_state`](./api.md#rxxxt.state.global_state)** - which is shared accross the entire application
-
 ```python
 from typing import Annotated
 from rxxxt import Component, event_handler, VEl, Element, global_state
@@ -53,3 +51,37 @@ class InputExample(Component):
   def render(self) -> Element:
     return VEl.input(oninput=self.on_input, type="text", value=self.text)
 ```
+3. **[`context_state`](./api.md#rxxxt.state.context_state)** - which is shared accross components down the tree from the first component that uses it
+4. **[`local_state_box`](./api.md#rxxxt.state.local_state_box)** - which is confined to a single component instance, but requires manual updates
+```python
+from typing import Annotated
+from rxxxt import Component, event_handler, VEl, Element, local_state_box
+
+class InputExample(Component):
+  text = local_state_box(str)
+
+  @event_handler(debounce=500)
+  def on_input(self, value: Annotated[str, "target.value"]):
+    self.text.value = value
+    self.text.update()
+
+  def render(self) -> Element:
+    return VEl.input(oninput=self.on_input, type="text", value=self.text.value)
+```
+5. **[`global_state_box`](./api.md#rxxxt.state.global_state_box)** - which is shared accross the entire application, but requires manual updates
+```python
+from typing import Annotated
+from rxxxt import Component, event_handler, VEl, Element, global_state_box
+
+class InputExample(Component):
+  text = global_state_box(str)
+
+  @event_handler(debounce=500)
+  def on_input(self, value: Annotated[str, "target.value"]):
+    self.text.value = value
+    self.text.update()
+
+  def render(self) -> Element:
+    return VEl.input(oninput=self.on_input, type="text", value=self.text.value)
+```
+6. **[`context_state_box`](./api.md#rxxxt.state.context_state_box)** - which is shared accross components down the tree from the first component that uses it, but requires manual updates

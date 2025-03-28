@@ -25,6 +25,9 @@ class StateBox(Generic[T]):
     self._state = state
     self._inner = inner
 
+  def __enter__(self): return self
+  def __exit__(self, *_): self.update()
+
   @property
   def key(self): return self._key
 
@@ -34,10 +37,9 @@ class StateBox(Generic[T]):
   @value.setter
   def value(self, v: T):
     self._inner.value = v
-    self._state.request_key_updates({ self._key })
+    self.update()
 
-  def __enter__(self): return self
-  def __exit__(self, *_): self._state.request_key_updates({ self._key })
+  def update(self): self._state.request_key_updates({ self._key })
 
 class StateBoxDescriptorBase(Generic[T]):
   def __init__(self, state_key_producer: Callable[[Context, str], str], default_factory: Callable[[], T], state_name: str | None = None) -> None:

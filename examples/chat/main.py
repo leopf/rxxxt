@@ -1,4 +1,3 @@
-import logging
 from rxxxt import Component, local_state, App, event_handler, El, VEl, PageBuilder, local_state_box
 from typing import Annotated
 from fastapi.staticfiles import StaticFiles
@@ -6,8 +5,6 @@ from fastapi import FastAPI
 import uvicorn
 import ollama
 import os
-
-logging.basicConfig(level=logging.DEBUG)
 
 MODEL_NAME = os.getenv("MODEL_NAME", "phi3.5:latest")
 
