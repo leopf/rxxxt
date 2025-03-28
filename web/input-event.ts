@@ -24,15 +24,18 @@ export class ContextEventHandler {
     private timeoutHandle?: number;
     private nextEvent?: ContextInputEvent;
 
-    private updater: () => void;
+    private doUpdate: () => void;
+    private doRegsiter: () => void;
     public handler = (e: Event) => this.handle(e);
 
     constructor(
-        updater: EventUpdater,
+        registerHandler: EventUpdater,
+        updateHandler: EventUpdater,
         descriptor: ContextInputEventDescriptor,
     ) {
         this.descriptor = descriptor;
-        this.updater = () => updater(this);
+        this.doUpdate = () => updateHandler(this);
+        this.doRegsiter = () => registerHandler(this);
     }
 
     public get id() {
@@ -68,6 +71,7 @@ export class ContextEventHandler {
             context_id: this.descriptor.context_id,
             data: eventData,
         };
+        this.doRegsiter();
 
         if (this.timeoutHandle) {
             clearTimeout(this.timeoutHandle);
@@ -91,9 +95,9 @@ export class ContextEventHandler {
         const waitTime = Math.max(0, ...waitTimes);
 
         if (waitTime === 0) {
-            this.updater();
+            this.doUpdate();
         } else {
-            this.timeoutHandle = setTimeout(this.updater, waitTime);
+            this.timeoutHandle = setTimeout(this.doUpdate, waitTime);
         }
     }
 }
@@ -101,14 +105,19 @@ export class ContextEventHandler {
 const eventPrefix = "rxxxt-on-";
 
 export class ElementEventManager {
-    private updater: EventUpdater;
+    private registerHandler: EventUpdater;
+    private updateHandler: EventUpdater;
     private nodeHandlers = new WeakMap<
         Node,
         Record<string, ContextEventHandler>
     >();
 
-    constructor(updater: EventUpdater) {
-        this.updater = updater;
+    constructor(
+        registerHandler: EventUpdater,
+        updateHandler: EventUpdater,
+    ) {
+        this.registerHandler = registerHandler;
+        this.updateHandler = updateHandler;
     }
 
     public apply(container: Element) {
@@ -140,7 +149,7 @@ export class ElementEventManager {
         }
 
         for (const eventND of newEventDescriptors.entries()) {
-            const handler = new ContextEventHandler(this.updater, eventND[1]);
+            const handler = new ContextEventHandler(this.registerHandler, this.updateHandler, eventND[1]);
             element.addEventListener(eventND[0], handler.handler);
             newEventHandlers[eventND[0]] = handler;
         }
@@ -175,10 +184,15 @@ interface RegisteredGlobalEvent {
 
 export class GlobalEventManager implements ContextCleanable {
     private contextEvents = new Map<string, RegisteredGlobalEvent[]>();
-    private updater: EventUpdater;
+    private registerHandler: EventUpdater;
+    private updateHandler: EventUpdater;
 
-    constructor(updater: EventUpdater) {
-        this.updater = updater;
+    constructor(
+        registerHandler: EventUpdater,
+        updateHandler: EventUpdater,
+    ) {
+        this.registerHandler = registerHandler;
+        this.updateHandler = updateHandler;
     }
 
     public registerEvent(
@@ -200,7 +214,7 @@ export class GlobalEventManager implements ContextCleanable {
             return;
         }
 
-        const handler = new ContextEventHandler(this.updater, descriptor);
+        const handler = new ContextEventHandler(this.registerHandler, this.updateHandler, descriptor);
         target.addEventListener(name, handler.handler);
 
         registeredEvents.push({

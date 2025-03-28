@@ -25,13 +25,16 @@ const pendingContextEvents = new Set<ContextEventHandler>();
 let updateScheduled: boolean = false;
 let updatesRunning: number = 0;
 
-const onPendingContextEvent = (e: ContextEventHandler) => {
+const onRegisterHandler = (e: ContextEventHandler) => {
     pendingContextEvents.add(e);
+};
+const onUpdateHandler = (e: ContextEventHandler) => {
+    onRegisterHandler(e);
     update();
 };
 
-const elementEventManager = new ElementEventManager(onPendingContextEvent);
-const globalEventManager = new GlobalEventManager(onPendingContextEvent);
+const elementEventManager = new ElementEventManager(onRegisterHandler, onUpdateHandler);
+const globalEventManager = new GlobalEventManager(onRegisterHandler, onUpdateHandler);
 
 const startUpdate = () => {
     updatesRunning++;

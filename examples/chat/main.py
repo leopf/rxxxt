@@ -33,10 +33,9 @@ class Chat(Component):
     self.current_message = ""
     self.generating = True
 
-    print([ (m.role, m.content) for m in self.messages.value])
     self.add_job(self.generate_response())
 
-  @event_handler()
+  @event_handler(debounce=500, throttle=500)
   def on_message_input(self, text: Annotated[str, "target.value"]):
     self.current_message = text
 
