@@ -30,7 +30,8 @@ share/python-wheels/
 *.egg
 MANIFEST
 dist
-
+site
+mdsite
 
 # Installer logs
 pip-log.txt
