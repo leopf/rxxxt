@@ -7,18 +7,39 @@ from io import BytesIO
 import json
 import os
 import secrets
-from typing import Awaitable, Callable, Generic, Literal, TypeVar, cast, get_origin
+from typing import Awaitable, Callable, Generic, Literal, TypeVar, get_origin
 from pydantic import TypeAdapter, ValidationError
 import hmac
 
 from rxxxt.cell import SerilializableStateCell
 from rxxxt.component import Component
-from rxxxt.execution import Context
+from rxxxt.execution import Context, State
 
 T = TypeVar("T")
 StateDataAdapter = TypeAdapter(dict[str, str])
 
-class StateDescriptor(Generic[T], ABC):
+class StateBox(Generic[T]):
+  def __init__(self, key: str, state: State, inner: SerilializableStateCell[T]) -> None:
+    super().__init__()
+    self._key = key
+    self._state = state
+    self._inner = inner
+
+  @property
+  def key(self): return self._key
+
+  @property
+  def value(self): return self._inner.value
+
+  @value.setter
+  def value(self, v: T):
+    self._inner.value = v
+    self._state.request_key_updates({ self._key })
+
+  def __enter__(self): return self
+  def __exit__(self, *_): self._state.request_key_updates({ self._key })
+
+class StateBoxDescriptorBase(Generic[T]):
   def __init__(self, state_key_producer: Callable[[Context, str], str], default_factory: Callable[[], T], state_name: str | None = None) -> None:
     self._state_name = state_name
     self._default_factory = default_factory
@@ -35,34 +56,14 @@ class StateDescriptor(Generic[T], ABC):
     if self._state_name is None:
       self._state_name = name
 
-  def __set__(self, obj, value):
-    if not isinstance(obj, Component):
-      raise TypeError("StateDescriptor used on non-component!")
-
-    key = self._get_state_key(obj.context)
-    cell = self._get_cell(key, obj.context)
-    cell.value = value
-    obj.context.state.request_key_updates({ key })
-
-  def __get__(self, obj, objtype=None):
-    if not isinstance(obj, Component):
-      raise TypeError("StateDescriptor used on non-component!")
-
-    key = self._get_state_key(obj.context)
-    cell = self._get_cell(key, obj.context)
-    obj.context.subscribe(key)
-
-    return cast(T, cell.value)
-
-  def _get_state_key(self, context: Context):
+  def _get_box(self, context: Context) -> StateBox[T]:
     if not self._state_name: raise ValueError("State name not defined!")
-    return self._state_key_producer(context, self._state_name)
+    key = self._state_key_producer(context, self._state_name)
 
-  def _get_cell(self, key: str, context: Context):
     if (cell:=context.state.get_key_cell(key)) is not None:
       if not isinstance(cell, SerilializableStateCell):
         raise ValueError(f"Cell is not serializable for key '{key}'!")
-      return cell
+      return StateBox(key, context.state, cell)
 
     old_str_value = context.state.get_key_str(key)
     if old_str_value is None:
@@ -71,7 +72,34 @@ class StateDescriptor(Generic[T], ABC):
       value = self._val_type_adapter.validate_json(old_str_value)
     cell = SerilializableStateCell(value, lambda v: self._val_type_adapter.dump_json(v).decode("utf-8"))
     context.state.set_key_cell(key, cell)
-    return cell
+    return StateBox(key, context.state, cell)
+
+class StateBoxDescriptor(StateBoxDescriptorBase[T]):
+  def __get__(self, obj, objtype=None):
+    if not isinstance(obj, Component):
+      raise TypeError("StateDescriptor used on non-component!")
+
+    box = self._get_box(obj.context)
+    obj.context.subscribe(box.key)
+
+    return box
+
+class StateDescriptor(StateBoxDescriptorBase[T]):
+  def __set__(self, obj, value):
+    if not isinstance(obj, Component):
+      raise TypeError("StateDescriptor used on non-component!")
+
+    box = self._get_box(obj.context)
+    box.value = value
+
+  def __get__(self, obj, objtype=None):
+    if not isinstance(obj, Component):
+      raise TypeError("StateDescriptor used on non-component!")
+
+    box = self._get_box(obj.context)
+    obj.context.subscribe(box.key)
+
+    return box.value
 
 def get_global_state_key(context: Context, name: str):
   return f"global;{name}"
@@ -97,6 +125,15 @@ def global_state(default_factory: Callable[[], T], name: str | None = None):
 
 def context_state(default_factory: Callable[[], T], name: str | None = None):
   return StateDescriptor(get_context_state_key, default_factory, state_name=name)
+
+def local_state_box(default_factory: Callable[[], T], name: str | None = None):
+  return StateBoxDescriptor(get_local_state_key, default_factory, state_name=name)
+
+def global_state_box(default_factory: Callable[[], T], name: str | None = None):
+  return StateBoxDescriptor(get_global_state_key, default_factory, state_name=name)
+
+def context_state_box(default_factory: Callable[[], T], name: str | None = None):
+  return StateBoxDescriptor(get_context_state_key, default_factory, state_name=name)
 
 class StateResolverError(BaseException): pass
 

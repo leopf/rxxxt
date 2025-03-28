@@ -35,7 +35,7 @@ class State:
   def user_data(self):
     active_keys = self._get_active_keys({ "!", "#" })
     data = { k: v for k, v in self._key_str_store.items() if k in active_keys }
-    data.update({ k: cell.svalue for k, cell in self._key_cell_store.items() if k in active_keys })
+    data.update({ k: cell.serlialize() for k, cell in self._key_cell_store.items() if k in active_keys })
     return data
 
   @property
@@ -46,7 +46,7 @@ class State:
   def get_key_str(self, key: str):
     if (v := self._key_str_store.get(key)) is None:
       cell = self._key_cell_store.get(key)
-      if cell is not None: v = cell.svalue
+      if cell is not None: v = cell.serlialize()
     return v
   def get_key_cell(self, key: str): return self._key_cell_store.get(key)
   def set_key_cell(self, key: str, cell: StateCell, overwrite: bool = False):

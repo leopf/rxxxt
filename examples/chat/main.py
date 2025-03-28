@@ -1,4 +1,5 @@
-from rxxxt import Component, local_state, App, event_handler, El, VEl, PageBuilder
+import logging
+from rxxxt import Component, local_state, App, event_handler, El, VEl, PageBuilder, local_state_box
 from typing import Annotated
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI
@@ -6,10 +7,12 @@ import uvicorn
 import ollama
 import os
 
+logging.basicConfig(level=logging.DEBUG)
+
 MODEL_NAME = os.getenv("MODEL_NAME", "phi3.5:latest")
 
 class Chat(Component):
-  messages = local_state(list[ollama.Message])
+  messages = local_state_box(list[ollama.Message])
   current_message = local_state(str)
   generating = local_state(bool)
 
@@ -18,30 +21,32 @@ class Chat(Component):
 
   async def generate_response(self):
     gen_opts = ollama.Options(num_predict=500)
-    response = await ollama.AsyncClient().chat(MODEL_NAME, self.messages[:-1], stream=True, options=gen_opts)
+    response = await ollama.AsyncClient().chat(MODEL_NAME, self.messages.value[:-1], stream=True, options=gen_opts)
     async for part in response:
-      new_content = (self.messages[-1].content or "") + (part.message.content or "")
-      self.messages = self.messages[:-1] + [ollama.Message(role="assistant", content=new_content)]
+      with self.messages:
+        self.messages.value[-1].content = (self.messages.value[-1].content or "") + (part.message.content or "")
     self.generating = False
 
   @event_handler(prevent_default=True)
   def on_message(self):
-    self.messages += [
-      ollama.Message(role="user", content=self.current_message),
-      ollama.Message(role="assistant", content="")
-    ]
+    with self.messages:
+      self.messages.value.append(ollama.Message(role="user", content=self.current_message))
+      self.messages.value.append(ollama.Message(role="assistant", content=""))
+
     self.current_message = ""
     self.generating = True
+
+    print([ (m.role, m.content) for m in self.messages.value])
     self.add_job(self.generate_response())
 
-  @event_handler(throttle=500, debounce=500)
+  @event_handler()
   def on_message_input(self, text: Annotated[str, "target.value"]):
     self.current_message = text
 
   def render(self):
     return El.div(_class="content", content=[
       El.div(_class="messages", content=[
-        self._render_message(msg) for msg in self.messages
+        self._render_message(msg) for msg in self.messages.value
       ]),
       self._render_user_input()
     ])

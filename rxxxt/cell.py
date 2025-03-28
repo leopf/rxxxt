@@ -1,19 +1,17 @@
 from abc import abstractmethod
-from typing import Callable, Generic
-from typing_extensions import TypeVar
+from typing import Callable, Generic, final, TypeVar
 
 class StateCell:
-  @property
   @abstractmethod
-  def svalue(self) -> str: pass
+  def serlialize(self) -> str: pass
   def destroy(self): pass
 
+@final
 class StrStateCell(StateCell):
   def __init__(self, value: str) -> None:
     self.value = value
 
-  @property
-  def svalue(self): return self.value
+  def serlialize(self): return self.value
 
 T = TypeVar("T")
 class SerilializableStateCell(StateCell, Generic[T]):
@@ -22,5 +20,4 @@ class SerilializableStateCell(StateCell, Generic[T]):
     self.value = value
     self._serializer = serializer
 
-  @property
-  def svalue(self) -> str: return self._serializer(self.value)
+  def serlialize(self) -> str: return self._serializer(self.value)
