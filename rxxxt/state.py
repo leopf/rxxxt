@@ -7,7 +7,7 @@ from io import BytesIO
 import json
 import os
 import secrets
-from typing import Awaitable, Callable, Generic, Literal, TypeVar, get_origin
+from typing import Awaitable, Callable, Generic, TypeVar, get_origin
 from pydantic import TypeAdapter, ValidationError
 import hmac
 
@@ -146,7 +146,7 @@ class StateResolver(ABC):
   def resolve(self, token: str) -> dict[str, str] | Awaitable[dict[str, str]]: pass
 
 class JWTStateResolver(StateResolver):
-  def __init__(self, secret: bytes, max_age: timedelta | None = None, algorithm: Literal["HS256"] | Literal["HS384"] | Literal["HS512"] = "HS512") -> None:
+  def __init__(self, secret: bytes, max_age: timedelta | None = None, algorithm: str = "HS512") -> None:
     super().__init__()
     self._secret = secret
     self._algorithm = algorithm
@@ -168,7 +168,7 @@ class JWTStateResolver(StateResolver):
     stream.write(JWTStateResolver._b64url_encode(signature))
     return stream.getvalue().decode("utf-8")
 
-  def resolve(self, token: str) -> dict[str, str] | Awaitable[dict[str, str]]:
+  def resolve(self, token: str) -> dict[str, str]:
     rtoken = token.encode("utf-8")
     sig_start = rtoken.rfind(b".")
     if sig_start == -1: raise StateResolverError("Invalid token format")

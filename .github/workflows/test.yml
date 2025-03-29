@@ -1,0 +1,42 @@
+name: unit tests and linting
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.py"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**/*.py"
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        python-version: [3.11, 3.13]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev,testing]
+
+      - name: Run tests
+        run: |
+          python -m unittest discover tests/ -v
+
+      - name: Run ruff linter
+        run: |
+          ruff check .

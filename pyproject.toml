@@ -13,6 +13,7 @@ dependencies = ["pydantic>=2.9.0"]
 
 [project.optional-dependencies]
 dev = ["ruff", "uvicorn[standard]"]
+testing = ["pyjwt", "httpx"]
 docs = ["mkdocs", "mkdocstrings[python]", "mkdocs-material"]
 
 [project.urls]
