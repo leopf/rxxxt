@@ -1,13 +1,6 @@
-import asyncio
 import unittest
-from io import StringIO
-from typing import Annotated
-from rxxxt.component import Component, event_handler
-from rxxxt.elements import Element, El, HTMLFragment, VEl
-from rxxxt.events import ContextInputEvent
-from rxxxt.execution import Context, ContextConfig, State
-from rxxxt.node import Node
-from rxxxt.state import local_state
+from rxxxt.component import Component
+from rxxxt.elements import El, HTMLFragment, VEl
 from rxxxt.utils import class_map
 from tests.helpers import render_element
 
