@@ -25,14 +25,6 @@ class AppWebsocketUpdateMessage(BaseModel):
   events: list[InputEvent]
   location: str
 
-  @property
-  def path(self): return self.location.split("?")[0]
-
-  @property
-  def query_string(self):
-    parts = self.location.split("?")
-    return parts[1] if len(parts) > 1 else None
-
 class App:
   def __init__(self, content: ElementFactory, state_resolver: StateResolver | None = None, page_factory: PageFactory = default_page) -> None:
     self._content = content
@@ -43,6 +35,7 @@ class App:
     if scope["type"] == "http":
       context = HTTPContext(scope, receive, send)
       try: await self._handle_http(context)
+      except asyncio.CancelledError: raise
       except (ValidationError, ValueError) as e:
         logging.debug(e)
         return await context.respond_text("bad request", 400)
@@ -52,6 +45,7 @@ class App:
     elif scope["type"] == "websocket":
       context = WebsocketContext(scope, receive, send)
       try: await self._ws_session(context)
+      except asyncio.CancelledError: raise
       except BaseException as e:
         logging.debug(e)
         await context.close(1011, "Internal error")
