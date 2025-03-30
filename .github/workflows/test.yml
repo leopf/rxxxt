@@ -34,6 +34,8 @@ jobs:
           pip install .[dev,testing]
 
       - name: Run tests
+        env:
+          CI: 1
         run: |
           python -m unittest discover tests/ -v
 

@@ -1,4 +1,5 @@
 import importlib.resources
+import os
 from typing import Annotated
 import unittest
 from rxxxt.app import App, AppHttpRequest, AppWebsocketInitMessage, AppWebsocketUpdateMessage
@@ -58,6 +59,7 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
       r = await client.get("/")
       self.assertIn(text, r.text)
 
+  @unittest.skipIf(int(os.getenv("CI", "0")), "skipped in CI, build not present there.")
   async def test_frontend_script(self):
     app = App(lambda: El.div())
     async with self._get_client(app) as client:
