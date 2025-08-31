@@ -22,4 +22,4 @@
 - [`HTMLFragment`](./api.md#rxxxt.elements.HTMLFragment) - To create fragments, a container for elements on the same level. Works like react fragments.
 
 - [`HTMLVoidElement`](./api.md#rxxxt.elements.HTMLVoidElement) - long form of `VEl`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None]` to the constructor
-- [`HTMLElement`](./api.md#rxxxt.elements.HTMLElement) - long form of `El`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None] = {}, content: list[Element | str] = [], key: str | None = None` to the constructor
+- [`HTMLElement`](./api.md#rxxxt.elements.HTMLElement) - long form of `El`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None] = {}, content: Iterable[Element | str] = (), key: str | None = None` to the constructor

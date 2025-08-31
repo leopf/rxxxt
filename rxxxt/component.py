@@ -2,7 +2,7 @@ from abc import abstractmethod
 import asyncio
 import base64
 import inspect
-from typing import Annotated, Any, Callable, Generic, ParamSpec, TypeVar, get_args, get_origin
+from typing import Annotated, Any, Callable, Generic, ParamSpec, TypeVar, get_args, get_origin, cast
 from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call
 from rxxxt.elements import CustomAttribute, Element, meta_element
@@ -116,12 +116,12 @@ class Component(Element):
   async def lc_destroy(self) -> None:
     await self.on_before_destroy()
     if len(self._job_tasks) > 0:
-      try: await asyncio.wait(self._job_tasks)
+      try: _ = await asyncio.wait(self._job_tasks)
       except asyncio.CancelledError: pass
       self._job_tasks.clear()
     if len(self._worker_tasks) > 0:
-      for t in self._worker_tasks: t.cancel()
-      try: await asyncio.wait(self._worker_tasks)
+      for t in self._worker_tasks: _ = t.cancel()
+      try: _ = await asyncio.wait(self._worker_tasks)
       except asyncio.CancelledError: pass
       self._worker_tasks.clear()
     await self.on_after_destroy()
@@ -129,9 +129,9 @@ class Component(Element):
   async def lc_handle_event(self, event: dict[str, int | float | str | bool]):
     handler_name = event.pop("$handler_name", None)
     if isinstance(handler_name, str):
-      handler = getattr(self, handler_name, None) # NOTE: this is risky!!
-      if isinstance(handler, InstanceEventHandler):
-        await to_awaitable(handler, **event)
+      fn = getattr(self, handler_name, None) # NOTE: this is risky!!
+      if isinstance(fn, InstanceEventHandler):
+        await to_awaitable(cast(InstanceEventHandler[..., Any], fn), **event)
 
   async def on_init(self) -> None: ...
   async def on_before_update(self) -> None: ...
@@ -143,7 +143,7 @@ class Component(Element):
 
 class ComponentNode(Node):
   def __init__(self, context: Context, element: Component) -> None:
-    super().__init__(context, [])
+    super().__init__(context, ())
     self.element = element
 
   async def expand(self):
@@ -155,10 +155,10 @@ class ComponentNode(Node):
 
   async def update(self):
     for c in self.children: await c.destroy()
-    self.children.clear()
+    self.children = ()
     await self._render_inner()
 
-  async def handle_events(self, events: list[InputEvent]):
+  async def handle_events(self, events: tuple[InputEvent, ...]):
     for e in events:
       if self.context.sid == e.context_id:
         await self.element.lc_handle_event(dict(e.data))
@@ -166,7 +166,7 @@ class ComponentNode(Node):
 
   async def destroy(self):
     for c in self.children: await c.destroy()
-    self.children.clear()
+    self.children = ()
 
     await self.element.lc_destroy()
     self.context.unsubscribe_all()
@@ -175,5 +175,5 @@ class ComponentNode(Node):
     inner = await self.element.lc_render()
     if self.context.config.render_meta:
       inner = meta_element(self.context.sid, inner)
-    self.children.append(inner.tonode(self.context.sub("inner")))
+    self.children = (inner.tonode(self.context.sub("inner")),)
     await self.children[0].expand()

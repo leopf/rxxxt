@@ -14,7 +14,7 @@ class Element(ABC):
   @abstractmethod
   def tonode(self, context: Context) -> Node: ...
 
-ElementContent = list[Element | str]
+ElementContent = Iterable[Element | str]
 HTMLAttributeValue = str | bool | int | float | CustomAttribute | None
 
 def element_content_to_nodes(context: Context, content: ElementContent):
@@ -23,12 +23,12 @@ def element_content_to_nodes(context: Context, content: ElementContent):
     scontext = context.sub(idx)
     if isinstance(c, Element): nodes.append(c.tonode(scontext))
     else: nodes.append(TextNode(scontext, html.escape(c)))
-  return nodes
+  return tuple(nodes)
 
 class HTMLFragment(Element):
   def __init__(self, content: ElementContent) -> None:
     super().__init__()
-    self._content = content
+    self._content = tuple(content)
 
   def tonode(self, context: Context) -> Node:
     return FragmentNode(context, element_content_to_nodes(context, self._content))
@@ -52,7 +52,7 @@ class HTMLVoidElement(Element):
 class HTMLElement(HTMLVoidElement):
   def __init__(self, tag: str, attributes: dict[str, HTMLAttributeValue], content: ElementContent) -> None:
     super().__init__(tag, attributes)
-    self._content = content
+    self._content = tuple(content)
 
   def tonode(self, context: Context) -> 'Node':
     return ElementNode(context, self._tag, self._attributes, element_content_to_nodes(context, self._content))

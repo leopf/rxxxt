@@ -49,7 +49,7 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
     app = App(lambda: El.div(), state_resolver)
     async with self._get_client(app) as client:
       token = state_resolver.create_token({}, None)
-      r = await client.post("/", json=AppHttpRequest(state_token=token, events=[]).model_dump())
+      r = await client.post("/", json=AppHttpRequest(state_token=token, events=()).model_dump())
       self.assertEqual(r.status_code, 200)
 
   async def test_basic(self):
@@ -90,9 +90,8 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
     token = state_resolver.create_token({}, None)
     async with httpx_ws.aconnect_ws(str(client.base_url), client) as ws:
       await ws.send_text(AppWebsocketInitMessage(type="init", state_token=token, enable_state_updates=False).model_dump_json())
-      await ws.send_text(AppWebsocketUpdateMessage(type="update", events=[
-        ContextInputEvent(context_id=context_id, data={ "$handler_name": "add", "value": 5 })
-      ], location="/").model_dump_json())
+      await ws.send_text(AppWebsocketUpdateMessage(type="update", events=(
+        ContextInputEvent(context_id=context_id, data={ "$handler_name": "add", "value": 5 }),), location="/").model_dump_json())
       response_text = await ws.receive_text()
       self.assertIn("c5", response_text)
 

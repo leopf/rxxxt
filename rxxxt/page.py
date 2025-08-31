@@ -1,5 +1,6 @@
 from typing import Protocol
 from rxxxt.elements import El, Element, HTMLFragment, VEl
+from collections.abc import Iterable
 
 class PageFactory(Protocol):
   def __call__(self, header: Element, content: Element, body_end: Element) -> Element: ...
@@ -27,9 +28,9 @@ class PageBuilder(PageFactory):
     self._page_factory = page_factory
 
   def add_stylesheet(self, url: str, **kwargs: str): self.add_header(VEl.link(rel="stylesheet", href=url, **kwargs))
-  def add_header_script(self, url: str, content: list[Element | str] = [], **kwargs: str):
+  def add_header_script(self, url: str, content: Iterable[Element | str] = (), **kwargs: str):
     self.add_header(El.script(src=url, content=content, **kwargs))
-  def add_body_script(self, url: str, content: list[Element | str] = [], **kwargs: str):
+  def add_body_script(self, url: str, content: Iterable[Element | str] = (), **kwargs: str):
     self.add_body_end(El.script(src=url, content=content, **kwargs))
 
   def add_header(self, el: Element): self._header_elements.append(el)
