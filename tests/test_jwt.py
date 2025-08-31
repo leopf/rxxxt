@@ -15,7 +15,7 @@ def encode_ref_jwt(payload: dict[str, str], secret: str, max_age: timedelta, alg
   data = { "data": payload, "exp": int((datetime.now(tz=timezone.utc) + max_age).timestamp()) }
   return jwt.encode(data, secret, algorithm)
 
-def decode_ref_jwt(token: str, secret: str, max_age: timedelta, algorithm: str):
+def decode_ref_jwt(token: str, secret: str, _max_age: timedelta, algorithm: str):
   data = jwt.decode(token, secret, [algorithm])
   return data["data"]
 
@@ -42,15 +42,15 @@ class TestJWT(unittest.TestCase):
     args = ("12345678", timedelta(days=-1), "HS512")
     token = encode_ref_jwt({ "Hello": "World" }, *args)
     with self.assertRaises(StateResolverError):
-      decode_own_jwt(token, *args)
+      _ = decode_own_jwt(token, *args)
 
   def test_invalid(self):
     args = (timedelta(days=1), "HS512")
     token = encode_ref_jwt({ "Hello": "World" }, "1234", *args)
 
-    decode_own_jwt(token, "1234", *args)
+    _ = decode_own_jwt(token, "1234", *args)
     with self.assertRaises(StateResolverError):
-      decode_own_jwt(token, "1235", *args)
+      _ = decode_own_jwt(token, "1235", *args)
 
 if __name__ == "__main__":
-  unittest.main()
+  _ = unittest.main()

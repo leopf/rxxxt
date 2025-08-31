@@ -31,8 +31,7 @@ class TestRouter(unittest.IsolatedAsyncioTestCase):
     router.add_route("/var/{a}/{b}", lambda: El.div(content=["var2"]))
 
     @router.route("/{path*}")
-    def not_found_handler():
-      return El.div(content=["not found"])
+    def _(): return El.div(content=["not found"])
 
     comp = router()
     node = element_to_node(comp)
@@ -51,4 +50,4 @@ class TestRouter(unittest.IsolatedAsyncioTestCase):
     await node.destroy()
 
 if __name__ == "__main__":
-  unittest.main()
+  _ = unittest.main()

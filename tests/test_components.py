@@ -49,4 +49,4 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
       await node.expand()
 
 if __name__ == "__main__":
-  unittest.main()
+  _ = unittest.main()

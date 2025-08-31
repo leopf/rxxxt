@@ -36,4 +36,4 @@ class TestElements(unittest.IsolatedAsyncioTestCase):
     self.assertEqual(text, "<div>Hello World!</div>")
 
 if __name__ == "__main__":
-  unittest.main()
+  _ = unittest.main()
