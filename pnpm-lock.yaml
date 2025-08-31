@@ -7,13 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      morphdom:
-        specifier: ^2.7.4
-        version: 2.7.4
-      object-path:
-        specifier: ^0.11.8
-        version: 0.11.8
     devDependencies:
       '@types/object-path':
         specifier: ^0.11.4
@@ -21,6 +14,12 @@ importers:
       esbuild:
         specifier: ^0.24.0
         version: 0.24.0
+      morphdom:
+        specifier: ^2.7.4
+        version: 2.7.4
+      object-path:
+        specifier: ^0.11.8
+        version: 0.11.8
 
 packages:
 
