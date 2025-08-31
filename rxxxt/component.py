@@ -2,9 +2,9 @@ from abc import abstractmethod
 import asyncio
 import base64
 import inspect
-from typing import Annotated, Any, Callable, Coroutine, Generic, ParamSpec, TypeVar, get_args, get_origin
+from typing import Annotated, Any, Callable, Generic, ParamSpec, TypeVar, get_args, get_origin
+from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call
-from typing_extensions import Awaitable
 from rxxxt.elements import CustomAttribute, Element, meta_element
 from rxxxt.events import ContextInputEventDescriptor, ContextInputEventDescriptorGenerator, ContextInputEventHandlerOptions, InputEvent
 from rxxxt.execution import Context
@@ -15,13 +15,13 @@ EHP = ParamSpec('EHP')
 EHR = TypeVar('EHR')
 
 class ClassEventHandler(Generic[EHP, EHR]):
-  def __init__(self, fn:  Callable[EHP, EHR], options: ContextInputEventHandlerOptions) -> None:
+  def __init__(self, fn: Callable[EHP, EHR], options: ContextInputEventHandlerOptions) -> None:
     self.fn = fn
     self.options = options
-  def __get__(self, instance, owner): return InstanceEventHandler(self.fn, self.options, instance)
+  def __get__(self, instance: Any, _): return InstanceEventHandler(self.fn, self.options, instance)
   def __call__(self, *args: EHP.args, **kwargs: EHP.kwargs) -> EHR: raise RuntimeError("The event handler can only be called when attached to an instance!")
 
-class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute, ContextInputEventDescriptorGenerator):
+class InstanceEventHandler(ClassEventHandler[EHP, EHR], Generic[EHP, EHR], CustomAttribute, ContextInputEventDescriptorGenerator):
   def __init__(self, fn: Callable[EHP, EHR], options: ContextInputEventHandlerOptions, instance: Any) -> None:
     super().__init__(validate_call(fn), options)
     if not isinstance(instance, Component): raise ValueError("The provided instance must be a component!")
@@ -62,9 +62,9 @@ class InstanceEventHandler(ClassEventHandler, Generic[EHP, EHR], CustomAttribute
 
     return param_map
 
-def event_handler(**kwargs):
+def event_handler(**kwargs: Any):
   options = ContextInputEventHandlerOptions.model_validate(kwargs)
-  def _inner(fn) -> ClassEventHandler: return ClassEventHandler(fn, options)
+  def _inner(fn: Callable[EHP, EHR]) -> ClassEventHandler[EHP, EHR]: return ClassEventHandler(fn, options)
   return _inner
 
 class HandleNavigate(CustomAttribute):
@@ -79,13 +79,13 @@ class Component(Element):
   def __init__(self) -> None:
     super().__init__()
     self.context: Context
-    self._worker_tasks: list[asyncio.Task] = []
-    self._job_tasks: list[asyncio.Task] = []
+    self._worker_tasks: list[asyncio.Task[Any]] = []
+    self._job_tasks: list[asyncio.Task[Any]] = []
 
   @abstractmethod
   def render(self) -> Element | Awaitable[Element]: ...
 
-  def add_job(self, a: Coroutine):
+  def add_job(self, a: Coroutine[Any, Any, Any]):
     """
     Runs a background job until completion. Only runs when the session is persistent.
     args:
@@ -94,7 +94,7 @@ class Component(Element):
     if self.context.config.persistent:
       self._worker_tasks.append(asyncio.create_task(a))
     else: a.close()
-  def add_worker(self, a: Coroutine):
+  def add_worker(self, a: Coroutine[Any, Any, Any]):
     """
     Runs a background worker, which may be cancelled at any time. Only runs when the session is persistent.
     args:

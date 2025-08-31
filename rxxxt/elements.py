@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import html
 import logging
 from typing import Protocol
+from collections.abc import Iterable
 from rxxxt.execution import Context
 from rxxxt.node import ElementNode, FragmentNode, Node, TextNode, VoidElementNode
 
@@ -21,8 +22,7 @@ def element_content_to_nodes(context: Context, content: ElementContent):
   for idx, c in enumerate(content):
     scontext = context.sub(idx)
     if isinstance(c, Element): nodes.append(c.tonode(scontext))
-    elif isinstance(c, str): nodes.append(TextNode(scontext, html.escape(c)))
-    else: raise ValueError("Invalid child!")
+    else: nodes.append(TextNode(scontext, html.escape(c)))
   return nodes
 
 class HTMLFragment(Element):
@@ -76,12 +76,12 @@ class UnescapedHTMLElement(Element):
   def tonode(self, context: Context) -> 'Node': return TextNode(context, self._text)
 
 class CreateHTMLElement(Protocol):
-  def __call__(self, content: list[Element | str] = [], key: str | None = None, **kwargs: HTMLAttributeValue) -> Element: ...
+  def __call__(self, content: Iterable[Element | str] = (), key: str | None = None, **kwargs: HTMLAttributeValue) -> Element: ...
 
 class _El(type):
   def __getitem__(cls, name: str) -> CreateHTMLElement:
-    def _inner(content: ElementContent = [], key: str | None = None, **kwargs: HTMLAttributeValue):
-      el = HTMLElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() }, content=content)
+    def _inner(content: Iterable[Element | str] = (), key: str | None = None, **kwargs: HTMLAttributeValue):
+      el = HTMLElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() }, content=list(content))
       if key is not None: el = KeyedElement(key, el)
       return el
     return _inner

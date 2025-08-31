@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 import re
-from typing import Literal
+from typing import Any, Callable, Literal
 from pydantic import BaseModel, field_serializer, field_validator, model_serializer
 
 class ContextInputEventHandlerOptions(BaseModel):
@@ -24,7 +24,7 @@ class ContextInputEventDescriptorGenerator(ABC): # NOTE: this is a typing hack
 
 class EventBase(BaseModel):
   @model_serializer(mode="wrap")
-  def serialize_model(self, old_serizalizer):
+  def serialize_model(self, old_serizalizer: Callable[[Any], Any]): # TODO: fix typing...
     other = old_serizalizer(self)
     event_name = getattr(self, "event", None)
     if event_name is not None: other["event"] = event_name
