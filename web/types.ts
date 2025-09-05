@@ -4,7 +4,6 @@ export type OutputEvent =
     | UseWebsocketOutputEvent
     | EventRegisterWindowEvent
     | EventRegisterQuerySelectorEvent;
-export type InputEventProducer = () => ContextInputEvent[];
 
 export interface SetCookieOutputEvent {
     event: "set-cookie";
@@ -46,7 +45,7 @@ export interface EventRegisterQuerySelectorEvent {
 
 export interface ContextInputEvent {
     context_id: string;
-    data: Record<string, number | string | boolean>;
+    data: Record<string, number | string | boolean | undefined>;
 }
 
 export interface ContextInputEventDescriptor {
@@ -76,8 +75,4 @@ export interface InitData {
     state_token: string;
     events: OutputEvent[];
     path: string;
-}
-
-export interface ContextCleanable {
-    clean: (ids: Set<string>) => void;
 }

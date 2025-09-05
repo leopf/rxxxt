@@ -13,7 +13,7 @@ from rxxxt.state import StateResolver, default_state_resolver
 
 class AppHttpRequest(BaseModel):
   state_token: str
-  events: list[InputEvent]
+  events: tuple[InputEvent, ...]
 
 class AppWebsocketInitMessage(BaseModel):
   type: Literal["init"]
@@ -22,7 +22,7 @@ class AppWebsocketInitMessage(BaseModel):
 
 class AppWebsocketUpdateMessage(BaseModel):
   type: Literal["update"]
-  events: list[InputEvent]
+  events: tuple[InputEvent, ...]
   location: str
 
 class App:
@@ -82,7 +82,7 @@ class App:
               update_message = AppWebsocketUpdateMessage.model_validate_json(message)
               session.set_location(update_message.location)
               await session.handle_events(update_message.events)
-        finally: updater_task.cancel()
+        finally: _ = updater_task.cancel()
 
   async def _http_session(self, context: HTTPContext):
     async with Session(self._get_session_config(False), self._content()) as session:
@@ -94,7 +94,7 @@ class App:
       else:
         session.set_location(context.location)
         await session.init(None)
-        events = []
+        events = ()
 
       session.set_location(context.location)
       session.set_headers(context.headers)

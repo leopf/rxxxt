@@ -11,8 +11,7 @@ import httpx_ws
 import httpx_ws.transport
 
 from rxxxt.events import ContextInputEvent
-from rxxxt.helpers import to_awaitable
-from rxxxt.state import local_state
+from rxxxt.state import default_state_resolver, local_state
 
 class TestApp(unittest.IsolatedAsyncioTestCase):
 
@@ -46,10 +45,11 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
       self.assertEqual(r.status_code, 404)
 
   async def test_post(self):
-    app = App(lambda: El.div())
+    state_resolver = default_state_resolver()
+    app = App(lambda: El.div(), state_resolver)
     async with self._get_client(app) as client:
-      token = await to_awaitable(app._state_resolver.create_token, {}, None)
-      r = await client.post("/", json=AppHttpRequest(state_token=token, events=[]).model_dump())
+      token = state_resolver.create_token({}, None)
+      r = await client.post("/", json=AppHttpRequest(state_token=token, events=()).model_dump())
       self.assertEqual(r.status_code, 200)
 
   async def test_basic(self):
@@ -83,18 +83,18 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
       def render(self):
         return El.div(content=[f"c{self.counter}"])
 
-    app = App(Counter)
+    state_resolver = default_state_resolver()
+    app = App(Counter, state_resolver)
     client = self._get_client(app, True)
-    await client.get("/")
-    token = await to_awaitable(app._state_resolver.create_token, {}, None)
+    _ = await client.get("/")
+    token = state_resolver.create_token({}, None)
     async with httpx_ws.aconnect_ws(str(client.base_url), client) as ws:
       await ws.send_text(AppWebsocketInitMessage(type="init", state_token=token, enable_state_updates=False).model_dump_json())
-      await ws.send_text(AppWebsocketUpdateMessage(type="update", events=[
-        ContextInputEvent(context_id=context_id, data={ "$handler_name": "add", "value": 5 })
-      ], location="/").model_dump_json())
+      await ws.send_text(AppWebsocketUpdateMessage(type="update", events=(
+        ContextInputEvent(context_id=context_id, data={ "$handler_name": "add", "value": 5 }),), location="/").model_dump_json())
       response_text = await ws.receive_text()
       self.assertIn("c5", response_text)
 
 
 if __name__ == "__main__":
-  unittest.main()
+  _ = unittest.main()

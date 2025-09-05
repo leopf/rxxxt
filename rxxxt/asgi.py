@@ -4,7 +4,8 @@ from io import BytesIO
 import json
 import mimetypes
 import pathlib
-from typing import Any, Awaitable, Callable, Iterable, MutableMapping
+from typing import Any, Callable
+from collections.abc import  Awaitable, Iterable, MutableMapping
 
 BytesLike = bytes | bytearray
 ASGIHeaders = Iterable[tuple[BytesLike, BytesLike]]
@@ -30,10 +31,10 @@ class TransportContext:
   def scope(self) -> ASGIScope: return { **self._scope }
   @functools.cached_property
   def headers(self):
-    res: dict[str, list[str]] = {}
+    res: dict[str, tuple[str, ...]] = {}
     for k, v in self._scope["headers"]:
       key = k.decode(errors="ignore").lower()
-      res[key] = res.get(key, []) + [v.decode(errors="ignore")] # TODO improve this...
+      res[key] = res.get(key, ()) + (v.decode(errors="ignore"),)
     return res
   @functools.cached_property
   def content_type(self):
@@ -65,7 +66,7 @@ class WebsocketContext(TransportContext):
   @property
   def accepted(self): return self._accepted
 
-  async def setup(self, headers: ASGIHeaders = [], subprotocol: str | None = None):
+  async def setup(self, headers: ASGIHeaders = (), subprotocol: str | None = None):
     if self._connected: raise ConnectionError("Already connected!")
     if self._accepted: raise ConnectionError("Already accepted!")
 
@@ -125,7 +126,7 @@ class HTTPContext(TransportContext):
     data = text.encode("utf-8")
     await self.respond_bytes(status, content_headers(len(data), mime_type, "utf-8"), data)
 
-  async def respond_file(self, path: str | pathlib.Path, status: int = 200, mime_type: str | None = None, buffer_size: int = -1):
+  async def respond_file(self, path: str | pathlib.Path, status: int = 200, mime_type: str | None = None):
     mime_type = mime_type or mimetypes.guess_type(path)[0]
     if mime_type is None: raise ValueError("Unknown mime type!")
 
@@ -165,6 +166,6 @@ class HTTPContext(TransportContext):
       event_type = event.get("type")
       if event_type == "http.request":
         more = event.get("more_body", False)
-        io.write(event.get("body", b""))
+        _ = io.write(event.get("body", b""))
       elif event_type == "http.disconnect": more = False
     return io.getvalue()

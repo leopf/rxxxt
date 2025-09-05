@@ -4,6 +4,7 @@ from datetime import datetime
 from functools import cached_property
 import functools
 import hashlib
+import itertools
 from typing import Literal
 from pydantic import TypeAdapter
 from rxxxt.cell import StateCell, StrStateCell
@@ -12,7 +13,7 @@ from rxxxt.events import ContextInputEventDescriptor, EventRegisterQuerySelector
 
 ContextStackKey = str | int
 ContextStack = tuple[ContextStackKey, ...]
-HeaderValuesAdapter = TypeAdapter(list[str])
+HeaderValuesAdapter = TypeAdapter(tuple[str, ...])
 
 class State:
   """
@@ -39,7 +40,7 @@ class State:
     return data
 
   @property
-  def keys(self) -> set[str]: return set().union(self._key_str_store.keys(), self._key_cell_store.keys())
+  def keys(self) -> set[str]: return set(itertools.chain(self._key_str_store.keys(), self._key_cell_store.keys()))
 
   def init(self, k_str_store: dict[str, str]): self._key_str_store.update(k_str_store)
 
@@ -54,7 +55,7 @@ class State:
       raise ValueError(f"Cell already registered with key '{key}'!")
     self._key_cell_store[key] = cell
   def delete_key(self, key: str):
-    self._key_str_store.pop(key, None)
+    _ = self._key_str_store.pop(key, None)
     if (cell := self._key_cell_store.pop(key, None)) is not None:
       cell.destroy()
 
@@ -74,7 +75,7 @@ class State:
     self._set_update_event()
 
   def request_key_updates(self, keys: set[str]):
-    ids: set[ContextStack] = set().union(*(self._key_subscribers.get(key, ()) for key in keys))
+    ids: set[ContextStack] = set(itertools.chain(*(self._key_subscribers.get(key, ()) for key in keys)))
     self.request_context_updates(ids)
 
   def subscribe(self, cid: ContextStack, key: str):
@@ -87,7 +88,7 @@ class State:
   def unsubscribe_all(self, cid: ContextStack):
     if cid in self._pending_updates: self._pending_updates.remove(cid)
     for ids in self._key_subscribers.values():
-      if id in ids: ids.remove(id)
+      if cid in ids: ids.remove(cid)
     self._set_update_event()
 
   def add_output_event(self, event: OutputEvent):
@@ -95,7 +96,7 @@ class State:
     self._set_update_event()
 
   def pop_output_events(self):
-    res = self._output_events
+    res = tuple(self._output_events)
     self._output_events = []
     return res
 
@@ -195,10 +196,10 @@ class Context:
     if isinstance(self._stack[-1], int): return Context(self.state, self._config, self._stack[:-1] + (key,))
     raise ValueError("No index to replace!")
 
-  def get_header(self, name: str) -> list[str]:
+  def get_header(self, name: str) -> tuple[str, ...]:
     header_lines = self._get_state_str_subscribe(f"!header;{name}")
-    if header_lines is None: return []
-    else: return header_lines.splitlines()
+    if header_lines is None: return ()
+    else: return tuple(header_lines.splitlines())
 
   def request_update(self): self.state.request_context_updates({ self.id })
   def subscribe(self, key: str): self.state.subscribe(self.id, key)

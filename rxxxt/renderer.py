@@ -21,7 +21,7 @@ class Renderer:
       self._pending_renders.add(node.context.id)
       await node.update()
 
-  async def handle_events(self, events: list[InputEvent]):
+  async def handle_events(self, events: tuple[InputEvent, ...]):
     await self._root.handle_events(events)
 
   async def destroy(self): await self._root.destroy()
@@ -31,7 +31,7 @@ class Renderer:
     return render_node(self._root)
 
   def render_partial(self):
-    res = [ render_node(node) for node in self._find_roots(self._pending_renders) ]
+    res = tuple(render_node(node) for node in self._find_roots(self._pending_renders))
     self._pending_renders.clear()
     return res
 

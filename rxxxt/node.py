@@ -6,7 +6,7 @@ from rxxxt.events import InputEvent
 from rxxxt.execution import Context
 
 class Node(ABC):
-  def __init__(self, context: Context, children: list['Node']) -> None:
+  def __init__(self, context: Context, children: tuple['Node', ...]) -> None:
     self.context = context
     self.children = children
 
@@ -16,7 +16,7 @@ class Node(ABC):
   async def update(self):
     for c in self.children: await c.update()
 
-  async def handle_events(self, events: list[InputEvent]):
+  async def handle_events(self, events: tuple[InputEvent, ...]):
     for c in self.children: await c.handle_events(events)
 
   async def destroy(self):
@@ -28,29 +28,29 @@ class Node(ABC):
 class FragmentNode(Node): ...
 class TextNode(Node):
   def __init__(self, context: Context, text: str) -> None:
-    super().__init__(context, [])
+    super().__init__(context, ())
     self.text = text
 
-  def write(self, io: StringIO): io.write(self.text)
+  def write(self, io: StringIO): _ = io.write(self.text)
 
 class VoidElementNode(Node):
-  def __init__(self, context: Context, tag: str, attributes: dict[str, str | None], children: list['Node'] = []) -> None:
+  def __init__(self, context: Context, tag: str, attributes: dict[str, str | None], children: tuple['Node', ...] = ()) -> None:
     super().__init__(context, children)
     self.attributes = attributes
     self.tag = tag
 
   def write(self, io: StringIO):
-    io.write(f"<{html.escape(self.tag)}")
+    _ = io.write(f"<{html.escape(self.tag)}")
     for k, v in self.attributes.items():
-      io.write(f" {html.escape(k)}")
-      if v is not None: io.write(f"=\"{html.escape(v)}\"")
-    io.write(">")
+      _ = io.write(f" {html.escape(k)}")
+      if v is not None: _ = io.write(f"=\"{html.escape(v)}\"")
+    _ = io.write(">")
 
 class ElementNode(VoidElementNode):
-  def __init__(self, context: Context, tag: str, attributes: dict[str, str | None], children: list['Node']) -> None:
+  def __init__(self, context: Context, tag: str, attributes: dict[str, str | None], children: tuple['Node', ...]) -> None:
     super().__init__(context, tag, attributes, children)
 
   def write(self, io: StringIO):
     super().write(io)
     for c in self.children: c.write(io)
-    io.write(f"</{html.escape(self.tag)}>")
+    _ = io.write(f"</{html.escape(self.tag)}>")

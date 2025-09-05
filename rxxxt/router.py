@@ -1,4 +1,5 @@
 import re
+from typing import cast
 from rxxxt.elements import El, Element, ElementFactory
 from rxxxt.component import Component
 from rxxxt.state import context_state
@@ -17,7 +18,7 @@ class PathPattern:
     param_name_regex = re.compile("^[a-zA-Z0-9_]*\\*?$")
 
     self.parts: list[str] = []
-    self.params: list[tuple[str|None,bool]] = []
+    self.params: list[tuple[str | None, bool]] = []
     part_start = 0
     for ps, pe in param_ranges:
       self.parts.append(pattern[part_start:ps])
@@ -74,7 +75,7 @@ class Router(ElementFactory):
 
     async def on_before_update(self) -> None:
       self._selected_match = self._get_current_match()
-      self.params = dict() if self._selected_match is None else self._selected_match[1]
+      self.params = cast(dict[str, str], dict()) if self._selected_match is None else self._selected_match[1]
 
     def render(self) -> Element:
       if self._selected_match is None:

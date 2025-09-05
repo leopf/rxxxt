@@ -12,12 +12,12 @@ from rxxxt.state import StateResolver
 class InitOutputData(BaseModel):
   path: str
   state_token: str
-  events: list[OutputEvent]
+  events: tuple[OutputEvent, ...]
 
 class UpdateOutputData(BaseModel):
   state_token: str | None = None
-  events: list[OutputEvent]
-  html_parts: list[str]
+  events: tuple[OutputEvent, ...]
+  html_parts: tuple[str, ...]
 
 @dataclass
 class SessionConfig:
@@ -39,7 +39,7 @@ class Session:
   async def __aenter__(self): return self
   async def __aexit__(self, *_): await self.destroy()
 
-  async def wait_for_update(self): await self._update_event.wait()
+  async def wait_for_update(self): _ = await self._update_event.wait()
 
   async def init(self, state_token: str | None):
     if state_token is not None:
@@ -57,11 +57,11 @@ class Session:
     await self._root_renderer.update(self.state.pop_updates())
     self.state.cleanup()
 
-  async def handle_events(self, events: list[InputEvent]):
+  async def handle_events(self, events: tuple[InputEvent, ...]):
     await self._root_renderer.handle_events(events)
 
   def set_location(self, location: str): self.state.update_state_strs({ "!location": location })
-  def set_headers(self, headers: dict[str, list[str]]):
+  def set_headers(self, headers: dict[str, tuple[str, ...]]):
     headers_kvs = { f"!header;{k}": "\n".join(v) for k, v in headers.items() }
     olds_header_keys = set(k for k in self.state.keys if k.startswith("!header;"))
     olds_header_keys.difference_update(headers_kvs.keys())
@@ -73,7 +73,7 @@ class Session:
     state_token: str | None = None
     if include_state_token: state_token = await self._update_state_token()
 
-    html_parts = [self._root_renderer.render_full()] if render_full else self._root_renderer.render_partial()
+    html_parts = tuple(self._root_renderer.render_full()) if render_full else self._root_renderer.render_partial()
     return UpdateOutputData(state_token=state_token, html_parts=html_parts, events=self.state.pop_output_events())
 
   async def render_page(self):
