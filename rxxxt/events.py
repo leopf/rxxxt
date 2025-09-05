@@ -98,7 +98,7 @@ class NavigateOutputEvent(EventBase):
 
 class ContextInputEvent(BaseModel):
   context_id: str
-  data: dict[str, int | float | str | bool]
+  data: dict[str, int | float | str | bool | None]
 
 InputEvent = ContextInputEvent
 OutputEvent = SetCookieOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent | EventRegisterWindowEvent | EventRegisterQuerySelectorEvent
