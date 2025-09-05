@@ -8,18 +8,12 @@ importers:
 
   .:
     devDependencies:
-      '@types/object-path':
-        specifier: ^0.11.4
-        version: 0.11.4
       esbuild:
         specifier: ^0.24.0
         version: 0.24.0
       morphdom:
         specifier: ^2.7.4
         version: 2.7.4
-      object-path:
-        specifier: ^0.11.8
-        version: 0.11.8
 
 packages:
 
@@ -167,9 +161,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@types/object-path@0.11.4':
-    resolution: {integrity: sha512-4tgJ1Z3elF/tOMpA8JLVuR9spt9Ynsf7+JjqsQ2IqtiPJtcLoHoXcT6qU4E10cPFqyXX5HDm9QwIzZhBSkLxsw==}
-
   esbuild@0.24.0:
     resolution: {integrity: sha512-FuLPevChGDshgSicjisSooU0cemp/sGXR841D5LHMB7mTVOmsEHcAxaH3irL53+8YDIeVNQEySh4DaYU/iuPqQ==}
     engines: {node: '>=18'}
@@ -177,10 +168,6 @@ packages:
 
   morphdom@2.7.4:
     resolution: {integrity: sha512-ATTbWMgGa+FaMU3FhnFYB6WgulCqwf6opOll4CBzmVDTLvPMmUPrEv8CudmLPK0MESa64+6B89fWOxP3+YIlxQ==}
-
-  object-path@0.11.8:
-    resolution: {integrity: sha512-YJjNZrlXJFM42wTBn6zgOJVar9KFJvzx6sTWDte8sWZF//cnjl0BxHNpfZx+ZffXX63A9q0b1zsFiBX4g4X5KA==}
-    engines: {node: '>= 10.12.0'}
 
 snapshots:
 
@@ -256,8 +243,6 @@ snapshots:
   '@esbuild/win32-x64@0.24.0':
     optional: true
 
-  '@types/object-path@0.11.4': {}
-
   esbuild@0.24.0:
     optionalDependencies:
       '@esbuild/aix-ppc64': 0.24.0
@@ -286,5 +271,3 @@ snapshots:
       '@esbuild/win32-x64': 0.24.0
 
   morphdom@2.7.4: {}
-
-  object-path@0.11.8: {}
