@@ -20,6 +20,8 @@
 - [`UnescapedHTMLElement`](./api.md#rxxxt.elements.UnescapedHTMLElement) - Use this to return raw html strings. Example: `UnescapedHTMLElement("<h1>Hello World</h1>")`
 
 - [`HTMLFragment`](./api.md#rxxxt.elements.HTMLFragment) - To create fragments, a container for elements on the same level. Works like react fragments.
+- [`KeyedElement`](./api.md#rxxxt.elements.KeyedElement) - Sets the rendering key of an element.
+- [`WithRegistered`](./api.md#rxxxt.elements.WithRegistered) - Registeres values for its child. Intended to be used in combination with `self.context.registered(...)`.
 
 - [`HTMLVoidElement`](./api.md#rxxxt.elements.HTMLVoidElement) - long form of `VEl`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None]` to the constructor
 - [`HTMLElement`](./api.md#rxxxt.elements.HTMLElement) - long form of `El`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None] = {}, content: Iterable[Element | str] = (), key: str | None = None` to the constructor

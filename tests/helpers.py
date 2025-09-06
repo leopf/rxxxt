@@ -1,12 +1,13 @@
 import asyncio
 from io import StringIO
+from typing import Any
 from rxxxt.elements import Element
 from rxxxt.execution import Context, ContextConfig, State
 from rxxxt.node import Node
 
-def element_to_node(el: Element):
+def element_to_node(el: Element, registry: dict[str, Any] | None = None):
   state = State(asyncio.Event())
-  context = Context(state, ContextConfig(persistent=False, render_meta=False), ("root",))
+  context = Context(state, registry or {}, ContextConfig(persistent=False, render_meta=False), ("root",))
   return el.tonode(context)
 
 def render_node(node: Node):
