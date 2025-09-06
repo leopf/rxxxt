@@ -126,7 +126,7 @@ class Component(Element):
       self._worker_tasks.clear()
     await self.on_after_destroy()
 
-  async def lc_handle_event(self, event: dict[str, int | float | str | bool]):
+  async def lc_handle_event(self, event: dict[str, int | float | str | bool | None]):
     handler_name = event.pop("$handler_name", None)
     if isinstance(handler_name, str):
       fn = getattr(self, handler_name, None) # NOTE: this is risky!!

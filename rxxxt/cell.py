@@ -1,5 +1,6 @@
 from abc import abstractmethod
-from typing import Callable, Generic, final, TypeVar
+from typing import Callable, Generic, final
+from rxxxt.helpers import T
 
 class StateCell:
   @abstractmethod
@@ -13,7 +14,6 @@ class StrStateCell(StateCell):
 
   def serlialize(self): return self.value
 
-T = TypeVar("T")
 class SerilializableStateCell(StateCell, Generic[T]):
   def __init__(self, value: T, serializer: Callable[[T], str]) -> None:
     super().__init__()

@@ -5,6 +5,7 @@ from typing import Protocol
 from collections.abc import Iterable
 from rxxxt.execution import Context
 from rxxxt.node import ElementNode, FragmentNode, Node, TextNode, VoidElementNode
+from typing import Any
 
 class CustomAttribute(ABC):
   @abstractmethod
@@ -67,6 +68,15 @@ class KeyedElement(Element):
     try: context = context.replace_index(self._key)
     except ValueError as e: logging.debug(f"Failed to replace index with key {self._key}", e)
     return self._element.tonode(context)
+
+class WithRegistered(Element):
+  def __init__(self, register: dict[str, Any], child: Element) -> None:
+    super().__init__()
+    self._register = register
+    self._child = child
+
+  def tonode(self, context: Context) -> 'Node':
+    return self._child.tonode(context.update_registry(self._register))
 
 class UnescapedHTMLElement(Element):
   def __init__(self, text: str) -> None:

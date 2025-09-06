@@ -5,11 +5,12 @@ from functools import cached_property
 import functools
 import hashlib
 import itertools
-from typing import Literal
+from typing import Literal, Any
 from pydantic import TypeAdapter
 from rxxxt.cell import StateCell, StrStateCell
 from rxxxt.events import ContextInputEventDescriptor, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
   OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, ContextInputEventDescriptorGenerator
+from rxxxt.helpers import T
 
 ContextStackKey = str | int
 ContextStack = tuple[ContextStackKey, ...]
@@ -146,9 +147,10 @@ class ContextConfig:
   render_meta: bool
 
 class Context:
-  def __init__(self, state: State, config: ContextConfig, stack: ContextStack) -> None:
+  def __init__(self, state: State, registry: dict[str, Any], config: ContextConfig, stack: ContextStack) -> None:
     self._stack: ContextStack = stack
     self._config = config
+    self._registry: dict[str, Any] = dict(registry)
     self.state = state
 
   @property
@@ -191,10 +193,16 @@ class Context:
       except ValueError: pass
     return result
 
-  def sub(self, key: ContextStackKey): return Context(self.state, self._config, self._stack + (key,))
+  def sub(self, key: ContextStackKey): return Context(self.state, self._registry, self._config, self._stack + (key,))
   def replace_index(self, key: str):
-    if isinstance(self._stack[-1], int): return Context(self.state, self._config, self._stack[:-1] + (key,))
+    if isinstance(self._stack[-1], int): return Context(self.state, self._registry, self._config, self._stack[:-1] + (key,))
+    if isinstance(self._stack[-1], int): return Context(self.state, self._registry, self._config, self._stack[:-1] + (key,))
     raise ValueError("No index to replace!")
+  def update_registry(self, registry: dict[str, Any]): return Context(self.state, self._registry | registry, self._config, self._stack)
+  def registered(self, name: str, t: type[T]) -> T:
+    if not isinstance((val:=self._registry.get(name)), t):
+      raise TypeError(f"Invalid type in get_registered '{type(val)}'!")
+    return val
 
   def get_header(self, name: str) -> tuple[str, ...]:
     header_lines = self._get_state_str_subscribe(f"!header;{name}")

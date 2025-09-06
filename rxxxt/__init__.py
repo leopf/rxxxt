@@ -1,4 +1,5 @@
-from rxxxt.elements import HTMLFragment, Element, HTMLElement, HTMLVoidElement, UnescapedHTMLElement, CustomAttribute, VEl, El
+from rxxxt.elements import HTMLFragment, Element, HTMLElement, HTMLVoidElement, UnescapedHTMLElement, CustomAttribute, VEl, El, KeyedElement, \
+  WithRegistered
 from rxxxt.component import Component, event_handler, HandleNavigate
 from rxxxt.page import default_page, PageBuilder
 from rxxxt.execution import Context
@@ -8,7 +9,8 @@ from rxxxt.state import local_state, global_state, context_state, local_state_bo
 from rxxxt.utils import class_map
 
 __all__ = [
-  "HTMLFragment", "Element", "HTMLElement", "HTMLVoidElement", "UnescapedHTMLElement", "CustomAttribute", "VEl", "El",
+  "HTMLFragment", "Element", "HTMLElement", "HTMLVoidElement", "UnescapedHTMLElement", "CustomAttribute", "VEl", "El", "KeyedElement",
+    "WithRegistered",
   "Component", "event_handler", "HandleNavigate",
   "PageBuilder", "default_page",
   "Context",

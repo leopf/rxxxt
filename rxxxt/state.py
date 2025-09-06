@@ -7,15 +7,16 @@ from io import BytesIO
 import json
 import os
 import secrets
-from typing import Awaitable, Callable, Generic, TypeVar, get_origin
+from typing import Callable, Generic, get_origin, Any
+from collections.abc import Awaitable
 from pydantic import TypeAdapter, ValidationError
 import hmac
 
 from rxxxt.cell import SerilializableStateCell
 from rxxxt.component import Component
 from rxxxt.execution import Context, State
+from rxxxt.helpers import T
 
-T = TypeVar("T")
 StateDataAdapter = TypeAdapter(dict[str, str])
 
 class StateBox(Generic[T]):
@@ -49,12 +50,12 @@ class StateBoxDescriptorBase(Generic[T]):
 
     native_types = (bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple)
     if default_factory in native_types or get_origin(default_factory) in native_types:
-      self._val_type_adapter = TypeAdapter(default_factory)
+      self._val_type_adapter: TypeAdapter[Any] = TypeAdapter(default_factory)
     else:
       sig = inspect.signature(default_factory)
       self._val_type_adapter = TypeAdapter(sig.return_annotation)
 
-  def __set_name__(self, owner, name):
+  def __set_name__(self, owner: Any, name: str):
     if self._state_name is None:
       self._state_name = name
 
@@ -77,7 +78,7 @@ class StateBoxDescriptorBase(Generic[T]):
     return StateBox(key, context.state, cell)
 
 class StateBoxDescriptor(StateBoxDescriptorBase[T]):
-  def __get__(self, obj, objtype=None):
+  def __get__(self, obj: Any, objtype: Any=None):
     if not isinstance(obj, Component):
       raise TypeError("StateDescriptor used on non-component!")
 
@@ -87,14 +88,14 @@ class StateBoxDescriptor(StateBoxDescriptorBase[T]):
     return box
 
 class StateDescriptor(StateBoxDescriptorBase[T]):
-  def __set__(self, obj, value):
+  def __set__(self, obj: Any, value: Any):
     if not isinstance(obj, Component):
       raise TypeError("StateDescriptor used on non-component!")
 
     box = self._get_box(obj.context)
     box.value = value
 
-  def __get__(self, obj, objtype=None):
+  def __get__(self, obj: Any, objtype: Any=None):
     if not isinstance(obj, Component):
       raise TypeError("StateDescriptor used on non-component!")
 
@@ -103,7 +104,7 @@ class StateDescriptor(StateBoxDescriptorBase[T]):
 
     return box.value
 
-def get_global_state_key(context: Context, name: str):
+def get_global_state_key(_context: Context, name: str):
   return f"global;{name}"
 
 def get_local_state_key(context: Context, name: str):
@@ -156,16 +157,16 @@ class JWTStateResolver(StateResolver):
   def create_token(self, data: dict[str, str], old_token: str | None) -> str:
     payload = { "exp": int((datetime.now(tz=timezone.utc) + self._max_age).timestamp()), "data": data }
     stream = BytesIO()
-    stream.write(JWTStateResolver._b64url_encode(json.dumps({
+    _ = stream.write(JWTStateResolver._b64url_encode(json.dumps({
       "typ": "JWT",
       "alg": self._algorithm
     }).encode("utf-8")))
-    stream.write(b".")
-    stream.write(JWTStateResolver._b64url_encode(json.dumps(payload).encode("utf-8")))
+    _ = stream.write(b".")
+    _ = stream.write(JWTStateResolver._b64url_encode(json.dumps(payload).encode("utf-8")))
 
     signature = hmac.digest(self._secret, stream.getvalue(), self._digest)
-    stream.write(b".")
-    stream.write(JWTStateResolver._b64url_encode(signature))
+    _ = stream.write(b".")
+    _ = stream.write(JWTStateResolver._b64url_encode(signature))
     return stream.getvalue().decode("utf-8")
 
   def resolve(self, token: str) -> dict[str, str]:
@@ -186,11 +187,13 @@ class JWTStateResolver(StateResolver):
     if not hmac.compare_digest(signature, actual_signature):
       raise StateResolverError("Invalid JWT signature!")
 
-    payload = json.loads(JWTStateResolver._b64url_decode(parts[1]))
+    payload: Any = json.loads(JWTStateResolver._b64url_decode(parts[1]))
     if not isinstance(payload, dict) or not isinstance(payload.get("exp"), int) or not isinstance(payload.get("data"), dict):
       raise StateResolverError("Invalid JWT payload!")
 
-    expires_dt = datetime.fromtimestamp(payload["exp"], timezone.utc)
+    timstamp_val = payload["exp"]
+    if not isinstance(timstamp_val, int): raise StateResolverError("timestamp is not an int")
+    expires_dt = datetime.fromtimestamp(timstamp_val, timezone.utc)
     if expires_dt < datetime.now(tz=timezone.utc):
       raise StateResolverError("JWT expired!")
 

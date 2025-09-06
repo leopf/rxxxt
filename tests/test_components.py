@@ -1,14 +1,14 @@
 import unittest
 from typing import Annotated
 from rxxxt.component import Component, event_handler
-from rxxxt.elements import El
+from rxxxt.elements import El, WithRegistered
 from rxxxt.events import ContextInputEvent
 from rxxxt.state import local_state
 from tests.helpers import element_to_node, render_node
 
 
 class TestComponents(unittest.IsolatedAsyncioTestCase):
-  class TestCompCounter(Component):
+  class Counter(Component):
     counter = local_state(int)
 
     @event_handler()
@@ -18,8 +18,32 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
     def render(self):
       return El.div(content=[f"c{self.counter}"])
 
+  class RegistryComp(Component):
+    def render(self):
+      return El.div(content=[self.context.registered("header", str)])
+
+  async def test_registry(self):
+    comp = TestComponents.RegistryComp()
+    with self.assertRaises(TypeError):
+      node = element_to_node(comp, {})
+      await node.expand()
+
+    node = element_to_node(comp, { "header": "1337" })
+    await node.expand()
+    self.assertEqual(render_node(node), "<div>1337</div>")
+
+  async def test_with_registered(self):
+    comp = WithRegistered({ "header": "deadbeef" }, TestComponents.RegistryComp())
+    node = element_to_node(comp, {})
+    await node.expand()
+    self.assertEqual(render_node(node), "<div>deadbeef</div>")
+
+    node = element_to_node(comp, { "header": "1337" })
+    await node.expand()
+    self.assertEqual(render_node(node), "<div>deadbeef</div>")
+
   async def test_component(self):
-    comp = TestComponents.TestCompCounter()
+    comp = TestComponents.Counter()
     node = element_to_node(comp)
     await node.expand()
     self.assertEqual(render_node(node), "<div>c0</div>")
@@ -29,7 +53,7 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
     await node.destroy()
 
   async def test_event_add(self):
-     comp = TestComponents.TestCompCounter()
+     comp = TestComponents.Counter()
      node = element_to_node(comp)
      await node.expand()
      self.assertEqual(render_node(node), "<div>c0</div>")
@@ -40,7 +64,7 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
      await node.destroy()
 
   async def test_double_expand(self):
-    el = TestComponents.TestCompCounter()
+    el = TestComponents.Counter()
     node = element_to_node(el)
     await node.expand()
     with self.assertRaises(Exception):
