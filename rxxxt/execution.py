@@ -10,6 +10,7 @@ from pydantic import TypeAdapter
 from rxxxt.cell import StateCell, StrStateCell
 from rxxxt.events import ContextInputEventDescriptor, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
   OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, ContextInputEventDescriptorGenerator
+from rxxxt.helpers import T
 
 ContextStackKey = str | int
 ContextStack = tuple[ContextStackKey, ...]
