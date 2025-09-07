@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
 import html
 import logging
-from typing import Callable, Protocol
+from typing import Callable, Concatenate, Generic, Protocol
 from collections.abc import Iterable
 from rxxxt.execution import Context
+from rxxxt.helpers import FNP
 from rxxxt.node import ElementNode, FragmentNode, Node, TextNode, VoidElementNode
 from typing import Any
 
@@ -78,12 +79,18 @@ class WithRegistered(Element):
   def tonode(self, context: Context) -> 'Node':
     return self._child.tonode(context.update_registry(self._register))
 
-class LazyElement(Element):
-  def __init__(self, fn: Callable[[Context], Element]) -> None:
+def lazy_element(fn: Callable[Concatenate[Context, FNP], Element]) -> Callable[FNP, 'Element']:
+  def _inner(*args: FNP.args, **kwargs: FNP.kwargs) -> Element: return LazyElement(fn, *args, **kwargs)
+  return _inner
+
+class LazyElement(Element, Generic[FNP]):
+  def __init__(self, fn: Callable[Concatenate[Context, FNP], Element], *args: FNP.args, **kwargs: FNP.kwargs) -> None:
     self._fn = fn
+    self._fn_args = args
+    self._fn_kwargs = kwargs
 
   def tonode(self, context: Context) -> 'Node':
-    return self._fn(context).tonode(context)
+    return self._fn(context, *self._fn_args, **self._fn_kwargs).tonode(context)
 
 class UnescapedHTMLElement(Element):
   def __init__(self, text: str) -> None:
