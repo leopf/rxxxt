@@ -92,6 +92,13 @@ class LazyElement(Element, Generic[FNP]):
   def tonode(self, context: Context) -> 'Node':
     return self._fn(context, *self._fn_args, **self._fn_kwargs).tonode(context)
 
+class TextElement(Element):
+  def __init__(self, text: str) -> None:
+    self._text = text
+
+  def tonode(self, context: Context) -> 'Node':
+    return TextNode(context, html.escape(self._text))
+
 class UnescapedHTMLElement(Element):
   def __init__(self, text: str) -> None:
     super().__init__()
