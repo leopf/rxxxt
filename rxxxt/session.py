@@ -76,8 +76,8 @@ class Session:
     html_parts = tuple(self._root_renderer.render_full()) if render_full else self._root_renderer.render_partial()
     return UpdateOutputData(state_token=state_token, html_parts=html_parts, events=self.state.pop_output_events())
 
-  async def render_page(self):
-    init_data = InitOutputData(state_token=await self._update_state_token(), events=self.state.pop_output_events(), path="")
+  async def render_page(self, path: str):
+    init_data = InitOutputData(state_token=await self._update_state_token(), events=self.state.pop_output_events(), path=path)
 
     content_el = UnescapedHTMLElement(self._root_renderer.render_full())
     header_el = HTMLFragment([ El.script(src="/rxxxt-client.js"), El.style(content=["rxxxt-meta { display: contents; }"]) ])

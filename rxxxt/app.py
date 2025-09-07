@@ -106,7 +106,7 @@ class App:
         result = await session.render_update(include_state_token=True, render_full=False)
         await context.respond_text(result.model_dump_json(exclude_defaults=True), mime_type="application/json")
       else:
-        result = await session.render_page()
+        result = await session.render_page(context.path)
         await context.respond_text(result, mime_type="text/html")
 
   async def _handle_http(self, context: HTTPContext):
