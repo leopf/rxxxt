@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import html
 import logging
-from typing import Protocol
+from typing import Callable, Protocol
 from collections.abc import Iterable
 from rxxxt.execution import Context
 from rxxxt.node import ElementNode, FragmentNode, Node, TextNode, VoidElementNode
@@ -78,6 +78,13 @@ class WithRegistered(Element):
   def tonode(self, context: Context) -> 'Node':
     return self._child.tonode(context.update_registry(self._register))
 
+class LazyElement(Element):
+  def __init__(self, fn: Callable[[Context], Element]) -> None:
+    self._fn = fn
+
+  def tonode(self, context: Context) -> 'Node':
+    return self._fn(context).tonode(context)
+
 class UnescapedHTMLElement(Element):
   def __init__(self, text: str) -> None:
     super().__init__()
@@ -100,12 +107,14 @@ class _El(type):
 class El(metaclass=_El): ...
 
 class CreateHTMLVoidElement(Protocol):
-  def __call__(self, **kwargs: HTMLAttributeValue) -> HTMLVoidElement: ...
+  def __call__(self, key: str | None = None, **kwargs: HTMLAttributeValue) -> Element: ...
 
 class _VEl(type):
   def __getitem__(cls, name: str) -> CreateHTMLVoidElement:
-    def _inner(**kwargs: HTMLAttributeValue) -> HTMLVoidElement:
-      return HTMLVoidElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() })
+    def _inner(key: str | None = None, **kwargs: HTMLAttributeValue) -> Element:
+      el = HTMLVoidElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() })
+      if key is not None: el = KeyedElement(key, el)
+      return el
     return _inner
   def __getattribute__(cls, name: str): return cls[name]
 
