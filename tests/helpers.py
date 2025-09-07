@@ -15,8 +15,8 @@ def render_node(node: Node):
   node.write(io)
   return io.getvalue()
 
-async def render_element(el: Element):
-  node = element_to_node(el)
+async def render_element(el: Element, registry: dict[str, Any] | None = None):
+  node = element_to_node(el, registry)
   await node.expand()
   s = render_node(node)
   await node.destroy()
