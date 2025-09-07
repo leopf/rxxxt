@@ -1,12 +1,19 @@
 import unittest
 from rxxxt.component import Component
-from rxxxt.elements import El, HTMLFragment, VEl
+from rxxxt.elements import El, HTMLFragment, LazyElement, VEl
+from rxxxt.execution import Context
 from rxxxt.utils import class_map
 from tests.helpers import render_element
 
 class TestElements(unittest.IsolatedAsyncioTestCase):
   async def test_div(self):
     text = await render_element(El.div(content=["Hello World!"]))
+    self.assertEqual(text, "<div>Hello World!</div>")
+
+  async def test_lazy_div(self):
+    @LazyElement
+    def LazyDiv(_: Context): return El.div(content=["Hello World!"])
+    text = await render_element(LazyDiv)
     self.assertEqual(text, "<div>Hello World!</div>")
 
   async def test_input(self):
