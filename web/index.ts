@@ -63,6 +63,7 @@ const outputEventHandlers: { [K in OutputEvent['event']]: (ev: Extract<OutputEve
             location.assign(targetUrl);
         } else {
             window.history.pushState({}, "", event.location);
+            transport.update();
         }
     },
     "use-websocket": event => {
@@ -111,10 +112,7 @@ const outputEventHandlers: { [K in OutputEvent['event']]: (ev: Extract<OutputEve
 const onOutputEvents = (events: OutputEvent[]) => events.forEach(event => outputEventHandlers[event.event](event as any)); // typescript doesnt handle this well
 
 (window as any).rxxxt = {
-    navigate: (url: string | URL) => {
-        onOutputEvents([{ event: "navigate", location: new URL(url, location.href).href }]);
-        transport.update();
-    },
+    navigate: (url: string | URL) => onOutputEvents([{ event: "navigate", location: new URL(url, location.href).href }]),
     init: (data: InitData) => {
         baseUrl = new URL(location.href);
         if (baseUrl.pathname.endsWith(data.path)) {
