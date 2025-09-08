@@ -37,7 +37,7 @@ class State:
   @property
   def keys(self) -> set[str]: return set(itertools.chain(self._key_str_store.keys(), self._key_cell_store.keys()))
 
-  def init(self, k_str_store: dict[str, str]): self._key_str_store.update(k_str_store)
+  def update(self, k_str_store: dict[str, str]): self._key_str_store.update(k_str_store)
 
   def get_key_str(self, key: str):
     if (v := self._key_str_store.get(key)) is None:
