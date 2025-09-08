@@ -86,21 +86,19 @@ class App:
 
   async def _http_session(self, context: HTTPContext):
     async with Session(self._get_session_config(False), self._content()) as session:
-
       if context.method == "POST":
         req = AppHttpRequest.model_validate_json(await context.receive_json_raw())
         await session.init(req.state_token)
-        events = req.events
+        session.set_location(context.location)
+        session.set_headers(context.headers)
+        await session.handle_events(req.events)
       else:
         session.set_location(context.location)
+        session.set_headers(context.headers)
         await session.init(None)
-        events = ()
 
-      session.set_location(context.location)
-      session.set_headers(context.headers)
-
-      await session.handle_events(events)
-      await session.update()
+      if session.update_pending:
+        await session.update()
 
       if context.method == "POST":
         result = await session.render_update(include_state_token=True, render_full=False)

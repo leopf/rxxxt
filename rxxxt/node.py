@@ -2,6 +2,7 @@
 from abc import ABC
 import html
 from io import StringIO
+from typing import Callable
 from rxxxt.events import InputEvent
 from rxxxt.execution import Context
 
@@ -24,6 +25,16 @@ class Node(ABC):
 
   def write(self, io: StringIO):
     for c in self.children: c.write(io)
+
+class LazyNode(Node):
+  def __init__(self, context: Context, producer: Callable[[Context], Node]) -> None:
+    super().__init__(context, ())
+    self._producer: Callable[[Context], Node] = producer
+
+  async def expand(self):
+    if self.children == ():
+      self.children = (self._producer(self.context),)
+    return await super().expand()
 
 class FragmentNode(Node): ...
 class TextNode(Node):

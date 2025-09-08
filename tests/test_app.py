@@ -5,12 +5,13 @@ import unittest
 from rxxxt.app import App, AppHttpRequest, AppWebsocketInitMessage, AppWebsocketUpdateMessage
 from rxxxt.asgi import ASGIHandler
 from rxxxt.component import Component, event_handler
-from rxxxt.elements import El, Element
+from rxxxt.elements import El, Element, lazy_element
 import httpx
 import httpx_ws
 import httpx_ws.transport
 
 from rxxxt.events import ContextInputEvent
+from rxxxt.execution import Context
 from rxxxt.state import default_state_resolver, local_state
 
 class TestApp(unittest.IsolatedAsyncioTestCase):
@@ -58,6 +59,16 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
     async with self._get_client(app) as client:
       r = await client.get("/")
       self.assertIn(text, r.text)
+
+  async def test_initial_expand(self):
+    @lazy_element
+    def header_test(context: Context):
+      return El.div(content=[";".join(context.get_header("x-test"))])
+
+    app = App(header_test)
+    async with self._get_client(app) as client:
+      r = await client.get("/", headers={ "x-test": "hello world" })
+      self.assertIn("hello world", r.text)
 
   @unittest.skipIf(int(os.getenv("CI", "0")), "skipped in CI, build not present there.")
   async def test_frontend_script(self):

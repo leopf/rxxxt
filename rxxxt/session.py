@@ -5,6 +5,7 @@ from rxxxt.elements import El, Element, HTMLFragment, UnescapedHTMLElement, meta
 from rxxxt.events import InputEvent, OutputEvent
 from rxxxt.execution import Context, ContextConfig, State
 from rxxxt.helpers import to_awaitable
+from rxxxt.node import LazyNode
 from rxxxt.page import PageFactory
 from rxxxt.renderer import Renderer, render_node
 from rxxxt.state import StateResolver
@@ -32,9 +33,12 @@ class Session:
     self.state = State(self._update_event)
 
     context_config = ContextConfig(persistent=config.persistent, render_meta=True)
-    root_node = meta_element("root", base).tonode(Context(self.state, {}, context_config, ("root",)))
-    self._root_renderer = Renderer(root_node)
+    self._root_renderer = Renderer(LazyNode(Context(self.state, {}, context_config, ("root",)), meta_element("root", base).tonode))
     self._last_token: str | None = None
+
+  @property
+  def update_pending(self):
+    return self._update_event.is_set()
 
   async def __aenter__(self): return self
   async def __aexit__(self, *_): await self.destroy()
@@ -45,7 +49,7 @@ class Session:
     if state_token is not None:
       self._last_token = state_token
       user_data = await to_awaitable(self.config.state_resolver.resolve, state_token)
-      self.state.init(user_data)
+      self.state.update(user_data)
 
     await self._root_renderer.expand()
 
