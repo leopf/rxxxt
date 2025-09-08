@@ -18,6 +18,8 @@ type TargetEvent = {
 
 };
 
+type EventHandler = (e: Event) => void;
+
 const descriptorKeyCache = new WeakMap<ContextInputEventDescriptor, string>();
 function descriptorKey(d: ContextInputEventDescriptor) {
     let key = descriptorKeyCache.get(d);
@@ -66,14 +68,11 @@ function getEventPathValue(event: Event, path: string) {
 export function initEventManager(triggerUpdate: () => void) {
     let submitIdCounter = 0;
     const targetEvents = new WeakMap<EventTarget, TargetEvent[]>();
-    const registeredTargetEvents = new WeakMap<EventTarget, Set<string>>();
+    const registeredTargetEvents = new WeakMap<EventTarget, Map<string, EventHandler>>();
     const eventDataSubmissions = new Map<number, ContextInputEvent>();
 
-    const eventHandler = (e: Event) => {
-        if (e.target === null) {
-            return;
-        }
-        for (const targetEvent of targetEvents.get(e.target)?.filter(te => te.event === e.type) ?? []) {
+    const eventHandler = (target: EventTarget, e: Event) => {
+        for (const targetEvent of targetEvents.get(target)?.filter(te => te.event === e.type) ?? []) {
             const eventData: Record<string, number | boolean | string | undefined> = {
                 $handler_name: targetEvent.descriptor.handler_name,
                 ...Object.fromEntries(Object.entries(targetEvent.descriptor.param_map)
@@ -110,21 +109,22 @@ export function initEventManager(triggerUpdate: () => void) {
     };
 
     const updateHandlers = (target: EventTarget) => {
-        const reg = registeredTargetEvents.get(target) ?? new Set();
+        const reg = registeredTargetEvents.get(target) ?? new Map<string, EventHandler>();
         registeredTargetEvents.set(target, reg);
 
         const newReg = new Set(targetEvents.get(target)?.map(e => e.event) ?? []);
-        for (const event of Array.from(reg)) {
+        for (const event of Array.from(reg.keys())) {
             if (!newReg.has(event)) {
-                target.removeEventListener(event, eventHandler);
+                target.removeEventListener(event, reg.get(event)!);
                 reg.delete(event);
             }
         }
 
         for (const event of newReg) {
             if (!reg.has(event)) {
-                target.addEventListener(event, eventHandler);
-                reg.add(event);
+                const newHandler = (e: Event) => eventHandler(target, e);
+                target.addEventListener(event, newHandler);
+                reg.set(event, newHandler);
             }
         }
     };
