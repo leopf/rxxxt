@@ -1,7 +1,22 @@
 import unittest
 from rxxxt.elements import El
+from rxxxt.helpers import match_path
 from rxxxt.router import Router
 from tests.helpers import element_to_node, render_node
+
+class TestMatcher(unittest.TestCase):
+  def test_basic(self):
+    pattern ="/hello/{one}/{all*}"
+    self.assertDictEqual(match_path(pattern, "/hello/world/1337/42") or {}, { "one": "world", "all": "1337/42" })
+    self.assertDictEqual(match_path(pattern, "/hello/world/1337") or {}, { "one": "world", "all": "1337" })
+    self.assertIsNone(match_path(pattern, "/hello/1337"))
+
+  def test_unnamed(self):
+    self.assertEqual(match_path("/{*}", "/hello/world/1337"), {})
+    self.assertEqual(match_path("/{*}/{one}", "/hello/world/1337"), { "one": "1337" })
+    self.assertIsNone(match_path("/{}/{one}", "/hello/world/1337"))
+    self.assertEqual(match_path("/{}/{}/{one}", "/hello/world/1337"), { "one": "1337" })
+    self.assertEqual(match_path("/{}/{path*}", "/hello/world/1337"), { "path": "world/1337" })
 
 class TestRouter(unittest.IsolatedAsyncioTestCase):
   async def test_basic(self):

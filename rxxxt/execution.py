@@ -5,12 +5,13 @@ from functools import cached_property
 import functools
 import hashlib
 import itertools
+import re
 from typing import Literal, Any
 from pydantic import TypeAdapter
 from rxxxt.cell import StateCell, StrStateCell
 from rxxxt.events import ContextInputEventDescriptor, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
   OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, ContextInputEventDescriptorGenerator
-from rxxxt.helpers import T
+from rxxxt.helpers import T, match_path
 
 ContextStackKey = str | int
 ContextStack = tuple[ContextStackKey, ...]
@@ -203,6 +204,9 @@ class Context:
     if not isinstance((val:=self._registry.get(name)), t):
       raise TypeError(f"Invalid type in get_registered '{type(val)}'!")
     return val
+
+  def match_path(self, pattern: str, re_flags: int = re.IGNORECASE):
+    return match_path(pattern, self.path, re_flags)
 
   def get_header(self, name: str) -> tuple[str, ...]:
     header_lines = self._get_state_str_subscribe(f"!header;{name}")
