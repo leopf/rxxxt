@@ -2,7 +2,7 @@ import unittest
 from rxxxt.component import Component
 from rxxxt.elements import El, HTMLFragment, VEl, lazy_element
 from rxxxt.execution import Context
-from rxxxt.utils import class_map
+from rxxxt.helpers import class_map
 from tests.helpers import render_element
 
 class TestElements(unittest.IsolatedAsyncioTestCase):

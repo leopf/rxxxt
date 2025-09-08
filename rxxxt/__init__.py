@@ -6,7 +6,7 @@ from rxxxt.execution import State, Context
 from rxxxt.app import App
 from rxxxt.router import router_params, Router
 from rxxxt.state import local_state, global_state, context_state, local_state_box, global_state_box, context_state_box
-from rxxxt.utils import class_map
+from rxxxt.helpers import class_map, match_path
 
 __all__ = [
   "Element", "CustomAttribute", "ElementContent", "HTMLAttributeValue", "HTMLAttributes", "HTMLFragment", "HTMLVoidElement",
@@ -23,5 +23,6 @@ __all__ = [
   "router_params", "Router",
 
   "local_state", "global_state", "context_state", "local_state_box", "global_state_box", "context_state_box",
-  "class_map"
+
+  "class_map", "match_path"
 ]
