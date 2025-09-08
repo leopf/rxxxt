@@ -65,14 +65,26 @@ function getEventPathValue(event: Event, path: string) {
     }
 }
 
+/**
+ * This is very messy ... a lot of bad choices.
+ */
 export function initEventManager(triggerUpdate: () => void) {
     let submitIdCounter = 0;
     const targetEvents = new WeakMap<EventTarget, TargetEvent[]>();
     const registeredTargetEvents = new WeakMap<EventTarget, Map<string, EventHandler>>();
     const eventDataSubmissions = new Map<number, ContextInputEvent>();
+    const enabledContexts = new Set<string>();
 
     const eventHandler = (target: EventTarget, e: Event) => {
-        for (const targetEvent of targetEvents.get(target)?.filter(te => te.event === e.type) ?? []) {
+        let peningEvents = targetEvents.get(target) ?? [];
+        const newEvents = peningEvents.filter(e => enabledContexts.has(e.descriptor.context_id));
+        if (newEvents.length !== peningEvents.length) {
+            targetEvents.set(target, newEvents);
+            updateHandlers(target);
+            peningEvents = newEvents;
+        }
+
+        for (const targetEvent of peningEvents.filter(te => te.event === e.type)) {
             const eventData: Record<string, number | boolean | string | undefined> = {
                 $handler_name: targetEvent.descriptor.handler_name,
                 ...Object.fromEntries(Object.entries(targetEvent.descriptor.param_map)
@@ -134,7 +146,11 @@ export function initEventManager(triggerUpdate: () => void) {
         eventDataSubmissions.clear();
         return res;
     };
-    const updateEvents = (element: Element) => {
+    const onElementUpdated = (element: Element) => {
+        if (element.tagName === "RXXXT-META") {
+            enabledContexts.add(element.id)
+        }
+
         const registeredLocalEvents = new Map((targetEvents.get(element) ?? []).filter(e => e.tag == "local").map(e => [e.event, e]));
         const newEventDescriptors = getLocalElementEventDescriptors(element);
 
@@ -153,6 +169,11 @@ export function initEventManager(triggerUpdate: () => void) {
             }
         }
     };
+    const onElementDeleted = (element: Element) => {
+        if (element.tagName === "RXXXT-META") {
+            enabledContexts.delete(element.id)
+        }
+    }
     const registerEvent = (target: EventTarget, event: string, descriptor: ContextInputEventDescriptor, tag: string = "global") => {
         const key = descriptorKey(descriptor);
         const elementEvents = targetEvents.get(target) ?? [];
@@ -174,5 +195,5 @@ export function initEventManager(triggerUpdate: () => void) {
         updateHandlers(target);
     };
 
-    return { registerEvent, unregisterEvent, updateEvents, popPendingEvents };
+    return { registerEvent, unregisterEvent, onElementUpdated, onElementDeleted, popPendingEvents };
 }

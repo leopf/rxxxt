@@ -1,6 +1,6 @@
 import re
 from typing import cast
-from rxxxt.elements import El, Element, ElementFactory
+from rxxxt.elements import El, Element, ElementFactory, KeyedElement
 from rxxxt.component import Component
 from rxxxt.state import context_state
 
@@ -68,26 +68,26 @@ class Router(ElementFactory):
   class RoutedComponent(Component):
     params = router_params()
 
-    def __init__(self, routes: list[tuple[PathPattern, ElementFactory]]):
+    def __init__(self, routes: tuple[tuple[PathPattern, ElementFactory], ...]):
       super().__init__()
       self._routes = routes
-      self._selected_match: tuple[ElementFactory, dict[str, str]] | None = None
+      self._selected_match: tuple[int, ElementFactory, dict[str, str]] | None = None
 
     async def on_before_update(self) -> None:
       self._selected_match = self._get_current_match()
-      self.params = cast(dict[str, str], dict()) if self._selected_match is None else self._selected_match[1]
+      self.params = cast(dict[str, str], dict()) if self._selected_match is None else self._selected_match[2]
 
     def render(self) -> Element:
       if self._selected_match is None:
         return El.h1(content=["Not found!"])
       else:
-        return self._selected_match[0]()
+        return KeyedElement(str(self._selected_match[0]), self._selected_match[1]())
 
     def _get_current_match(self):
       path = self.context.path
-      for pattern, element_factory in self._routes:
+      for idx, (pattern, element_factory) in enumerate(self._routes):
         if (m:=pattern.match(path)) is not None:
-          return (element_factory, m)
+          return (idx, element_factory, m)
       return None
 
 
@@ -101,4 +101,4 @@ class Router(ElementFactory):
       return fn
     return _inner
 
-  def __call__(self) -> Element: return Router.RoutedComponent(self._routes)
+  def __call__(self) -> Element: return Router.RoutedComponent(tuple(self._routes))
