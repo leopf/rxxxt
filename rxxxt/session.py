@@ -36,6 +36,10 @@ class Session:
     self._root_renderer = Renderer(LazyNode(Context(self.state, {}, context_config, ("root",)), meta_element("root", base).tonode))
     self._last_token: str | None = None
 
+  @property
+  def update_pending(self):
+    return self._update_event.is_set()
+
   async def __aenter__(self): return self
   async def __aexit__(self, *_): await self.destroy()
 

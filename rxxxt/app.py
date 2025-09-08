@@ -92,11 +92,13 @@ class App:
         session.set_location(context.location)
         session.set_headers(context.headers)
         await session.handle_events(req.events)
-        await session.update()
       else:
         session.set_location(context.location)
         session.set_headers(context.headers)
         await session.init(None)
+
+      if session.update_pending:
+        await session.update()
 
       if context.method == "POST":
         result = await session.render_update(include_state_token=True, render_full=False)
