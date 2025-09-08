@@ -1,11 +1,6 @@
-import asyncio
+import asyncio, hashlib, functools, itertools, re
 from dataclasses import dataclass
 from datetime import datetime
-from functools import cached_property
-import functools
-import hashlib
-import itertools
-import re
 from typing import Literal, Any
 from pydantic import TypeAdapter
 from rxxxt.cell import StateCell, StrStateCell
@@ -160,7 +155,7 @@ class Context:
   @property
   def id(self): return self._stack
 
-  @cached_property
+  @functools.cached_property
   def sid(self): return get_context_stack_sid(self._stack)
 
   @property
