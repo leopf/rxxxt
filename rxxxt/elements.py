@@ -8,13 +8,13 @@ from rxxxt.helpers import FNP
 from rxxxt.node import ElementNode, FragmentNode, Node, TextNode, VoidElementNode
 from typing import Any
 
-class CustomAttribute(ABC):
-  @abstractmethod
-  def get_key_value(self, original_key: str) -> tuple[str, str | None]: ...
-
 class Element(ABC):
   @abstractmethod
   def tonode(self, context: Context) -> Node: ...
+
+class CustomAttribute(ABC):
+  @abstractmethod
+  def get_key_value(self, original_key: str) -> tuple[str, str | None]: ...
 
 ElementContent = Iterable[Element | str]
 HTMLAttributeValue = str | bool | int | float | CustomAttribute | None
@@ -80,10 +80,10 @@ class WithRegistered(Element):
 
 def lazy_element(fn: Callable[Concatenate[Context, FNP], Element]) -> Callable[FNP, 'Element']:
   def _inner(*args: FNP.args, **kwargs: FNP.kwargs) -> Element:
-    return LazyElement(fn, *args, **kwargs)
+    return _LazyElement(fn, *args, **kwargs)
   return _inner
 
-class LazyElement(Element, Generic[FNP]):
+class _LazyElement(Element, Generic[FNP]):
   def __init__(self, fn: Callable[Concatenate[Context, FNP], Element], *args: FNP.args, **kwargs: FNP.kwargs) -> None:
     self._fn = fn
     self._fn_args = args

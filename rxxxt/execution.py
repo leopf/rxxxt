@@ -2,7 +2,6 @@ import asyncio, hashlib, functools, itertools, re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Any
-from pydantic import TypeAdapter
 from rxxxt.cell import StateCell, StrStateCell
 from rxxxt.events import ContextInputEventDescriptor, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
   OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, ContextInputEventDescriptorGenerator
@@ -10,7 +9,6 @@ from rxxxt.helpers import T, match_path
 
 ContextStackKey = str | int
 ContextStack = tuple[ContextStackKey, ...]
-HeaderValuesAdapter = TypeAdapter(tuple[str, ...])
 
 class State:
   """
