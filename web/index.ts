@@ -48,11 +48,17 @@ const applyHTML = (html?: string) => {
         }
 
         target = ttarget;
-        morphdom(target, updateRoot);
+        morphdom(target, updateRoot, {
+            onNodeDiscarded: node => {
+                if (node instanceof Element) {
+                    eventManager.onElementDeleted(node);
+                }
+            }
+        });
     }
 
     for (const element of target.getElementsByTagName("*")) {
-        eventManager.updateEvents(element);
+        eventManager.onElementUpdated(element);
     }
 };
 

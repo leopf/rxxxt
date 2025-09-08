@@ -12,12 +12,12 @@ def decode_own_jwt(token: str, secret: str, max_age: timedelta, algorithm: str):
   return r.resolve(token)
 
 def encode_ref_jwt(payload: dict[str, str], secret: str, max_age: timedelta, algorithm: str):
-  data = { "data": payload, "exp": int((datetime.now(tz=timezone.utc) + max_age).timestamp()) }
+  data = { "d": payload, "exp": int((datetime.now(tz=timezone.utc) + max_age).timestamp()) }
   return jwt.encode(data, secret, algorithm)
 
 def decode_ref_jwt(token: str, secret: str, _max_age: timedelta, algorithm: str):
   data = jwt.decode(token, secret, [algorithm])
-  return data["data"]
+  return data["d"]
 
 class TestJWT(unittest.TestCase):
   def test_encode(self):

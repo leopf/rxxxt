@@ -1,21 +1,16 @@
 from abc import ABC, abstractmethod
-import base64
-from datetime import datetime, timedelta, timezone
-import hashlib
+from datetime import timedelta
 import inspect
-from io import BytesIO
-import json
 import os
 import secrets
 from typing import Callable, Generic, get_origin, Any
 from collections.abc import Awaitable
 from pydantic import TypeAdapter, ValidationError
-import hmac
 
 from rxxxt.cell import SerilializableStateCell
 from rxxxt.component import Component
 from rxxxt.execution import Context, State
-from rxxxt.helpers import T
+from rxxxt.helpers import T, JWTError, JWTManager
 
 StateDataAdapter = TypeAdapter(dict[str, str])
 
@@ -149,62 +144,17 @@ class StateResolver(ABC):
 class JWTStateResolver(StateResolver):
   def __init__(self, secret: bytes, max_age: timedelta | None = None, algorithm: str = "HS512") -> None:
     super().__init__()
-    self._secret = secret
-    self._algorithm = algorithm
-    self._digest = { "HS256": hashlib.sha256, "HS384": hashlib.sha384, "HS512": hashlib.sha512 }[algorithm]
-    self._max_age: timedelta = timedelta(days=1) if max_age is None else max_age
+    self._jwt_manager = JWTManager(secret, timedelta(days=1) if max_age is None else max_age, algorithm)
 
   def create_token(self, data: dict[str, str], old_token: str | None) -> str:
-    payload = { "exp": int((datetime.now(tz=timezone.utc) + self._max_age).timestamp()), "data": data }
-    stream = BytesIO()
-    _ = stream.write(JWTStateResolver._b64url_encode(json.dumps({
-      "typ": "JWT",
-      "alg": self._algorithm
-    }).encode("utf-8")))
-    _ = stream.write(b".")
-    _ = stream.write(JWTStateResolver._b64url_encode(json.dumps(payload).encode("utf-8")))
-
-    signature = hmac.digest(self._secret, stream.getvalue(), self._digest)
-    _ = stream.write(b".")
-    _ = stream.write(JWTStateResolver._b64url_encode(signature))
-    return stream.getvalue().decode("utf-8")
+    try: return self._jwt_manager.sign({ "d": data })
+    except JWTError as e: raise StateResolverError(e)
 
   def resolve(self, token: str) -> dict[str, str]:
-    rtoken = token.encode("utf-8")
-    sig_start = rtoken.rfind(b".")
-    if sig_start == -1: raise StateResolverError("Invalid token format")
-    parts = rtoken.split(b".")
-    if len(parts) != 3: raise StateResolverError("Invalid token format")
-
-    try: header = json.loads(JWTStateResolver._b64url_decode(parts[0]))
-    except: raise StateResolverError("Invalid token header")
-
-    if not isinstance(header, dict) or header.get("typ") != "JWT" or header.get("alg") != self._algorithm:
-      raise StateResolverError("Invalid header contents")
-
-    signature = JWTStateResolver._b64url_decode(rtoken[(sig_start + 1):])
-    actual_signature = hmac.digest(self._secret, rtoken[:sig_start], self._digest)
-    if not hmac.compare_digest(signature, actual_signature):
-      raise StateResolverError("Invalid JWT signature!")
-
-    payload: Any = json.loads(JWTStateResolver._b64url_decode(parts[1]))
-    if not isinstance(payload, dict) or not isinstance(payload.get("exp"), int) or not isinstance(payload.get("data"), dict):
-      raise StateResolverError("Invalid JWT payload!")
-
-    timstamp_val = payload["exp"]
-    if not isinstance(timstamp_val, int): raise StateResolverError("timestamp is not an int")
-    expires_dt = datetime.fromtimestamp(timstamp_val, timezone.utc)
-    if expires_dt < datetime.now(tz=timezone.utc):
-      raise StateResolverError("JWT expired!")
-
-    try: state_data = StateDataAdapter.validate_python(payload["data"])
-    except ValidationError as e: raise StateResolverError(e)
-    return state_data
-
-  @staticmethod
-  def _b64url_encode(value: bytes | bytearray): return base64.urlsafe_b64encode(value).rstrip(b"=")
-  @staticmethod
-  def _b64url_decode(value: bytes | bytearray): return base64.urlsafe_b64decode(value + b"=" * (4 - len(value) % 4))
+    try:
+      payload = self._jwt_manager.verify(token)
+      return StateDataAdapter.validate_python(payload["d"])
+    except (ValidationError, JWTError) as e: raise StateResolverError(e)
 
 def default_state_resolver() -> JWTStateResolver:
   """

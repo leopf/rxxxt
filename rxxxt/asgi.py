@@ -1,9 +1,4 @@
-import codecs
-import functools
-from io import BytesIO
-import json
-import mimetypes
-import pathlib
+import codecs, functools, json, mimetypes, pathlib, io
 from typing import Any, Callable
 from collections.abc import  Awaitable, Iterable, MutableMapping
 
@@ -160,12 +155,12 @@ class HTTPContext(TransportContext):
     return decoder(data, "ignore")[0]
   async def receive_data(self) -> bytes:
     more = True
-    io = BytesIO()
+    stream = io.BytesIO()
     while more:
       event = await self._receive()
       event_type = event.get("type")
       if event_type == "http.request":
         more = event.get("more_body", False)
-        _ = io.write(event.get("body", b""))
+        _ = stream.write(event.get("body", b""))
       elif event_type == "http.disconnect": more = False
-    return io.getvalue()
+    return stream.getvalue()
