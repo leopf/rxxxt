@@ -10,6 +10,8 @@ imports.extend([
   "rxxxt.state.JWTStateResolver",
   "rxxxt.state.default_state_resolver",
   "rxxxt.helpers.match_path",
+  "rxxxt.helpers.JWTManager",
+  "rxxxt.helpers.JWTError",
   "rxxxt.events.ContextInputEventHandlerOptions"
 ])
 

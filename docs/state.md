@@ -6,7 +6,7 @@ The next request of the same session must include the state token, which will th
 
 By default the [`JWTStateResolver`](./api.md#rxxxt.state.JWTStateResolver) is used, which transforms the state into a [JWT token](https://jwt.io/introduction), making the server side entirely stateless.
 
-This is handled by the [`StateResolver`](./api.md#rxxxt.state.StateResolver) of the [`App`](./api.md#rxxxt.state.App) (default: [`default_state_resolver`](./api.md#rxxxt.state.default_state_resolver)).
+This is handled by the [`StateResolver`](./api.md#rxxxt.state.StateResolver) of the [`App`](./api.md#rxxxt.app.App) (default: [`default_state_resolver`](./api.md#rxxxt.state.default_state_resolver)).
 
 ## Conventions
 
