@@ -19,7 +19,7 @@ class TransportContext:
   @property
   def path(self): return self._scope["path"]
   @property
-  def query_string(self) -> str | None: return None if self._scope["query_string"] is None else self._scope["query_string"].decode("utf-8")
+  def query_string(self) -> str | None: return None if not self._scope["query_string"] else self._scope["query_string"].decode("utf-8")
   @property
   def fullpath(self): return (self._scope["raw_path"] or b"").decode("utf-8").split("?", 1)[0]
   @property

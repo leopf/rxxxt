@@ -40,10 +40,9 @@ class State:
   def update(self, k_str_store: dict[str, str]): self._key_str_store.update(k_str_store)
 
   def get_key_str(self, key: str):
-    if (v := self._key_str_store.get(key)) is None:
-      cell = self._key_cell_store.get(key)
-      if cell is not None: v = cell.serlialize()
-    return v
+    if (cell := self._key_cell_store.get(key)) is None:
+      return self._key_str_store.get(key)
+    return cell.serlialize()
   def get_key_cell(self, key: str): return self._key_cell_store.get(key)
   def set_key_cell(self, key: str, cell: StateCell, overwrite: bool = False):
     if key in self._key_cell_store and not overwrite:
@@ -91,9 +90,12 @@ class State:
     self._set_update_event()
 
   def pop_output_events(self):
-    res = tuple(self._output_events)
+    res: list[OutputEvent] = []
+    for event in self._output_events:
+      if event not in res:
+        res.append(event)
     self._output_events = []
-    return res
+    return tuple(res)
 
   def pop_updates(self):
     res = self._pending_updates

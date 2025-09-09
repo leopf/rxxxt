@@ -9,6 +9,7 @@ class ContextInputEventHandlerOptions(BaseModel):
   debounce: int | None = None
   throttle: int | None = None
   prevent_default: bool = False
+  default_params: dict[str, int | float | str | bool | None] | None = None
 
 class ContextInputEventDescriptor(BaseModel):
   context_id: str
@@ -20,7 +21,6 @@ class ContextInputEventDescriptorGenerator(ABC): # NOTE: this is a typing hack
   @property
   @abstractmethod
   def descriptor(self) -> ContextInputEventDescriptor: pass
-
 
 class EventBase(BaseModel):
   @model_serializer(mode="wrap")

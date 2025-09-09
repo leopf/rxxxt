@@ -12,6 +12,8 @@ class StrStateCell(StateCell):
   def __init__(self, value: str) -> None:
     self.value = value
 
+  def __repr__(self) -> str:
+    return super().__repr__()[:-1] + f" value='{self.value}'>"
   def serlialize(self): return self.value
 
 class SerilializableStateCell(StateCell, Generic[T]):

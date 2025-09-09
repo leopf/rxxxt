@@ -35,6 +35,7 @@ class Router(ElementFactory):
   def __init__(self) -> None:
     self._routes: list[tuple[str, ElementFactory]] = []
 
+  def add_router(self, router: 'Router'): self._routes.extend(router._routes)
   def add_route(self, pattern: str, element_factory: ElementFactory): self._routes.append((pattern, element_factory))
   def route(self, pattern: str):
     def _inner(fn: ElementFactory):

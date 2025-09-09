@@ -1,4 +1,5 @@
 from rxxxt import Router, router_params, Component, event_handler, El, Element, App
+from rxxxt.component import HandleNavigate
 import uvicorn
 
 class ShowPath(Component):
@@ -8,16 +9,13 @@ class ShowPath(Component):
   def nav_hello(self): self.context.navigate("/hello")
 
   @event_handler()
-  def nav_world(self): self.context.navigate("/world")
-
-  @event_handler()
   def go_to_main(self): self.context.navigate("/")
 
   def render(self) -> Element:
     return El.div(content=[
       El.div(content=[f"Word: {self.params.get('word', '-')}"]),
       El.button(onclick=self.nav_hello, content=["nav 'hello'"]),
-      El.button(onclick=self.nav_world, content=["nav 'world'"]),
+      El.button(onclick=HandleNavigate("/world"), content=["nav 'world'"]),
       El.button(onclick=self.go_to_main, content=["go to main"]),
     ])
 
