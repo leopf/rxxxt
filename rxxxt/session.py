@@ -77,7 +77,7 @@ class Session:
     state_token: str | None = None
     if include_state_token: state_token = await self._update_state_token()
 
-    html_parts = tuple(self._root_renderer.render_full()) if render_full else self._root_renderer.render_partial()
+    html_parts: tuple[str, ...] = (self._root_renderer.render_full(),) if render_full else self._root_renderer.render_partial()
     return UpdateOutputData(state_token=state_token, html_parts=html_parts, events=self.state.pop_output_events())
 
   async def render_page(self, path: str):
