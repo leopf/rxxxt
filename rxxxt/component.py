@@ -13,26 +13,34 @@ from rxxxt.node import Node
 
 class ClassEventHandler(Generic[FNP, FNR]):
   def __init__(self, fn: Callable[FNP, FNR], options: ContextInputEventHandlerOptions) -> None:
-    self.fn = fn
-    self.options = options
-  def __get__(self, instance: Any, _): return InstanceEventHandler(self.fn, self.options, instance)
+    self._fn = fn
+    self._options = options
+  def __get__(self, instance: Any, _): return InstanceEventHandler(self._fn, self._options, instance)
   def __call__(self, *args: FNP.args, **kwargs: FNP.kwargs) -> FNR: raise RuntimeError("The event handler can only be called when attached to an instance!")
 
 class InstanceEventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribute, ContextInputEventDescriptorGenerator):
   def __init__(self, fn: Callable[FNP, FNR], options: ContextInputEventHandlerOptions, instance: Any) -> None:
     super().__init__(validate_call(fn), options)
     if not isinstance(instance, Component): raise ValueError("The provided instance must be a component!")
-    self.instance = instance
+    self._instance = instance
 
   @property
   def descriptor(self):
     return ContextInputEventDescriptor(
-      context_id=self.instance.context.sid,
-      handler_name=self.fn.__name__,
+      context_id=self._instance.context.sid,
+      handler_name=self._fn.__name__,
       param_map=self._get_param_map(),
-      options=self.options)
+      options=self._options)
 
-  def __call__(self, *args: FNP.args, **kwargs: FNP.kwargs) -> FNR: return self.fn(self.instance, *args, **kwargs)
+  def __call__(self, *args: FNP.args, **kwargs: FNP.kwargs) -> FNR: return self._fn(self._instance, *args, **kwargs)
+
+  def bind(self, **kwargs: int | float | str | bool | None):
+    if len(kwargs) == 0: return
+    new_options = ContextInputEventHandlerOptions.model_validate({
+      **self._options.model_dump(),
+      "default_params": (self._options.default_params or {}) | kwargs
+    })
+    return InstanceEventHandler(self._fn, new_options, self._instance)
 
   def get_key_value(self, original_key: str):
     if not original_key.startswith("on"): raise ValueError("Event handler must be applied to an attribute starting with 'on'.")
@@ -41,22 +49,15 @@ class InstanceEventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], Custo
 
   def _get_param_map(self):
     param_map: dict[str, str] = {}
-    sig = inspect.signature(self.fn)
-
+    sig = inspect.signature(self._fn)
     for i, (name, param) in enumerate(sig.parameters.items()):
       if i == 0: continue # skip self
-
       if get_origin(param.annotation) is Annotated:
         args = get_args(param.annotation)
         metadata = args[1:]
-
         if len(metadata) < 1:
           raise ValueError(f"Parameter '{name}' is missing the second annotation.")
-
         param_map[name] = metadata[0]
-      else:
-        raise TypeError(f"Parameter '{name}' must be of type Annotated.")
-
     return param_map
 
 def event_handler(**kwargs: Any):

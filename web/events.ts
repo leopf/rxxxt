@@ -87,6 +87,7 @@ export function initEventManager(triggerUpdate: () => void) {
         for (const targetEvent of peningEvents.filter(te => te.event === e.type)) {
             const eventData: Record<string, number | boolean | string | undefined> = {
                 $handler_name: targetEvent.descriptor.handler_name,
+                ...(targetEvent.descriptor.options.default_params ?? {}),
                 ...Object.fromEntries(Object.entries(targetEvent.descriptor.param_map)
                     .map(entry => [entry[0], getEventPathValue(e, entry[1])]))
             };
