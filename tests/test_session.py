@@ -7,7 +7,6 @@ from rxxxt.session import Session, SessionConfig
 from rxxxt.state import JWTStateResolver
 
 class TestSession(unittest.IsolatedAsyncioTestCase):
-  @unittest.skip("working on this fix")
   async def test_state_cell_update(self):
     config = SessionConfig(page_facotry=default_page, state_resolver=JWTStateResolver(b"deez"), persistent=False)
 

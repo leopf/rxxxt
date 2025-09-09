@@ -40,10 +40,9 @@ class State:
   def update(self, k_str_store: dict[str, str]): self._key_str_store.update(k_str_store)
 
   def get_key_str(self, key: str):
-    if (v := self._key_str_store.get(key)) is None:
-      cell = self._key_cell_store.get(key)
-      if cell is not None: v = cell.serlialize()
-    return v
+    if (cell := self._key_cell_store.get(key)) is None:
+      return self._key_str_store.get(key)
+    return cell.serlialize()
   def get_key_cell(self, key: str): return self._key_cell_store.get(key)
   def set_key_cell(self, key: str, cell: StateCell, overwrite: bool = False):
     if key in self._key_cell_store and not overwrite:
