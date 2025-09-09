@@ -90,9 +90,12 @@ class State:
     self._set_update_event()
 
   def pop_output_events(self):
-    res = tuple(self._output_events)
+    res: list[OutputEvent] = []
+    for event in self._output_events:
+      if event not in res:
+        res.append(event)
     self._output_events = []
-    return res
+    return tuple(res)
 
   def pop_updates(self):
     res = self._pending_updates
