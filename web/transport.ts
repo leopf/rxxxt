@@ -36,14 +36,21 @@ export function initTransport(config: TransportConfig) {
         ws?.close();
         ws = undefined;
         updateHandler = async (events: ContextInputEvent[]) => {
-            const response: AppHttpPostResponse = await fetch(location.href, {
+            const httpResponse = await fetch(location.href, {
                 method: "POST",
                 body: JSON.stringify({ state_token: config.stateToken, events }),
                 headers: { "Content-Type": "application/json" },
                 credentials: "include"
-            }).then((res) => res.json());
-            finishUpdate(response.html_parts, response.events);
-            config.stateToken = response.state_token ?? config.stateToken;
+            });
+            if (httpResponse.ok) {
+                const response: AppHttpPostResponse = await httpResponse.json();
+                finishUpdate(response.html_parts, response.events);
+                config.stateToken = response.state_token ?? config.stateToken;
+            }
+            else {
+                // TODO: implement retry for some error codes
+                throw new Error(`Update failed! Server responded with ${httpResponse.statusText} (${httpResponse.status}).`);
+            }
         };
     };
     const useWebSocket = () => {
@@ -64,7 +71,7 @@ export function initTransport(config: TransportConfig) {
         const url = new URL(location.href);
         url.protocol = location.protocol == "https:" ? "wss" : "ws";
         ws = new WebSocket(url);
-        ws.addEventListener("close", useHTTP);
+        ws.addEventListener("close", useHTTP); // TODO handle close with pending update
         ws.addEventListener("open", () => {
             updateHandler = wsUpdateHandler;
             ws?.send(

@@ -1,6 +1,6 @@
 import { initEventManager } from "./events";
 import { initTransport, TransportConfig } from "./transport";
-import { AppHttpPostResponse, AppWebsocketResponse, ContextInputEvent, InitData, OutputEvent } from "./types";
+import { InitData, OutputEvent } from "./types";
 import morphdom from "morphdom";
 
 const defaultTargetId = "root";
