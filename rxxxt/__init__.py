@@ -1,6 +1,6 @@
 from rxxxt.elements import Element, CustomAttribute, ElementContent, HTMLAttributeValue, HTMLAttributes, HTMLFragment, HTMLVoidElement, \
   HTMLElement, KeyedElement, WithRegistered, lazy_element, TextElement, UnescapedHTMLElement, El, VEl, ElementFactory
-from rxxxt.component import InstanceEventHandler, event_handler, HandleNavigate, Component
+from rxxxt.component import EventHandler, event_handler, HandleNavigate, Component
 from rxxxt.page import PageFactory, default_page, PageBuilder
 from rxxxt.execution import State, Context
 from rxxxt.app import App
@@ -12,7 +12,7 @@ __all__ = [
   "Element", "CustomAttribute", "ElementContent", "HTMLAttributeValue", "HTMLAttributes", "HTMLFragment", "HTMLVoidElement",
     "HTMLElement", "KeyedElement", "WithRegistered", "lazy_element", "TextElement", "UnescapedHTMLElement", "El", "VEl", "ElementFactory",
 
-  "InstanceEventHandler", "event_handler", "HandleNavigate", "Component",
+  "EventHandler", "event_handler", "HandleNavigate", "Component",
 
   "PageFactory", "default_page", "PageBuilder",
 
