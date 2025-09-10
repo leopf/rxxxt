@@ -2,7 +2,7 @@ from abc import abstractmethod
 import asyncio
 import base64
 import inspect
-from typing import Annotated, Any, Callable, Generic, get_args, get_origin, cast
+from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, cast
 from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call
 from rxxxt.elements import CustomAttribute, Element, meta_element
@@ -12,17 +12,17 @@ from rxxxt.helpers import to_awaitable, FNP, FNR
 from rxxxt.node import Node
 
 class ClassEventHandler(Generic[FNP, FNR]):
-  def __init__(self, fn: Callable[FNP, FNR], options: ContextInputEventHandlerOptions) -> None:
+  def __init__(self, fn: Callable[Concatenate[Any, FNP], FNR], options: ContextInputEventHandlerOptions) -> None:
     self._fn = fn
     self._options = options
-  def __get__(self, instance: Any, _): return InstanceEventHandler(self._fn, self._options, instance)
+  def __get__(self, instance: Any, _): return EventHandler(self._fn, self._options, instance)
   def __call__(self, *args: FNP.args, **kwargs: FNP.kwargs) -> FNR: raise RuntimeError("The event handler can only be called when attached to an instance!")
 
-class InstanceEventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribute, ContextInputEventDescriptorGenerator):
-  def __init__(self, fn: Callable[FNP, FNR], options: ContextInputEventHandlerOptions, instance: Any) -> None:
+class EventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribute, ContextInputEventDescriptorGenerator):
+  def __init__(self, fn: Callable[Concatenate[Any, FNP], FNR], options: ContextInputEventHandlerOptions, instance: Any) -> None:
     super().__init__(validate_call(fn), options)
     if not isinstance(instance, Component): raise ValueError("The provided instance must be a component!")
-    self._instance = instance
+    self._instance: 'Component' = instance
 
   @property
   def descriptor(self):
@@ -40,7 +40,7 @@ class InstanceEventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], Custo
       **self._options.model_dump(),
       "default_params": (self._options.default_params or {}) | kwargs
     })
-    return InstanceEventHandler(self._fn, new_options, self._instance)
+    return EventHandler(self._fn, new_options, self._instance)
 
   def get_key_value(self, original_key: str):
     if not original_key.startswith("on"): raise ValueError("Event handler must be applied to an attribute starting with 'on'.")
@@ -62,7 +62,7 @@ class InstanceEventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], Custo
 
 def event_handler(**kwargs: Any):
   options = ContextInputEventHandlerOptions.model_validate(kwargs)
-  def _inner(fn: Callable[FNP, FNR]) -> ClassEventHandler[FNP, FNR]: return ClassEventHandler(fn, options)
+  def _inner(fn: Callable[Concatenate[Any, FNP], FNR]) -> ClassEventHandler[FNP, FNR]: return ClassEventHandler(fn, options)
   return _inner
 
 class HandleNavigate(CustomAttribute):
@@ -128,8 +128,8 @@ class Component(Element):
     handler_name = event.pop("$handler_name", None)
     if isinstance(handler_name, str):
       fn = getattr(self, handler_name, None) # NOTE: this is risky!!
-      if isinstance(fn, InstanceEventHandler):
-        await to_awaitable(cast(InstanceEventHandler[..., Any], fn), **event)
+      if isinstance(fn, EventHandler):
+        await to_awaitable(cast(EventHandler[..., Any], fn), **event)
 
   async def on_init(self) -> None: ...
   async def on_before_update(self) -> None: ...

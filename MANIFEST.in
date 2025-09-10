@@ -1,1 +1,2 @@
+include rxxxt/py.typed
 include rxxxt/assets/*

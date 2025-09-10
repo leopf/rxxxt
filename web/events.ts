@@ -72,8 +72,9 @@ export function initEventManager(triggerUpdate: () => void) {
     let submitIdCounter = 0;
     const targetEvents = new WeakMap<EventTarget, TargetEvent[]>();
     const registeredTargetEvents = new WeakMap<EventTarget, Map<string, EventHandler>>();
-    const eventDataSubmissions = new Map<number, ContextInputEvent>();
+    const eventDataSubmissions = new Map<number, ContextInputEvent>(); // preserves insertion order. Important!
     const enabledContexts = new Set<string>();
+
 
     const eventHandler = (target: EventTarget, e: Event) => {
         let peningEvents = targetEvents.get(target) ?? [];
