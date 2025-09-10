@@ -1,11 +1,10 @@
-import unittest
-
+import unittest, typing
 from rxxxt.elements import El
 from rxxxt.component import Component
 from rxxxt.events import NavigateOutputEvent
 from rxxxt.page import default_page
 from rxxxt.session import Session, SessionConfig
-from rxxxt.state import JWTStateResolver
+from rxxxt.state import JWTStateResolver, local_state_box
 
 session_config = SessionConfig(page_facotry=default_page, state_resolver=JWTStateResolver(b"deez"), persistent=False)
 
@@ -45,6 +44,25 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
         NavigateOutputEvent(location = "/hello-world"),
         NavigateOutputEvent(location = "/world-hello")
       ))
+
+  async def test_deep_state_update(self):
+    class Main(Component):
+      data = local_state_box(dict[str, typing.Any])
+      async def on_init(self) -> None:
+        self.data.value = { "hello": "no" }
+      def render(self):
+        return El.div(content=[ self.data.value.get("hello", "") ])
+
+    el = Main()
+    async with Session(session_config, el) as session:
+      session.set_location("/")
+      await session.init(None)
+      el.data.value["hello"] = "yes"
+      el.data.update()
+      if session.update_pending:
+        await session.update()
+      update = await session.render_update(True, True)
+      self.assertIn("yes", update.html_parts[0])
 
 if __name__ == "__main__":
   _ = unittest.main()
