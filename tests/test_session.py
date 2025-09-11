@@ -1,8 +1,9 @@
 from collections import defaultdict
 import unittest, typing
-from rxxxt.elements import El
+from rxxxt.elements import El, lazy_element
 from rxxxt.component import Component
 from rxxxt.events import NavigateOutputEvent
+from rxxxt.execution import Context
 from rxxxt.page import default_page
 from rxxxt.session import Session, SessionConfig
 from rxxxt.state import JWTStateResolver, local_state, local_state_box
@@ -28,6 +29,19 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       await session.update()
       update2 = await session.render_update(True, True)
       self.assertIn("/world-hello", update2.html_parts[0])
+
+  async def test_cookie_parsing(self):
+    @lazy_element
+    def main(context: Context):
+      return El.div(content=[ context.cookies.get("hello", ""), context.cookies.get("world", "") ])
+
+    async with Session(session_config, main()) as session:
+      session.set_location("/")
+      session.set_headers({ "cookie": (" hello=world; world=hello",) })
+      await session.init(None)
+
+      update = await session.render_update(True, True)
+      self.assertIn("worldhello", update.html_parts[0])
 
   async def test_event_deduplication(self):
     class Main(Component):
