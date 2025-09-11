@@ -43,7 +43,6 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       update = await session.render_update(True, True)
       self.assertIn("worldhello", update.html_parts[0])
 
-  @unittest.skip("TODO")
   async def test_input_event_handling_order(self):
     event_outputs: list[str] = []
     class Inner(Component):

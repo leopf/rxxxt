@@ -21,8 +21,9 @@ class Renderer:
       self._pending_renders.add(node.context.id)
       await node.update()
 
-  async def handle_events(self, events: tuple[InputEvent, ...]):
-    await self._root.handle_events(events)
+  async def handle_events(self, events: tuple[InputEvent, ...]): # TODO any way to make this more efficient?
+    for event in events:
+      await self._root.handle_event(event)
 
   async def destroy(self): await self._root.destroy()
 

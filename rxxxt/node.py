@@ -17,8 +17,8 @@ class Node(ABC):
   async def update(self):
     for c in self.children: await c.update()
 
-  async def handle_events(self, events: tuple[InputEvent, ...]):
-    for c in self.children: await c.handle_events(events)
+  async def handle_event(self, event: InputEvent):
+    for c in self.children: await c.handle_event(event)
 
   async def destroy(self):
     for c in self.children: await c.destroy()

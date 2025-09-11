@@ -156,11 +156,10 @@ class ComponentNode(Node):
     self.children = ()
     await self._render_inner()
 
-  async def handle_events(self, events: tuple[InputEvent, ...]):
-    for e in events:
-      if self.context.sid == e.context_id:
-        await self.element.lc_handle_event(dict(e.data))
-    await super().handle_events(events)
+  async def handle_event(self, event: InputEvent):
+    if self.context.sid == event.context_id:
+      await self.element.lc_handle_event(dict(event.data))
+    await super().handle_event(event)
 
   async def destroy(self):
     for c in self.children: await c.destroy()
