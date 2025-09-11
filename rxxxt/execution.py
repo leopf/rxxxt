@@ -185,7 +185,7 @@ class Context:
     for cookie in values[0].split(";"):
       try:
         eq_idx = cookie.index("=")
-        result[cookie[:eq_idx]] = cookie[(eq_idx + 1):]
+        result[cookie[:eq_idx].strip()] = cookie[(eq_idx + 1):].strip()
       except ValueError: pass
     return result
 
