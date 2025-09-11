@@ -1,8 +1,8 @@
 from collections import defaultdict
 import unittest, typing
 from rxxxt.elements import El, lazy_element
-from rxxxt.component import Component
-from rxxxt.events import NavigateOutputEvent
+from rxxxt.component import Component, event_handler
+from rxxxt.events import ContextInputEvent, NavigateOutputEvent
 from rxxxt.execution import Context
 from rxxxt.page import default_page
 from rxxxt.session import Session, SessionConfig
@@ -42,6 +42,33 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
 
       update = await session.render_update(True, True)
       self.assertIn("worldhello", update.html_parts[0])
+
+  @unittest.skip("TODO")
+  async def test_input_event_handling_order(self):
+    event_outputs: list[str] = []
+    class Inner(Component):
+      @event_handler()
+      def on_event(self, value: str): event_outputs.append(value)
+      def render(self): return El.div()
+
+    class Outer(Component):
+      def __init__(self) -> None:
+        super().__init__()
+        self.inner = Inner()
+      @event_handler()
+      def on_event(self, value: str): event_outputs.append(value)
+      def render(self): return self.inner
+
+    outer = Outer()
+    async with Session(session_config, outer) as session:
+      session.set_location("/")
+      await session.init(None)
+      await session.handle_events((
+        ContextInputEvent(context_id=outer.inner.context.sid, data={ "$handler_name": "on_event", "value": "a" }),
+        ContextInputEvent(context_id=outer.context.sid, data={ "$handler_name": "on_event", "value": "b" }),
+      ))
+      await session.update()
+      self.assertEqual(event_outputs, ["a", "b"])
 
   async def test_event_deduplication(self):
     class Main(Component):
