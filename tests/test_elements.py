@@ -35,6 +35,10 @@ class TestElements(unittest.IsolatedAsyncioTestCase):
     text = await render_element(VEl.input(_class=class_map({ "text-input": False })))
     self.assertEqual(text, "<input class=\"\">")
 
+  async def test_boolean_attribute(self):
+    self.assertEqual(await render_element(VEl.input(disabled=True)), "<input disabled>")
+    self.assertEqual(await render_element(VEl.input(disabled=False)), "<input>")
+
   async def test_component(self):
     class TestComp(Component):
       def render(self):
