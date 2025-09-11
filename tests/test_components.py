@@ -58,7 +58,7 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
      await node.expand()
      self.assertEqual(render_node(node), "<div>c0</div>")
 
-     await node.handle_events((ContextInputEvent(context_id=node.context.sid, data={ "$handler_name": "add", "value": 5 }),))
+     await node.handle_event(ContextInputEvent(context_id=node.context.sid, data={ "$handler_name": "add", "value": 5 }))
      await node.update()
      self.assertEqual(render_node(node), "<div>c5</div>")
      await node.destroy()
