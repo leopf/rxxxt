@@ -146,9 +146,12 @@ export function initEventManager(triggerUpdate: () => void) {
     };
 
     const popPendingEvents = () => {
-        const res = Array.from(eventDataSubmissions.values());
+        const result = new Map(eventDataSubmissions);
         eventDataSubmissions.clear();
-        return res;
+        return result;
+    };
+    const peekPendingEventIds = () => {
+        return Array.from(eventDataSubmissions.keys());
     };
     const onElementUpdated = (element: Element) => {
         if (element.tagName === "RXXXT-META") {
@@ -199,5 +202,5 @@ export function initEventManager(triggerUpdate: () => void) {
         updateHandlers(target);
     };
 
-    return { registerEvent, unregisterEvent, onElementUpdated, onElementDeleted, popPendingEvents };
+    return { registerEvent, unregisterEvent, onElementUpdated, onElementDeleted, popPendingEvents, peekPendingEventIds };
 }
