@@ -1,8 +1,8 @@
-import os
-import codecs, functools, json, mimetypes, pathlib, io
+import codecs, functools, json, mimetypes, pathlib, io, asyncio, logging, os
 from typing import Any, Callable
 from collections.abc import Awaitable, Iterable, MutableMapping, AsyncGenerator
 from email.utils import formatdate
+from pydantic import ValidationError
 
 BytesLike = bytes | bytearray
 ASGIHeaders = Iterable[tuple[BytesLike, BytesLike]]
@@ -11,6 +11,8 @@ ASGIScope = MutableMapping[str, Any]
 ASGIFnSend = Callable[[MutableMapping[str, Any]], Awaitable[Any]]
 ASGIFnReceive = Callable[[], Awaitable[MutableMapping[str, Any]]]
 ASGIHandler = Callable[[ASGIScope, ASGIFnReceive, ASGIFnSend], Awaitable[Any]]
+
+class ASGINextException(Exception): pass
 
 class TransportContext:
   def __init__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
@@ -52,6 +54,8 @@ class TransportContext:
     if self.query_string is not None: location += f"?{self.query_string}"
     return location
 
+  def next(self): raise ASGINextException()
+
 class WebsocketContext(TransportContext):
   def __init__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
     super().__init__(scope, receive, send)
@@ -86,7 +90,6 @@ class WebsocketContext(TransportContext):
     raise ConnectionError("Connection closed!")
 
   async def send_message(self, data: str | BytesLike):
-    if not self._accepted: raise ConnectionError("not accepted!")
     if not self._connected: raise ConnectionError("Not connected!")
 
     event: dict[str, Any] = { "type": "websocket.send", "bytes": None, "text": None }
@@ -188,3 +191,55 @@ class HTTPContext(TransportContext):
         yield event.get("body", b"")
         if not event.get("more_body", False): return
       elif event_type == "http.disconnect": return
+
+def http_handler(fn: Callable[[HTTPContext], Awaitable[Any]]):
+  async def _inner(scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> Any:
+    if scope["type"] != "http": raise ASGINextException()
+    return await fn(HTTPContext(scope, receive, send))
+  return _inner
+
+def websocket_handler(fn: Callable[[WebsocketContext], Awaitable[Any]]):
+  async def _inner(scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> Any:
+    if scope["type"] != "websocket": raise ASGINextException()
+    return await fn(WebsocketContext(scope, receive, send))
+  return _inner
+
+@http_handler
+async def http_not_found_handler(context: HTTPContext):
+  await context.respond_text("not found", 404)
+
+class Composer:
+  def __init__(self) -> None:
+    self._handlers: list[ASGIHandler] = []
+
+  def add_handler(self, handler: ASGIHandler):
+    self._handlers.append(handler)
+    return handler
+
+  async def __call__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> Any:
+    try:
+      for handler in self._handlers:
+        try: return await handler(scope, receive, send)
+        except ASGINextException: pass
+    except asyncio.CancelledError: raise
+    except BaseException as e:
+      logging.exception(e)
+      if scope["type"] == "websocket":
+        return await self._ws_error_handler(WebsocketContext(scope, receive, send), e)
+      if scope["type"] == "http":
+        return await self._http_error_handler(HTTPContext(scope, receive, send), e)
+
+  async def _http_not_found(self, context: HTTPContext, exception: BaseException):
+    if isinstance(exception, (ValueError, ValidationError)):
+      return await context.respond_text("bad request", 400)
+    else:
+      return await context.respond_text("internal server error", 500)
+
+  async def _http_error_handler(self, context: HTTPContext, exception: BaseException):
+    if isinstance(exception, (ValueError, ValidationError)):
+      return await context.respond_text("bad request", 400)
+    else:
+      return await context.respond_text("internal server error", 500)
+
+  async def _ws_error_handler(self, context: WebsocketContext, _exception: BaseException):
+    await context.close(1011, "Internal error")
