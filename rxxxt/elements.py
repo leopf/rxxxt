@@ -69,6 +69,15 @@ class KeyedElement(Element):
     except ValueError as e: logging.debug(f"Failed to replace index with key {self._key}", e)
     return self._element.tonode(context)
 
+class TaggedElement(Element):
+  def __init__(self, tag: str, element: Element) -> None:
+    super().__init__()
+    self._key = tag
+    self._element = element
+
+  def tonode(self, context: Context) -> 'Node':
+    return self._element.tonode(context = context.sub(self._key))
+
 class WithRegistered(Element):
   def __init__(self, register: dict[str, Any], child: Element) -> None:
     super().__init__()
