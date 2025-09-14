@@ -20,6 +20,7 @@ export interface SetCookieOutputEvent {
 export interface NavigateOutputEvent {
     event: "navigate";
     location: string;
+    requires_refresh?: boolean;
 }
 
 export interface UseWebsocketOutputEvent {
@@ -55,6 +56,7 @@ export interface ContextInputEventDescriptor {
     options: {
         throttle?: number;
         debounce?: number;
+        no_trigger?: boolean;
         prevent_default?: boolean;
         default_params?: Record<string, number | string | boolean | undefined>;
     };

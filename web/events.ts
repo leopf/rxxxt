@@ -107,18 +107,20 @@ export function initEventManager(triggerUpdate: () => void) {
                 e.preventDefault();
             }
 
-            const waitTime = Math.max(
-                0,
-                targetEvent.descriptor.options.debounce ?? 0,
-                (targetEvent.lastCall ?? 0) + (targetEvent.descriptor.options.throttle ?? 0) - now()
-            );
+            if (!targetEvent.descriptor.options.no_trigger) {
+                const waitTime = Math.max(
+                    0,
+                    targetEvent.descriptor.options.debounce ?? 0,
+                    (targetEvent.lastCall ?? 0) + (targetEvent.descriptor.options.throttle ?? 0) - now()
+                );
 
-            targetEvent.timeoutHandle = setTimeout(() => {
-                if (eventDataSubmissions.has(targetEvent.submitId)) {
-                    targetEvent.lastCall = now();
-                    triggerUpdate();
-                }
-            }, waitTime);
+                targetEvent.timeoutHandle = setTimeout(() => {
+                    if (eventDataSubmissions.has(targetEvent.submitId)) {
+                        targetEvent.lastCall = now();
+                        triggerUpdate();
+                    }
+                }, waitTime);
+            }
         }
     };
 
@@ -144,9 +146,12 @@ export function initEventManager(triggerUpdate: () => void) {
     };
 
     const popPendingEvents = () => {
-        const res = Array.from(eventDataSubmissions.values());
+        const result = new Map(eventDataSubmissions);
         eventDataSubmissions.clear();
-        return res;
+        return result;
+    };
+    const peekPendingEventIds = () => {
+        return Array.from(eventDataSubmissions.keys());
     };
     const onElementUpdated = (element: Element) => {
         if (element.tagName === "RXXXT-META") {
@@ -197,5 +202,5 @@ export function initEventManager(triggerUpdate: () => void) {
         updateHandlers(target);
     };
 
-    return { registerEvent, unregisterEvent, onElementUpdated, onElementDeleted, popPendingEvents };
+    return { registerEvent, unregisterEvent, onElementUpdated, onElementDeleted, popPendingEvents, peekPendingEventIds };
 }

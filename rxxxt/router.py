@@ -1,5 +1,5 @@
 import typing
-from rxxxt.elements import El, Element, ElementFactory, KeyedElement
+from rxxxt.elements import El, Element, ElementFactory, TaggedElement
 from rxxxt.component import Component
 from rxxxt.helpers import match_path
 from rxxxt.state import context_state
@@ -23,7 +23,7 @@ class Router(ElementFactory):
       if self._selected_match is None:
         return El.h1(content=["Not found!"])
       else:
-        return KeyedElement(str(self._selected_match[0]), self._selected_match[1]())
+        return TaggedElement(str(self._selected_match[0]), self._selected_match[1]())
 
     def _get_current_match(self):
       path = self.context.path

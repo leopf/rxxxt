@@ -1,10 +1,7 @@
-import asyncio
-import contextlib
-import importlib.resources
-import logging
+import asyncio, contextlib, importlib.resources
 from typing import Any, Literal
-from pydantic import BaseModel, ValidationError
-from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, HTTPContext, WebsocketContext
+from pydantic import BaseModel
+from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, Composer, HTTPContext, WebsocketContext, http_handler, http_not_found_handler, websocket_handler
 from rxxxt.elements import ElementFactory
 from rxxxt.events import InputEvent
 from rxxxt.page import PageFactory, default_page
@@ -30,27 +27,14 @@ class App:
     self._content = content
     self._page_factory: PageFactory = page_factory
     self._state_resolver = state_resolver or default_state_resolver()
+    self._composer = Composer()
+    _ = self._composer.add_handler(http_handler(self._http_static))
+    _ = self._composer.add_handler(http_handler(self._http_session))
+    _ = self._composer.add_handler(websocket_handler(self._ws_session))
+    _ = self._composer.add_handler(http_not_found_handler)
 
   async def __call__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> Any:
-    if scope["type"] == "http":
-      context = HTTPContext(scope, receive, send)
-      try: await self._handle_http(context)
-      except asyncio.CancelledError: raise
-      except (ValidationError, ValueError) as e:
-        logging.debug(e)
-        return await context.respond_text("bad request", 400)
-      except BaseException as e:
-        logging.debug(e)
-        return await context.respond_text("internal server error", 500)
-    elif scope["type"] == "websocket":
-      context = WebsocketContext(scope, receive, send)
-      try: await self._ws_session(context)
-      except asyncio.CancelledError: raise
-      except BaseException as e:
-        logging.debug(e)
-        await context.close(1011, "Internal error")
-      finally:
-        if context.connected: await context.close()
+    return await self._composer(scope, receive, send)
 
   async def _ws_session(self, context: WebsocketContext):
     await context.setup()
@@ -85,6 +69,7 @@ class App:
         finally: _ = updater_task.cancel()
 
   async def _http_session(self, context: HTTPContext):
+    if context.method not in ("POST", "GET"): context.next()
     async with Session(self._get_session_config(False), self._content()) as session:
       if context.method == "POST":
         req = AppHttpRequest.model_validate_json(await context.receive_json_raw())
@@ -107,12 +92,11 @@ class App:
         result = await session.render_page(context.path)
         await context.respond_text(result, mime_type="text/html")
 
-  async def _handle_http(self, context: HTTPContext):
+  async def _http_static(self, context: HTTPContext):
     if context.path == "/rxxxt-client.js":
       with importlib.resources.path("rxxxt.assets", "main.js") as file_path:
-        await context.respond_file(file_path)
-    elif context.method in [ "GET", "POST" ]: await self._http_session(context)
-    else: await context.respond_text("not found", 404)
+        return await context.respond_file(file_path, use_last_modified=True)
+    context.next()
 
   def _get_session_config(self, persistent: bool):
     return SessionConfig(page_facotry=self._page_factory, state_resolver=self._state_resolver, persistent=persistent)

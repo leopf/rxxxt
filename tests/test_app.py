@@ -1,15 +1,9 @@
-import importlib.resources
-import os
+import importlib.resources, os, unittest, httpx, httpx_ws, httpx_ws.transport
 from typing import Annotated
-import unittest
 from rxxxt.app import App, AppHttpRequest, AppWebsocketInitMessage, AppWebsocketUpdateMessage
 from rxxxt.asgi import ASGIHandler
 from rxxxt.component import Component, event_handler
 from rxxxt.elements import El, Element, lazy_element
-import httpx
-import httpx_ws
-import httpx_ws.transport
-
 from rxxxt.events import ContextInputEvent
 from rxxxt.execution import Context
 from rxxxt.state import default_state_resolver, local_state

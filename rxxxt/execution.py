@@ -224,15 +224,19 @@ class Context:
     self._modify_query_selector_event(selector, name, descriptor, all, "remove")
 
   def navigate(self, location: str):
-    self.state.update_state_strs({"!location": location})
-    self.state.add_output_event(NavigateOutputEvent(location=location))
+    is_full_url = ":" in location # colon means full url
+    if not is_full_url: self.state.update_state_strs({"!location": location})
+    self.state.add_output_event(NavigateOutputEvent(location=location, requires_refresh=is_full_url))
   def use_websocket(self, websocket: bool = True): self.state.add_output_event(UseWebsocketOutputEvent(websocket=websocket))
   def set_cookie(self, name: str, value: str, expires: datetime | None = None, path: str | None = None,
-                secure: bool | None = None, http_only: bool | None = None, domain: str | None = None, max_age: int | None = None):
+                secure: bool | None = None, http_only: bool | None = None, domain: str | None = None, max_age: int | None = None, mirror_state: bool = True):
     self.state.add_output_event(SetCookieOutputEvent(name=name, value=value, expires=expires, path=path, secure=secure, http_only=http_only, domain=domain, max_age=max_age))
-  def delete_cookie(self, name: str):
+    if mirror_state:
+      self.state.update_state_strs({ "!header;cookie": "; ".join(f"{k}={v}" for k, v in (self.cookies | { name: value }).items()) })
+  def delete_cookie(self, name: str, mirror_state: bool = True):
     self.state.add_output_event(SetCookieOutputEvent(name=name, max_age=-1))
-
+    if mirror_state:
+      self.state.update_state_strs({ "!header;cookie": "; ".join(f"{k}={v}" for k, v in self.cookies.items() if k != name) })
   def _get_state_str_subscribe(self, key: str):
     res = self.state.get_key_str(key)
     self.state.subscribe(self.id, key)

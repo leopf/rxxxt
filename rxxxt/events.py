@@ -8,6 +8,7 @@ from pydantic import BaseModel, field_serializer, field_validator, model_seriali
 class ContextInputEventHandlerOptions(BaseModel):
   debounce: int | None = None
   throttle: int | None = None
+  no_trigger: bool = False
   prevent_default: bool = False
   default_params: dict[str, int | float | str | bool | None] | None = None
 
@@ -95,6 +96,7 @@ class UseWebsocketOutputEvent(EventBase):
 class NavigateOutputEvent(EventBase):
   event: Literal["navigate"] = "navigate"
   location: str
+  requires_refresh: bool = False
 
 class ContextInputEvent(BaseModel):
   context_id: str
