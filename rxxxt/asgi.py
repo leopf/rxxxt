@@ -223,7 +223,7 @@ class Composer:
         except ASGINextException: pass
     except asyncio.CancelledError: raise
     except BaseException as e:
-      logging.exception(e)
+      logging.debug("asgi error", exc_info=True, stack_info=True)
       if scope["type"] == "websocket":
         return await self._ws_error_handler(WebsocketContext(scope, receive, send), e)
       if scope["type"] == "http":
