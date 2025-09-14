@@ -107,18 +107,20 @@ export function initEventManager(triggerUpdate: () => void) {
                 e.preventDefault();
             }
 
-            const waitTime = Math.max(
-                0,
-                targetEvent.descriptor.options.debounce ?? 0,
-                (targetEvent.lastCall ?? 0) + (targetEvent.descriptor.options.throttle ?? 0) - now()
-            );
+            if (!targetEvent.descriptor.options.no_trigger) {
+                const waitTime = Math.max(
+                    0,
+                    targetEvent.descriptor.options.debounce ?? 0,
+                    (targetEvent.lastCall ?? 0) + (targetEvent.descriptor.options.throttle ?? 0) - now()
+                );
 
-            targetEvent.timeoutHandle = setTimeout(() => {
-                if (eventDataSubmissions.has(targetEvent.submitId)) {
-                    targetEvent.lastCall = now();
-                    triggerUpdate();
-                }
-            }, waitTime);
+                targetEvent.timeoutHandle = setTimeout(() => {
+                    if (eventDataSubmissions.has(targetEvent.submitId)) {
+                        targetEvent.lastCall = now();
+                        triggerUpdate();
+                    }
+                }, waitTime);
+            }
         }
     };
 

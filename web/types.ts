@@ -55,6 +55,7 @@ export interface ContextInputEventDescriptor {
     options: {
         throttle?: number;
         debounce?: number;
+        no_trigger?: boolean;
         prevent_default?: boolean;
         default_params?: Record<string, number | string | boolean | undefined>;
     };
