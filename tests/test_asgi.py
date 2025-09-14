@@ -31,6 +31,18 @@ class TestASGI(unittest.IsolatedAsyncioTestCase):
 
     self.assertEqual(inner_error.exception.code, 1011)
 
+  async def test_ws_messages(self):
+    composer = Composer()
+    @composer.add_handler
+    @websocket_handler
+    async def _(context: WebsocketContext):
+      await context.setup()
+      await context.send_message(b"hello")
+
+    client = self._get_client(composer, True)
+    async with httpx_ws.aconnect_ws(str(client.base_url) + "/", client) as ws:
+      self.assertEqual(await ws.receive_bytes(), b"hello")
+      await ws.close()
 
   async def test_composer_http_error_400(self):
     composer = Composer()
