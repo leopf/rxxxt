@@ -20,6 +20,7 @@ export interface SetCookieOutputEvent {
 export interface NavigateOutputEvent {
     event: "navigate";
     location: string;
+    requires_refresh?: boolean;
 }
 
 export interface UseWebsocketOutputEvent {

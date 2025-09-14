@@ -1,5 +1,6 @@
 from rxxxt import Router, router_params, Component, event_handler, El, Element, App
 from rxxxt.component import HandleNavigate
+from rxxxt.elements import HTMLFragment
 import uvicorn
 
 class ShowPath(Component):
@@ -24,8 +25,20 @@ class Main(Component):
   def go_to_child(self):
     self.context.navigate("/child")
 
+  @event_handler()
+  def go_to_full_child(self):
+    self.context.navigate("http://127.0.0.1:8000/child")
+
+  @event_handler()
+  def go_to_external(self):
+    self.context.navigate("https://google.com")
+
   def render(self):
-    return El.div(onclick=self.go_to_child, content=["go to child"])
+    return HTMLFragment([
+      El.div(onclick=self.go_to_child, content=["go to child"]),
+      El.div(onclick=self.go_to_full_child, content=["go to full child"]),
+      El.div(onclick=self.go_to_external, content=["go to external"]),
+    ])
 
 router = Router()
 router.add_route("/", Main)

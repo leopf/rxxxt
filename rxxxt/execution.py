@@ -224,8 +224,9 @@ class Context:
     self._modify_query_selector_event(selector, name, descriptor, all, "remove")
 
   def navigate(self, location: str):
-    self.state.update_state_strs({"!location": location})
-    self.state.add_output_event(NavigateOutputEvent(location=location))
+    is_full_url = ":" in location # colon means full url
+    if not is_full_url: self.state.update_state_strs({"!location": location})
+    self.state.add_output_event(NavigateOutputEvent(location=location, requires_refresh=is_full_url))
   def use_websocket(self, websocket: bool = True): self.state.add_output_event(UseWebsocketOutputEvent(websocket=websocket))
   def set_cookie(self, name: str, value: str, expires: datetime | None = None, path: str | None = None,
                 secure: bool | None = None, http_only: bool | None = None, domain: str | None = None, max_age: int | None = None, mirror_state: bool = True):

@@ -96,6 +96,7 @@ class UseWebsocketOutputEvent(EventBase):
 class NavigateOutputEvent(EventBase):
   event: Literal["navigate"] = "navigate"
   location: str
+  requires_refresh: bool = False
 
 class ContextInputEvent(BaseModel):
   context_id: str

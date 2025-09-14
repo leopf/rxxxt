@@ -69,6 +69,9 @@ const outputEventHandlers: { [K in OutputEvent['event']]: (ev: Extract<OutputEve
             location.assign(targetUrl);
         } else {
             window.history.pushState({}, "", event.location);
+            if (event.requires_refresh) {
+                transport.update();
+            }
         }
     },
     "use-websocket": event => {
@@ -118,8 +121,7 @@ const onOutputEvents = (events: OutputEvent[]) => events.forEach(event => output
 
 (window as any).rxxxt = {
     navigate: (url: string | URL) => {
-        onOutputEvents([{ event: "navigate", location: new URL(url, location.href).href }]);
-        transport.update();
+        onOutputEvents([{ event: "navigate", location: new URL(url, location.href).href, requires_refresh: true }]);
     },
     init: (data: InitData) => {
         baseUrl = new URL(location.href);
