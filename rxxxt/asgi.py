@@ -1,6 +1,8 @@
+import os
 import codecs, functools, json, mimetypes, pathlib, io
 from typing import Any, Callable
-from collections.abc import  Awaitable, Iterable, MutableMapping
+from collections.abc import Awaitable, Iterable, MutableMapping, AsyncGenerator
+from email.utils import formatdate
 
 BytesLike = bytes | bytearray
 ASGIHeaders = Iterable[tuple[BytesLike, BytesLike]]
@@ -12,25 +14,27 @@ ASGIHandler = Callable[[ASGIScope, ASGIFnReceive, ASGIFnSend], Awaitable[Any]]
 
 class TransportContext:
   def __init__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
-    self._scope = scope
-    self._receive = receive
-    self._send = send
+    self.scope = scope
+    self.receive = receive
+    self.send = send
 
   @property
-  def path(self): return self._scope["path"]
+  def path(self): return self.scope["path"]
+
   @property
-  def query_string(self) -> str | None: return None if not self._scope["query_string"] else self._scope["query_string"].decode("utf-8")
+  def query_string(self) -> str | None: return None if not self.scope["query_string"] else self.scope["query_string"].decode("utf-8")
+
   @property
-  def fullpath(self): return (self._scope["raw_path"] or b"").decode("utf-8").split("?", 1)[0]
-  @property
-  def scope(self) -> ASGIScope: return { **self._scope }
+  def fullpath(self): return (self.scope["raw_path"] or b"").decode("utf-8").split("?", 1)[0]
+
   @functools.cached_property
   def headers(self):
     res: dict[str, tuple[str, ...]] = {}
-    for k, v in self._scope["headers"]:
+    for k, v in self.scope["headers"]:
       key = k.decode(errors="ignore").lower()
       res[key] = res.get(key, ()) + (v.decode(errors="ignore"),)
     return res
+
   @functools.cached_property
   def content_type(self):
     ct = self.headers.get("content-type")
@@ -53,7 +57,6 @@ class WebsocketContext(TransportContext):
     super().__init__(scope, receive, send)
     self._connected = False
     self._accepted = False
-    self._scope: ASGIScope
 
   @property
   def connected(self): return self._connected
@@ -65,16 +68,16 @@ class WebsocketContext(TransportContext):
     if self._connected: raise ConnectionError("Already connected!")
     if self._accepted: raise ConnectionError("Already accepted!")
 
-    event = await self._receive()
+    event = await self.receive()
     if event["type"] != "websocket.connect": raise ConnectionError("Did not receive connect event!")
-    await self._send({ "type": "websocket.accept", "subprotocol": subprotocol, "headers": [ (name.lower(), value) for name, value in headers ] })
+    await self.send({ "type": "websocket.accept", "subprotocol": subprotocol, "headers": [ (name.lower(), value) for name, value in headers ] })
     self._connected = self._accepted = True
 
   async def receive_message(self) -> BytesLike | str:
     if not self._accepted: raise ConnectionError("not accepted!")
     if not self._connected: raise ConnectionError("Not connected!")
     while self._connected:
-      event = await self._receive()
+      event = await self.receive()
       if event["type"] == "websocket.disconnect":
         self._connected = False
         raise ConnectionError("Connection closed!")
@@ -89,13 +92,13 @@ class WebsocketContext(TransportContext):
     event: dict[str, Any] = { "type": "websocket.send", "bytes": None, "text": None }
     if isinstance(data, str): event["text"] = data
     else: event["bytes"] = data
-    await self._send(event)
+    await self.send(event)
 
   async def close(self, code: int = 1000, reason: str = "Normal Closure"):
     if not self._accepted: raise ConnectionError("not accepted!")
     if not self._connected: raise ConnectionError("Not connected!")
 
-    await self._send({ "type": "websocket.close", "code": code, "reason": reason })
+    await self.send({ "type": "websocket.close", "code": code, "reason": reason })
     self._connected = False
 
 def content_headers(content_length: int, mime_type: str, charset: str | None = None):
@@ -109,41 +112,58 @@ def content_headers(content_length: int, mime_type: str, charset: str | None = N
 class HTTPContext(TransportContext):
   def __init__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
     super().__init__(scope, receive, send)
-    self._add_response_headers: list[tuple[BytesLike, BytesLike]] = []
-    self._scope: ASGIScope
+    self._response_headers: list[tuple[BytesLike, BytesLike]] = []
 
   @property
-  def method(self): return self._scope["method"]
+  def method(self): return self.scope["method"]
 
-  def add_response_headers(self, headers: ASGIHeaders): self._add_response_headers.extend(headers)
+  def add_response_headers(self, headers: ASGIHeaders): self._response_headers.extend(headers)
+
+  async def response_start(self, status: int, trailers: bool = False):
+    await self.send({
+      "type": "http.response.start",
+      "status": status,
+      "headers": self._response_headers,
+      "trailers": trailers
+    })
+
+  async def response_body(self, data: BytesLike, more_body: bool):
+    await self.send({
+      "type": "http.response.body",
+      "body": data,
+      "more_body": more_body
+    })
 
   async def respond_text(self, text: str, status: int = 200, mime_type: str = "text/plain"):
     data = text.encode("utf-8")
-    await self.respond_bytes(status, content_headers(len(data), mime_type, "utf-8"), data)
+    self.add_response_headers(content_headers(len(data), mime_type, "utf-8"))
+    await self.response_start(status)
+    await self.response_body(data, False)
 
-  async def respond_file(self, path: str | pathlib.Path, status: int = 200, mime_type: str | None = None):
+  async def respond_file(self, path: str | pathlib.Path, mime_type: str | None = None, use_last_modified: bool = False):
     mime_type = mime_type or mimetypes.guess_type(path)[0]
     if mime_type is None: raise ValueError("Unknown mime type!")
 
     with open(path, "rb") as fd:
-      data = fd.read()
-      await self.respond_bytes(status, content_headers(len(data), mime_type), data)
+      fd_stat = os.stat(fd.fileno())
 
-  async def respond_bytes(self, status: int, headers: Iterable[tuple[BytesLike, BytesLike]], data: bytes):
-    await self._send({
-      "type": "http.response.start",
-      "status": status,
-      "headers": list(headers) + self._add_response_headers,
-      "trailers": False
-    })
-    await self._send({
-      "type": "http.response.body",
-      "body": data,
-      "more_body": False
-    })
+      if use_last_modified:
+        last_modified = formatdate(fd_stat.st_mtime, usegmt=True).encode()
+        self.add_response_headers([ (b"Last-Modified", last_modified) ])
+        if (last_modified,) == self.headers.get("If-Modified-Since", None):
+          await self.response_start(304)
+          await self.response_body(b"", False)
+          return
+
+      self.add_response_headers(content_headers(fd_stat.st_size, mime_type))
+      await self.response_start(200)
+      while len(data := fd.read(1_000_000)) != 0:
+        await self.response_body(data, fd.tell() != fd_stat.st_size)
 
   async def receive_json(self): return json.loads(await self.receive_json_raw())
+
   async def receive_json_raw(self): return await self.receive_text({ "application/json" })
+
   async def receive_text(self, allowed_mime_types: Iterable[str]):
     allowed_mime_types = allowed_mime_types if isinstance(allowed_mime_types, set) else set(allowed_mime_types)
     mime_type, ct_params = self.content_type
@@ -151,16 +171,20 @@ class HTTPContext(TransportContext):
     charset = ct_params.get("charset", "utf-8")
     try: decoder = codecs.getdecoder(charset)
     except LookupError: raise ValueError("Invalid content-type encoding!")
-    data = await self.receive_data()
+    data = await self.receive_bytes()
     return decoder(data, "ignore")[0]
-  async def receive_data(self) -> bytes:
-    more = True
+
+  async def receive_bytes(self) -> bytes:
     stream = io.BytesIO()
-    while more:
-      event = await self._receive()
+    async for chunk in self.receive_iter():
+      _ = stream.write(chunk)
+    return stream.getvalue()
+
+  async def receive_iter(self) -> AsyncGenerator[bytes, Any]:
+    while True:
+      event = await self.receive()
       event_type = event.get("type")
       if event_type == "http.request":
-        more = event.get("more_body", False)
-        _ = stream.write(event.get("body", b""))
-      elif event_type == "http.disconnect": more = False
-    return stream.getvalue()
+        yield event.get("body", b"")
+        if not event.get("more_body", False): return
+      elif event_type == "http.disconnect": return

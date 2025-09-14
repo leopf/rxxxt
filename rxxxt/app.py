@@ -110,7 +110,7 @@ class App:
   async def _handle_http(self, context: HTTPContext):
     if context.path == "/rxxxt-client.js":
       with importlib.resources.path("rxxxt.assets", "main.js") as file_path:
-        await context.respond_file(file_path)
+        await context.respond_file(file_path, use_last_modified=True)
     elif context.method in [ "GET", "POST" ]: await self._http_session(context)
     else: await context.respond_text("not found", 404)
 
