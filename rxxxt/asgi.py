@@ -59,27 +59,17 @@ class TransportContext:
 class WebsocketContext(TransportContext):
   def __init__(self, scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> None:
     super().__init__(scope, receive, send)
-    self._connected = False
-    self._accepted = False
+    self._connected = True
 
   @property
   def connected(self): return self._connected
 
-  @property
-  def accepted(self): return self._accepted
-
   async def setup(self, headers: ASGIHeaders = (), subprotocol: str | None = None):
-    if self._connected: raise ConnectionError("Already connected!")
-    if self._accepted: raise ConnectionError("Already accepted!")
-
     event = await self.receive()
     if event["type"] != "websocket.connect": raise ConnectionError("Did not receive connect event!")
     await self.send({ "type": "websocket.accept", "subprotocol": subprotocol, "headers": [ (name.lower(), value) for name, value in headers ] })
-    self._connected = self._accepted = True
 
   async def receive_message(self) -> BytesLike | str:
-    if not self._accepted: raise ConnectionError("not accepted!")
-    if not self._connected: raise ConnectionError("Not connected!")
     while self._connected:
       event = await self.receive()
       if event["type"] == "websocket.disconnect":
@@ -91,16 +81,12 @@ class WebsocketContext(TransportContext):
 
   async def send_message(self, data: str | BytesLike):
     if not self._connected: raise ConnectionError("Not connected!")
-
     event: dict[str, Any] = { "type": "websocket.send", "bytes": None, "text": None }
     if isinstance(data, str): event["text"] = data
     else: event["bytes"] = data
     await self.send(event)
 
   async def close(self, code: int = 1000, reason: str = "Normal Closure"):
-    if not self._accepted: raise ConnectionError("not accepted!")
-    if not self._connected: raise ConnectionError("Not connected!")
-
     await self.send({ "type": "websocket.close", "code": code, "reason": reason })
     self._connected = False
 
