@@ -26,6 +26,9 @@ def _elements_to_ordered_nodes(context: Context, elements: tuple[Element, ...]):
 def _element_content_to_elements(content: ElementContent) -> tuple[Element, ...]:
   return tuple(TextElement(item) if isinstance(item, str) else item for item in content)
 
+def _normalize_attrs(attrs: HTMLAttributes):
+  return { k.lstrip("_"): v for k,v in attrs.items() }
+
 class HTMLFragment(Element):
   def __init__(self, content: ElementContent) -> None:
     super().__init__()
@@ -122,7 +125,7 @@ class CreateHTMLElement(Protocol):
 class _El(type):
   def __getitem__(cls, name: str) -> CreateHTMLElement:
     def _inner(content: ElementContent = (), key: str | None = None, **kwargs: HTMLAttributeValue):
-      el = HTMLElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() }, content=list(content))
+      el = HTMLElement(name, attributes=_normalize_attrs(kwargs), content=list(content))
       if key is not None: el = KeyedElement(key, el)
       return el
     return _inner
@@ -137,7 +140,7 @@ class CreateHTMLVoidElement(Protocol):
 class _VEl(type):
   def __getitem__(cls, name: str) -> CreateHTMLVoidElement:
     def _inner(key: str | None = None, **kwargs: HTMLAttributeValue) -> Element:
-      el = HTMLVoidElement(name, attributes={ k.lstrip("_"): v for k,v in kwargs.items() })
+      el = HTMLVoidElement(name, attributes=_normalize_attrs(kwargs))
       if key is not None: el = KeyedElement(key, el)
       return el
     return _inner
@@ -151,3 +154,16 @@ class ElementFactory(Protocol):
 
 def meta_element(id: str, inner: Element):
   return HTMLElement("rxxxt-meta", {"id":id}, [inner])
+
+def class_map(map: dict[str, bool]):
+  return " ".join([ k for k, v in map.items() if v ])
+
+def css_extend(attrs: HTMLAttributes, class_attr: str = "", style_attr: str = ""):
+  attrs = _normalize_attrs(attrs)
+  if class_attr:
+    if "class" in attrs: attrs["class"] = (str(attrs["class"]) + " " + class_attr).strip()
+    else: attrs["class"] = class_attr
+  if style_attr:
+    if "style" in attrs: attrs["style"] = (str(attrs["style"]) + ";" + style_attr).strip()
+    else: attrs["style"] = style_attr
+  return attrs

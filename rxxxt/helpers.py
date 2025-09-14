@@ -16,9 +16,6 @@ async def to_awaitable(fn: Callable[..., T | Awaitable[T]], *args: Any, **kwargs
   if isawaitable(result): result = await result
   return cast(T, result)
 
-def class_map(map: dict[str, bool]):
-  return " ".join([ k for k, v in map.items() if v ])
-
 _RE_PATH_PARAM_DEF = re.compile(r"\{([^\*\}]*)(\*)?\}")
 _RE_PATH_VALID = re.compile(r"[A-Za-z0-9._~\-\/]*")
 _RE_PATH_PART_VALID = re.compile(r"[A-Za-z0-9._~\-]*")
