@@ -75,11 +75,11 @@ class KeyedElement(Element):
 class TaggedElement(Element):
   def __init__(self, tag: str, element: Element) -> None:
     super().__init__()
-    self._key = tag
+    self._tag = tag
     self._element = element
 
   def tonode(self, context: Context) -> 'Node':
-    return self._element.tonode(context = context.sub(self._key))
+    return self._element.tonode(context = context.sub(self._tag))
 
 class WithRegistered(Element):
   def __init__(self, register: dict[str, Any], child: Element) -> None:
