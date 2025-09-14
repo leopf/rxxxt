@@ -1,8 +1,8 @@
 from rxxxt import Component, event_handler, VEl, Element, App, local_state
+from rxxxt.elements import El, HTMLFragment
 from typing import Annotated
 import uvicorn
 
-from rxxxt.elements import El, HTMLFragment
 
 class Main(Component):
   text = local_state(str)
