@@ -2,7 +2,6 @@ import { AppHttpPostResponse, AppWebsocketResponse, ContextInputEvent, OutputEve
 
 export type TransportConfig = {
     popPendingEvents: () => Map<number, ContextInputEvent>;
-    peekPendingEventIds: () => number[];
     onUpdate: (htmlParts: string[], events: OutputEvent[]) => void;
     enableWebSocketStateUpdates: boolean;
     stateToken: string;
@@ -30,13 +29,8 @@ export function initTransport(config: TransportConfig) {
         updateHandler(Array.from(pendingEvents.values()));
     };
     const finishUpdate = (htmlParts: string[], events: OutputEvent[]) => {
-        if (config.peekPendingEventIds().some(eventId => pendingEvents.has(eventId))) {
-            isUpdatePending = true;
-        }
-        else {
-            pendingEvents.clear();
-            config.onUpdate(htmlParts, events);
-        }
+        pendingEvents.clear();
+        config.onUpdate(htmlParts, events);
 
         isUpdateRunning = false;
         if (isUpdatePending) {

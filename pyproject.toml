@@ -4,7 +4,7 @@ requires = ["setuptools"]
 
 [project]
 name = "rxxxt"
-version = "0.3.11"
+version = "0.3.12"
 authors = [{ name = "leopf" }]
 description = "Server side rendered, reactive web applications in python."
 readme = { file = "README.md", content-type = "text/markdown" }
