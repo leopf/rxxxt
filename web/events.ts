@@ -150,9 +150,6 @@ export function initEventManager(triggerUpdate: () => void) {
         eventDataSubmissions.clear();
         return result;
     };
-    const peekPendingEventIds = () => {
-        return Array.from(eventDataSubmissions.keys());
-    };
     const onElementUpdated = (element: Element) => {
         if (element.tagName === "RXXXT-META") {
             enabledContexts.add(element.id)
@@ -202,5 +199,5 @@ export function initEventManager(triggerUpdate: () => void) {
         updateHandlers(target);
     };
 
-    return { registerEvent, unregisterEvent, onElementUpdated, onElementDeleted, popPendingEvents, peekPendingEventIds };
+    return { registerEvent, unregisterEvent, onElementUpdated, onElementDeleted, popPendingEvents };
 }

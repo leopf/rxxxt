@@ -15,7 +15,6 @@ const transportConfig: TransportConfig = {
         }
         onOutputEvents(events);
     },
-    peekPendingEventIds: () => eventManager.peekPendingEventIds(),
     popPendingEvents: () => eventManager.popPendingEvents()
 };
 
