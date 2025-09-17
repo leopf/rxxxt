@@ -215,12 +215,6 @@ class Composer:
       if scope["type"] == "http":
         return await self._http_error_handler(HTTPContext(scope, receive, send), e)
 
-  async def _http_not_found(self, context: HTTPContext, exception: BaseException):
-    if isinstance(exception, (ValueError, ValidationError)):
-      return await context.respond_text("bad request", 400)
-    else:
-      return await context.respond_text("internal server error", 500)
-
   async def _http_error_handler(self, context: HTTPContext, exception: BaseException):
     if isinstance(exception, (ValueError, ValidationError)):
       return await context.respond_text("bad request", 400)
