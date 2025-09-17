@@ -129,11 +129,14 @@ class HTTPContext(TransportContext):
     await self.response_start(status)
     await self.response_body(data, False)
 
-  async def respond_file(self, path: str | pathlib.Path, mime_type: str | None = None, use_last_modified: bool = False):
+  async def respond_file(self, path: str | pathlib.Path, mime_type: str | None = None, handle_404: bool = False, use_last_modified: bool = False):
     mime_type = mime_type or mimetypes.guess_type(path)[0]
     if mime_type is None: raise ValueError("Unknown mime type!")
+    ppath = pathlib.Path(path)
+    if handle_404 and not ppath.exists():
+      return await self.respond_text("not found", 404)
 
-    with open(path, "rb") as fd:
+    with open(ppath, "rb") as fd:
       fd_stat = os.stat(fd.fileno())
 
       if use_last_modified:
