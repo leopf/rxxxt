@@ -19,6 +19,8 @@ class Counter(Component):
     return El.div(onclick=self.on_click, content=[f"Count: {self.count}"])
 ```
 
+[`HandleNavigate`](./api.md#rxxxt.component.HandleNavigate) can be used as an attribute helper when you only need navigation.
+
 ## Events
 Components can receive user input events using the [`event_handler`](./api.md#rxxxt.component.event_handler) decorator.
 
@@ -31,12 +33,29 @@ def on_click(self):
 
 Event handlers can receive [`ContextInputEventHandlerOptions`](./api.md#rxxxt.events.ContextInputEventHandlerOptions).
 
+Parameters on event handlers can be pre-filled with [`EventHandler.bind`](./api.md#rxxxt.component.EventHandler.bind):
+```python
+class Counter(Component):
+  count = local_state(int)
+
+  @event_handler()
+  def increase(self, amount: int):
+    self.count += amount
+
+  def render(self) -> Element:
+    return El.div(content=[
+      El.button(onclick=self.increase.bind(amount=5), content=["Add 5"]),
+      El.button(onclick=self.increase.bind(amount=1), content=["Add 1"]),
+    ])
+```
+`bind` returns a new handler instance using the provided default parameters.
+
 The event handlers can then be used as html attributes for the desired events. For example the, `onclick` event:
 ```python
 El.div(onclick=self.on_click, content=[f"Count: {self.count}"])
 ```
 
-To receive event data from an html event, you can use the `Annotate` type to specify which fields you would like to map to which function parameter.
+To receive event data from an html event, you can use the `Annotated` type to specify which fields you would like to map to which function parameter.
 
 In the following example the event data `target.value` is selected from the `change` event of the rendered input element and passed as the `value` parameter.
 
@@ -60,7 +79,7 @@ Background tasks only run when a session is persistent (using websockets).
 They can be created in two ways:
 
 - `add_job` - creates a task from a coroutine that must be run until finished
-- `add_worker` - creates a task from a couroutine that runs in the background until the component is destroyed. Can be cancelled at any time.
+- `add_worker` - creates a task from a coroutine that runs in the background until the component is destroyed. Can be cancelled at any time.
 
 
 ## Lifecycle
@@ -73,7 +92,7 @@ Events:
 - `on_after_destroy` - after all background tasks are destroyed
 
 ## Context
-A lot of functionallity that is available to components lives inside the components [`Context`](./api.md#rxxxt.execution.Context).
+A lot of functionality that is available to components lives inside the component [`Context`](./api.md#rxxxt.execution.Context).
 
 #### use websocket, request updates
 - `use_websocket`
@@ -90,9 +109,15 @@ properties:
 methods:
 
 - `get_header`
-- `set_cookie`
-- `delete_cookie`
-- `navidate`
+- `set_cookie` (`mirror_state` controls whether the cookie header is updated in state)
+- `delete_cookie` (also honours `mirror_state`)
+- `navigate`
+- `match_path`
+
+#### manage subscriptions
+- `subscribe`
+- `unsubscribe`
+- `unsubscribe_all`
 
 #### add/remove events to the window or elements selected by a query selector
 - `add_query_selector_event`

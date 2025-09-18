@@ -10,9 +10,11 @@ theme:
 nav:
   - Home: index.md
   - app.md
+  - asgi.md
   - elements.md
   - component.md
   - router.md
+  - path-matching.md
   - state.md
   - api.md
 markdown_extensions:

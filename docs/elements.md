@@ -1,5 +1,12 @@
 # Elements
 
+- [`Element`](./api.md#rxxxt.elements.Element) - Abstract base for every renderable element. Implement `tonode` to describe how the element expands in the tree.
+- [`CustomAttribute`](./api.md#rxxxt.elements.CustomAttribute) - Base class for special attributes that expand into real HTML attributes at render time.
+- [`ElementContent`](./api.md#rxxxt.elements.ElementContent) - Sequence of child elements or strings accepted by most element constructors.
+- [`HTMLAttributeValue`](./api.md#rxxxt.elements.HTMLAttributeValue) / [`HTMLAttributes`](./api.md#rxxxt.elements.HTMLAttributes) - Accepted attribute shapes for HTML elements. Non-string primitives are converted.
+- [`lazy_element`](./api.md#rxxxt.elements.lazy_element) - Wrap a factory that receives the current `Context` when the element is rendered.
+- [`TextElement`](./api.md#rxxxt.elements.TextElement) - Escapes text so it can be safely inserted into the DOM tree.
+- [`ElementFactory`](./api.md#rxxxt.elements.ElementFactory) - Protocol for callables that create elements.
 - [`El`](./api.md#rxxxt.elements.El) - A way to create html elements quickly.
   Write `El.<tag name>` or `El["<tag name>"]` to create an element with this tag name.
   You may specify attributes by passing them as key values parameters. The inner content is set by specifying the list `content` with `str | Element` as children.
@@ -25,3 +32,5 @@
 
 - [`HTMLVoidElement`](./api.md#rxxxt.elements.HTMLVoidElement) - long form of `VEl`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None]` to the constructor
 - [`HTMLElement`](./api.md#rxxxt.elements.HTMLElement) - long form of `El`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None] = {}, content: Iterable[Element | str] = (), key: str | None = None` to the constructor
+- [`class_map`](./api.md#rxxxt.elements.class_map) - Turn a `dict[str, bool]` into a space separated class string.
+- [`css_extend`](./api.md#rxxxt.elements.css_extend) - Merge additional `class` / `style` values into an attribute dict.

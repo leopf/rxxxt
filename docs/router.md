@@ -8,12 +8,17 @@ A router is an [`ElementFactory`](./api.md#rxxxt.elements.ElementFactory) and ca
 Routes can be added with `add_route` supplying the pattern and the element factory for this route.
 Alternatively routes can be added using decorators.
 
+`add_router` merges the routes of another `Router` instance, which is useful when building feature modules.
 
 ```python
 from rxxxt import Router, El, App
 import uvicorn
 
 router = Router()
+
+child = Router()
+child.add_route("/child", lambda: El.div(content=["child"]))
+router.add_router(child)
 
 def hello_factory():
   return El.div(content=["hello"])
@@ -29,14 +34,7 @@ uvicorn.run(app)
 ```
 
 ## Route Patterns
-The pattern language is simple. You can use any fixed url pattern and it will match exactly that.
-To match variables, you can intoduce named parts using braces.
-
-Example: `/{name}/{id}` will match `/project/2` with the parameters `{ "name": "project", "id": "2" }`.
-
-To match accross slashes you may decorate your part with a `*`.
-
-Example: `/{path*}` will match `/project/2` with the parameters `{ "path": "project/2" }`.
+Routing uses [`match_path`](./path-matching.md).
 
 ## Accessing Parameters
 
