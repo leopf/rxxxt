@@ -1,8 +1,9 @@
-import codecs, functools, json, mimetypes, pathlib, io, asyncio, logging, os
+import codecs, functools, json, mimetypes, pathlib, io, asyncio, logging, os, typing
 from typing import Any, Callable
 from collections.abc import Awaitable, Iterable, MutableMapping, AsyncGenerator
 from email.utils import formatdate
 from pydantic import ValidationError
+from rxxxt.helpers import match_path
 
 BytesLike = bytes | bytearray
 ASGIHeaders = Iterable[tuple[BytesLike, BytesLike]]
@@ -191,6 +192,15 @@ def websocket_handler(fn: Callable[[WebsocketContext], Awaitable[Any]]):
   async def _inner(scope: ASGIScope, receive: ASGIFnReceive, send: ASGIFnSend) -> Any:
     if scope["type"] != "websocket": raise ASGINextException()
     return await fn(WebsocketContext(scope, receive, send))
+  return _inner
+
+CTXT = typing.TypeVar("CTXT", bound=TransportContext)
+def routed_handler(pattern: str):
+  def _inner(fn: Callable[[CTXT, dict[str, str]], Awaitable[Any]]) -> Callable[[CTXT], Awaitable[Any]]:
+    async def _inner_inner(context: CTXT) -> Any:
+      if (match:=match_path(pattern, context.path)) is None: context.next()
+      return await fn(context, match)
+    return _inner_inner
   return _inner
 
 @http_handler
