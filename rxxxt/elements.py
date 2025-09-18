@@ -14,7 +14,7 @@ class Element(ABC):
 
 class CustomAttribute(ABC):
   @abstractmethod
-  def get_key_value(self, original_key: str) -> tuple[str, str | None]: ...
+  def get_key_values(self, original_key: str) -> tuple[tuple[str, str | None],...]: ...
 
 ElementContent = Iterable[Element | str]
 HTMLAttributeValue = str | bool | int | float | CustomAttribute | None
@@ -28,6 +28,15 @@ def _element_content_to_elements(content: ElementContent) -> tuple[Element, ...]
 
 def _normalize_attrs(attrs: HTMLAttributes):
   return { k.lstrip("_"): v for k,v in attrs.items() }
+
+def _apply_attribute_kv(attributes: dict[str, str | None], k: str, v: Any):
+  if isinstance(v, bool):
+    if not v: return
+    v = None
+  elif isinstance(v, (int, float)): v = str(v)
+  if v is not None and not isinstance(v, str):
+    raise ValueError("Invalid attribute value", v)
+  attributes[k] = v
 
 class HTMLFragment(Element):
   def __init__(self, content: ElementContent) -> None:
@@ -43,12 +52,11 @@ class HTMLVoidElement(Element):
     self._tag = tag
     self._attributes: dict[str, str | None] = {}
     for k, v in attributes.items():
-      if isinstance(v, CustomAttribute): k, v = v.get_key_value(k)
-      elif isinstance(v, bool):
-        if not v: continue
-        v = None
-      elif isinstance(v, (int, float)): v = str(v)
-      self._attributes[k] = v
+      if isinstance(v, CustomAttribute):
+        for ik, iv in v.get_key_values(k):
+          _apply_attribute_kv(self._attributes, ik, iv)
+      else:
+        _apply_attribute_kv(self._attributes, k, v)
 
   def tonode(self, context: Context) -> 'Node':
     return VoidElementNode(context, self._tag, self._attributes)
