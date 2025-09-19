@@ -1,4 +1,4 @@
-from rxxxt import Component, event_handler, Element, App, El, UnescapedHTMLElement, PageBuilder
+from rxxxt import Component, event_handler, Element, App, El, PageBuilder, ScriptContent
 import uvicorn
 
 class Main(Component):
@@ -11,7 +11,7 @@ class Main(Component):
 
 page_builder = PageBuilder()
 
-page_builder.add_body_end(El.script(content=[UnescapedHTMLElement("""
+page_builder.add_body_end(El.script(content=[ScriptContent("""
 rxxxt.on("download", data => {
   const link = document.createElement("a");
   link.download = data.name;
