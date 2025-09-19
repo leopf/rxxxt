@@ -2,7 +2,7 @@ from collections import defaultdict
 import unittest, typing
 from rxxxt.elements import El, lazy_element
 from rxxxt.component import Component, event_handler
-from rxxxt.events import ContextInputEvent, NavigateOutputEvent
+from rxxxt.events import ContextInputEvent, CustomOutputEvent, NavigateOutputEvent
 from rxxxt.execution import Context
 from rxxxt.page import default_page
 from rxxxt.session import Session, SessionConfig
@@ -42,6 +42,23 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
 
       update = await session.render_update(True, True)
       self.assertIn("worldhello", update.html_parts[0])
+
+  async def test_output_event_refresh(self):
+    class Main(Component):
+      def render(self):
+        return El.div(content=[])
+
+    el = Main()
+    async with Session(session_config, el) as session:
+      await session.init(None)
+      _update1 = await session.render_update(True, True)
+      self.assertFalse(session.update_pending)
+      el.context.emit("download", { "url": "https://google.com" })
+      self.assertTrue(session.update_pending)
+      update2 = await session.render_update(True, False)
+      self.assertEqual(len(update2.html_parts), 0)
+      self.assertEqual(len(update2.events), 1)
+      self.assertEqual(update2.events[0], CustomOutputEvent(name="download", data={ "url": "https://google.com" }))
 
   async def test_partial_update(self):
     class Inner(Component):
