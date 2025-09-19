@@ -13,12 +13,13 @@ page_builder = PageBuilder()
 
 page_builder.add_body_end(El.script(content=[UnescapedHTMLElement("""
 rxxxt.on("download", data => {
-  const dlElement = document.createElement("a");
-  dlElement.download = data.name;
-  dlElement.href = data.url;
-  dlElement.style.display = "none";
-  document.body.appendChild(dlElement);
-  dlElement.click();
+  const link = document.createElement("a");
+  link.download = data.name;
+  link.href = data.url;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 });
 """)]))
 
