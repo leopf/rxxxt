@@ -1,7 +1,7 @@
 import asyncio, contextlib, importlib.resources
 from typing import Any, Literal
 from pydantic import BaseModel
-from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, Composer, HTTPContext, WebsocketContext, http_handler, http_not_found_handler, websocket_handler
+from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, Composer, HTTPContext, WebsocketContext, http_handler, http_not_found_handler, routed_handler, websocket_handler
 from rxxxt.elements import ElementFactory
 from rxxxt.events import InputEvent
 from rxxxt.page import PageFactory, default_page
@@ -28,7 +28,7 @@ class App:
     self._page_factory: PageFactory = page_factory
     self._state_resolver = state_resolver or default_state_resolver()
     self._composer = Composer()
-    _ = self._composer.add_handler(http_handler(self._http_static))
+    _ = self._composer.add_handler(http_handler(routed_handler("/rxxxt-client.js")(self._http_static_rxxxt_client_js)))
     _ = self._composer.add_handler(http_handler(self._http_session))
     _ = self._composer.add_handler(websocket_handler(self._ws_session))
     _ = self._composer.add_handler(http_not_found_handler)
@@ -92,11 +92,9 @@ class App:
         result = await session.render_page(context.path)
         await context.respond_text(result, mime_type="text/html")
 
-  async def _http_static(self, context: HTTPContext):
-    if context.path == "/rxxxt-client.js":
-      with importlib.resources.path("rxxxt.assets", "main.js") as file_path:
-        return await context.respond_file(file_path, use_last_modified=True)
-    context.next()
+  async def _http_static_rxxxt_client_js(self, context: HTTPContext, _: dict[str, str]):
+    with importlib.resources.path("rxxxt.assets", "main.js") as file_path:
+      return await context.respond_file(file_path, use_last_modified=True)
 
   def _get_session_config(self, persistent: bool):
     return SessionConfig(page_facotry=self._page_factory, state_resolver=self._state_resolver, persistent=persistent)

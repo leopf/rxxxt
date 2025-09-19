@@ -14,7 +14,7 @@ class Element(ABC):
 
 class CustomAttribute(ABC):
   @abstractmethod
-  def get_key_value(self, original_key: str) -> tuple[str, str | None]: ...
+  def get_key_values(self, original_key: str) -> tuple[tuple[str, str | None],...]: ...
 
 ElementContent = Iterable[Element | str]
 HTMLAttributeValue = str | bool | int | float | CustomAttribute | None
@@ -28,6 +28,15 @@ def _element_content_to_elements(content: ElementContent) -> tuple[Element, ...]
 
 def _normalize_attrs(attrs: HTMLAttributes):
   return { k.lstrip("_"): v for k,v in attrs.items() }
+
+def _apply_attribute_kv(attributes: dict[str, str | None], k: str, v: Any):
+  if isinstance(v, bool):
+    if not v: return
+    v = None
+  elif isinstance(v, (int, float)): v = str(v)
+  if v is not None and not isinstance(v, str):
+    raise ValueError("Invalid attribute value", v)
+  attributes[k] = v
 
 class HTMLFragment(Element):
   def __init__(self, content: ElementContent) -> None:
@@ -43,12 +52,11 @@ class HTMLVoidElement(Element):
     self._tag = tag
     self._attributes: dict[str, str | None] = {}
     for k, v in attributes.items():
-      if isinstance(v, CustomAttribute): k, v = v.get_key_value(k)
-      elif isinstance(v, bool):
-        if not v: continue
-        v = None
-      elif isinstance(v, (int, float)): v = str(v)
-      self._attributes[k] = v
+      if isinstance(v, CustomAttribute):
+        for ik, iv in v.get_key_values(k):
+          _apply_attribute_kv(self._attributes, ik, iv)
+      else:
+        _apply_attribute_kv(self._attributes, k, v)
 
   def tonode(self, context: Context) -> 'Node':
     return VoidElementNode(context, self._tag, self._attributes)
@@ -90,34 +98,36 @@ class WithRegistered(Element):
   def tonode(self, context: Context) -> 'Node':
     return self._child.tonode(context.update_registry(self._register))
 
-def lazy_element(fn: Callable[Concatenate[Context, FNP], Element]) -> Callable[FNP, 'Element']:
-  def _inner(*args: FNP.args, **kwargs: FNP.kwargs) -> Element:
-    return _LazyElement(fn, *args, **kwargs)
-  return _inner
-
 class _LazyElement(Element, Generic[FNP]):
-  def __init__(self, fn: Callable[Concatenate[Context, FNP], Element], *args: FNP.args, **kwargs: FNP.kwargs) -> None:
+  def __init__(self, fn: Callable[Concatenate[Context, FNP], Node], *args: FNP.args, **kwargs: FNP.kwargs) -> None:
     self._fn = fn
     self._fn_args = args
     self._fn_kwargs = kwargs
 
   def tonode(self, context: Context) -> 'Node':
-    return self._fn(context, *self._fn_args, **self._fn_kwargs).tonode(context)
+    return self._fn(context, *self._fn_args, **self._fn_kwargs)
 
-class TextElement(Element):
-  def __init__(self, text: str) -> None:
-    self._text = text
+def lazy_node(fn: Callable[Concatenate[Context, FNP], Node]) -> Callable[FNP, 'Element']:
+  def _inner(*args: FNP.args, **kwargs: FNP.kwargs) -> Element:
+    return _LazyElement(fn, *args, **kwargs)
+  return _inner
 
-  def tonode(self, context: Context) -> 'Node':
-    return TextNode(context, html.escape(self._text))
+def lazy_element(fn: Callable[Concatenate[Context, FNP], Element]) -> Callable[FNP, 'Element']:
+  def _inner(context: Context, *args: FNP.args, **kwargs: FNP.kwargs) -> Node:
+    return fn(context, *args, **kwargs).tonode(context)
+  return lazy_node(_inner)
 
-class UnescapedHTMLElement(Element):
-  def __init__(self, text: str) -> None:
-    super().__init__()
-    self._text = text
+@lazy_node
+def TextElement(context: Context, text: str):
+  return TextNode(context, html.escape(text))
 
-  def tonode(self, context: Context) -> 'Node':
-    return TextNode(context, self._text)
+@lazy_node
+def UnescapedHTMLElement(context: Context, text: str):
+  return TextNode(context, text)
+
+@lazy_node
+def ScriptContent(context: Context, script: str):
+  return TextNode(context, script.replace("</", "<\\/"))
 
 class CreateHTMLElement(Protocol):
   def __call__(self, content: ElementContent = (), key: str | None = None, **kwargs: HTMLAttributeValue) -> Element: ...

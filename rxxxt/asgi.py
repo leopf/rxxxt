@@ -1,8 +1,9 @@
-import codecs, functools, json, mimetypes, pathlib, io, asyncio, logging, os
+import codecs, functools, json, mimetypes, pathlib, io, asyncio, logging, os, typing
 from typing import Any, Callable
 from collections.abc import Awaitable, Iterable, MutableMapping, AsyncGenerator
 from email.utils import formatdate
 from pydantic import ValidationError
+from rxxxt.helpers import match_path
 
 BytesLike = bytes | bytearray
 ASGIHeaders = Iterable[tuple[BytesLike, BytesLike]]
@@ -129,11 +130,14 @@ class HTTPContext(TransportContext):
     await self.response_start(status)
     await self.response_body(data, False)
 
-  async def respond_file(self, path: str | pathlib.Path, mime_type: str | None = None, use_last_modified: bool = False):
+  async def respond_file(self, path: str | pathlib.Path, mime_type: str | None = None, handle_404: bool = False, use_last_modified: bool = False):
     mime_type = mime_type or mimetypes.guess_type(path)[0]
     if mime_type is None: raise ValueError("Unknown mime type!")
+    ppath = pathlib.Path(path)
+    if handle_404 and not ppath.exists():
+      return await self.respond_text("not found", 404)
 
-    with open(path, "rb") as fd:
+    with open(ppath, "rb") as fd:
       fd_stat = os.stat(fd.fileno())
 
       if use_last_modified:
@@ -190,6 +194,15 @@ def websocket_handler(fn: Callable[[WebsocketContext], Awaitable[Any]]):
     return await fn(WebsocketContext(scope, receive, send))
   return _inner
 
+CTXT = typing.TypeVar("CTXT", bound=TransportContext)
+def routed_handler(pattern: str):
+  def _inner(fn: Callable[[CTXT, dict[str, str]], Awaitable[Any]]) -> Callable[[CTXT], Awaitable[Any]]:
+    async def _inner_inner(context: CTXT) -> Any:
+      if (match:=match_path(pattern, context.path)) is None: context.next()
+      return await fn(context, match)
+    return _inner_inner
+  return _inner
+
 @http_handler
 async def http_not_found_handler(context: HTTPContext):
   await context.respond_text("not found", 404)
@@ -214,12 +227,6 @@ class Composer:
         return await self._ws_error_handler(WebsocketContext(scope, receive, send), e)
       if scope["type"] == "http":
         return await self._http_error_handler(HTTPContext(scope, receive, send), e)
-
-  async def _http_not_found(self, context: HTTPContext, exception: BaseException):
-    if isinstance(exception, (ValueError, ValidationError)):
-      return await context.respond_text("bad request", 400)
-    else:
-      return await context.respond_text("internal server error", 500)
 
   async def _http_error_handler(self, context: HTTPContext, exception: BaseException):
     if isinstance(exception, (ValueError, ValidationError)):

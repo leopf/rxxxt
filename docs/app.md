@@ -73,3 +73,10 @@ page_builder = PageBuilder()
 page_builder.add_stylesheet("/assets/main.css")
 app = App(element_factory, page_factory=page_builder)
 ```
+
+Scripts that should run after the main content is rendered can be appended through `add_body_end`.
+```python
+page_builder.add_body_end(El.script(content=[UnescapedHTMLElement("""
+console.log("hello world");
+""")]))
+```

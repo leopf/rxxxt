@@ -1,9 +1,10 @@
 import { initEventManager } from "./events";
 import { initTransport, TransportConfig } from "./transport";
-import { InitData, OutputEvent } from "./types";
+import { InitData, OutputEvent, CustomEventHandler } from "./types";
 import morphdom from "morphdom";
 
 const defaultTargetId = "root";
+const outputCustomEventHandlers = new Map<string, Set<CustomEventHandler>>();
 let baseUrl: URL | undefined;
 
 const transportConfig: TransportConfig = {
@@ -63,6 +64,16 @@ const applyHTML = (html?: string) => {
 };
 
 const outputEventHandlers: { [K in OutputEvent['event']]: (ev: Extract<OutputEvent, { event: K }>) => void; } = {
+    custom: event => {
+        for (const handler of outputCustomEventHandlers.get(event.name) ?? []) {
+            try {
+                handler(event.data);
+            }
+            catch (e) {
+                console.error(e);
+            }
+        }
+    },
     navigate: event => {
         const targetUrl = new URL(event.location, location.href);
         if (baseUrl === undefined || baseUrl.origin !== targetUrl.origin || !targetUrl.pathname.startsWith(baseUrl.pathname)) {
@@ -119,7 +130,16 @@ const outputEventHandlers: { [K in OutputEvent['event']]: (ev: Extract<OutputEve
 
 const onOutputEvents = (events: OutputEvent[]) => events.forEach(event => outputEventHandlers[event.event](event as any)); // typescript doesnt handle this well
 
-(window as any).rxxxt = {
+const rxxxt = {
+    on: (name: string, handler: CustomEventHandler) => {
+        const handlers = outputCustomEventHandlers.get(name) ?? new Set();
+        outputCustomEventHandlers.set(name, handlers)
+        handlers.add(handler)
+    },
+    off: (name: string, handler: CustomEventHandler) => {
+        const handlers = outputCustomEventHandlers.get(name) ?? new Set();
+        return handlers.delete(handler);
+    },
     navigate: (url: string | URL) => {
         onOutputEvents([{ event: "navigate", location: new URL(url, location.href).href, requires_refresh: true }]);
     },
@@ -140,3 +160,12 @@ const onOutputEvents = (events: OutputEvent[]) => events.forEach(event => output
         applyHTML();
     },
 };
+
+(window as any).rxxxt = rxxxt;
+const initDataElement = document.getElementById("rxxxt-init-data");
+if (initDataElement != null && initDataElement.textContent !== null) {
+    rxxxt.init(JSON.parse(initDataElement.textContent));
+}
+else {
+    console.warn("failed to initialize rxxxt. init data not found.")
+}

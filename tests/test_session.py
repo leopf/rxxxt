@@ -2,7 +2,7 @@ from collections import defaultdict
 import unittest, typing
 from rxxxt.elements import El, lazy_element
 from rxxxt.component import Component, event_handler
-from rxxxt.events import ContextInputEvent, NavigateOutputEvent
+from rxxxt.events import ContextInputEvent, CustomOutputEvent, NavigateOutputEvent
 from rxxxt.execution import Context
 from rxxxt.page import default_page
 from rxxxt.session import Session, SessionConfig
@@ -42,6 +42,79 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
 
       update = await session.render_update(True, True)
       self.assertIn("worldhello", update.html_parts[0])
+
+  async def test_output_event_refresh(self):
+    class Main(Component):
+      def render(self):
+        return El.div(content=[])
+
+    el = Main()
+    async with Session(session_config, el) as session:
+      await session.init(None)
+      _update1 = await session.render_update(True, True)
+      self.assertFalse(session.update_pending)
+      el.context.emit("download", { "url": "https://google.com" })
+      self.assertTrue(session.update_pending)
+      update2 = await session.render_update(True, False)
+      self.assertEqual(len(update2.html_parts), 0)
+      self.assertEqual(len(update2.events), 1)
+      self.assertEqual(update2.events[0], CustomOutputEvent(name="download", data={ "url": "https://google.com" }))
+
+  async def test_partial_update(self):
+    class Inner(Component):
+      value = local_state(str)
+
+      async def on_init(self) -> None:
+        self.value = "1337"
+
+      def render(self): return El.div(content=[self.value])
+
+    class Outer(Component):
+      def __init__(self) -> None:
+        super().__init__()
+        self.inner = Inner()
+
+      def render(self): return El.div(content=[
+        "hello",
+        self.inner,
+        "world"
+      ])
+
+    outer = Outer()
+    async with Session(session_config, outer) as session:
+      session.set_location("/")
+      await session.init(None)
+      await session.update()
+      update1 = await session.render_update(True, True)
+      self.assertIn("hello", update1.html_parts[0])
+      self.assertIn("world", update1.html_parts[0])
+      self.assertIn("1337", update1.html_parts[0])
+
+      outer.inner.value = "133742"
+      self.assertIn(outer.inner.context.id, session.state.pending_updates)
+      self.assertEqual(len(session.state.pending_updates), 1)
+      await session.update()
+
+      update2 = await session.render_update(True, False)
+      self.assertEqual(len(update2.html_parts), 1)
+      self.assertNotIn("hello", update2.html_parts[0])
+      self.assertNotIn("world", update2.html_parts[0])
+      self.assertIn("133742", update2.html_parts[0])
+
+    outer = Outer()
+    async with Session(session_config, outer) as session:
+      session.set_location("/")
+      await session.init(update2.state_token)
+      outer.inner.value = "247331"
+      self.assertIn(outer.inner.context.id, session.state.pending_updates)
+      self.assertEqual(len(session.state.pending_updates), 1)
+      await session.update()
+
+      update3 = await session.render_update(True, False)
+      self.assertEqual(len(update3.html_parts), 1)
+      self.assertNotIn("hello", update3.html_parts[0])
+      self.assertNotIn("world", update3.html_parts[0])
+      self.assertIn("247331", update3.html_parts[0])
 
   async def test_input_event_handling_order(self):
     event_outputs: list[str] = []

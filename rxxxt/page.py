@@ -37,4 +37,4 @@ class PageBuilder(PageFactory):
   def add_body_end(self, el: Element): self._body_end_elements.append(el)
 
   def __call__(self, header: Element, content: Element, body_end: Element) -> Element:
-    return self._page_factory(HTMLFragment([ header, *self._header_elements ]), content, HTMLFragment([ *self._body_end_elements, body_end ]))
+    return self._page_factory(HTMLFragment([ header, *self._header_elements ]), content, HTMLFragment([ body_end, *self._body_end_elements ]))

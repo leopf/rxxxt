@@ -3,19 +3,34 @@ import griffe
 
 _ = shutil.copyfile("README.md", "docs/index.md")
 
-imports = list(griffe.load("rxxxt/__init__.py").imports.values())
-imports.extend([
+module = griffe.load("rxxxt/__init__.py")
+imports = set(module.imports.values())
+imports.update([
   "rxxxt.execution.State",
   "rxxxt.state.StateResolver",
   "rxxxt.state.JWTStateResolver",
+  "rxxxt.state.StateBox",
   "rxxxt.state.default_state_resolver",
   "rxxxt.helpers.match_path",
   "rxxxt.helpers.JWTManager",
   "rxxxt.helpers.JWTError",
-  "rxxxt.events.ContextInputEventHandlerOptions"
+  "rxxxt.events.ContextInputEventHandlerOptions",
+  "rxxxt.asgi.TransportContext",
+  "rxxxt.asgi.HTTPContext",
+  "rxxxt.asgi.WebsocketContext",
+  "rxxxt.asgi.http_handler",
+  "rxxxt.asgi.websocket_handler",
+  "rxxxt.asgi.routed_handler",
+  "rxxxt.asgi.http_not_found_handler",
+  "rxxxt.asgi.Composer",
+  "rxxxt.asgi.ASGIScope",
+  "rxxxt.asgi.ASGIFnReceive",
+  "rxxxt.asgi.ASGIFnSend",
+  "rxxxt.asgi.ASGIHandler",
+  "rxxxt.asgi.ASGINextException",
 ])
 
-imports.sort(key=lambda n: n.lower())
+imports = sorted(imports, key=lambda n: n.lower())
 
 with open("docs/api.md", "w") as fd:
   _ = fd.write("# API\n")

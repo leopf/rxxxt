@@ -42,10 +42,10 @@ class EventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribu
     })
     return EventHandler(self._fn, new_options, self._instance)
 
-  def get_key_value(self, original_key: str):
+  def get_key_values(self, original_key: str):
     if not original_key.startswith("on"): raise ValueError("Event handler must be applied to an attribute starting with 'on'.")
     v = base64.b64encode(self.descriptor.model_dump_json(exclude_defaults=True).encode("utf-8")).decode("utf-8")
-    return (f"rxxxt-on-{original_key[2:]}", v)
+    return ((f"rxxxt-on-{original_key[2:]}", v),)
 
   def _get_param_map(self):
     param_map: dict[str, str] = {}
@@ -70,8 +70,8 @@ class HandleNavigate(CustomAttribute):
     super().__init__()
     self.location = location
 
-  def get_key_value(self, original_key: str) -> tuple[str, str]:
-    return (original_key, f"window.rxxxt.navigate('{self.location}');")
+  def get_key_values(self, original_key: str) -> tuple[tuple[str, str],...]:
+    return ((original_key, f"window.rxxxt.navigate('{self.location}');"),)
 
 class Component(Element):
   def __init__(self) -> None:
