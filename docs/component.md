@@ -72,6 +72,42 @@ class InputExample(Component):
     return VEl.input(onchange=self.on_change, type="text")
 ```
 
+### Custom output events
+[`Context.emit`](./api.md#rxxxt.execution.Context.emit) lets a component notify the browser about arbitrary events.
+The event name is a string and the payload must be JSON-compatible primitives (`int`, `float`, `str`, `bool` or `None`).
+
+On the browser side, handlers can be registered through `window.rxxxt.on`.
+
+```python
+from rxxxt import App, Component, Element, El, PageBuilder, UnescapedHTMLElement, event_handler
+
+class Export(Component):
+  @event_handler()
+  def download(self):
+    self.context.emit("download", {"url": "https://example.com/archive.zip", "name": "archive.zip"})
+
+  def render(self) -> Element:
+    return El.button(onclick=self.download, content=["Download archive"])
+
+page = PageBuilder()
+page.add_body_end(El.script(content=[
+  UnescapedHTMLElement("""
+    rxxxt.on("download", data => {
+      const link = document.createElement("a");
+      link.download = data.name;
+      link.href = data.url;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    });
+  """)
+]))
+
+app = App(Export, page_factory=page)
+```
+
+Handlers can be removed with `window.rxxxt.off(name, handler)`.
 
 ## Background tasks
 Background tasks only run when a session is persistent (using websockets).
