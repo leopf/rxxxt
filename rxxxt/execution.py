@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Any
 from rxxxt.cell import StateCell, StrStateCell
-from rxxxt.events import ContextInputEventDescriptor, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
+from rxxxt.events import ContextInputEventDescriptor, CustomOutputEvent, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
   OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, ContextInputEventDescriptorGenerator
 from rxxxt.helpers import T, match_path
 
@@ -216,6 +216,9 @@ class Context:
   def subscribe(self, key: str): self.state.subscribe(self.id, key)
   def unsubscribe(self, key: str): self.state.unsubscribe(self.id, key)
   def unsubscribe_all(self): self.state.unsubscribe_all(self.id)
+
+  def emit(self, name: str, data: dict[str, int | float | str | bool | None]):
+    self.state.add_output_event(CustomOutputEvent(name=name, data=data))
 
   def add_window_event(self, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator):
     self._modify_window_event(name, descriptor, "add")

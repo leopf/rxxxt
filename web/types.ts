@@ -1,9 +1,20 @@
+export type PrimitveRecord = Record<string, number | string | boolean | undefined>;
+
+export type CustomEventHandler = (data: PrimitveRecord) => any;
+
 export type OutputEvent =
+    | CustomOutputEvent
     | SetCookieOutputEvent
     | NavigateOutputEvent
     | UseWebsocketOutputEvent
     | EventRegisterWindowEvent
     | EventRegisterQuerySelectorEvent;
+
+export interface CustomOutputEvent {
+    event: "custom";
+    name: string;
+    data: PrimitveRecord;
+}
 
 export interface SetCookieOutputEvent {
     event: "set-cookie";
@@ -46,7 +57,7 @@ export interface EventRegisterQuerySelectorEvent {
 
 export interface ContextInputEvent {
     context_id: string;
-    data: Record<string, number | string | boolean | undefined>;
+    data: PrimitveRecord;
 }
 
 export interface ContextInputEventDescriptor {
@@ -58,7 +69,7 @@ export interface ContextInputEventDescriptor {
         debounce?: number;
         no_trigger?: boolean;
         prevent_default?: boolean;
-        default_params?: Record<string, number | string | boolean | undefined>;
+        default_params?: PrimitveRecord;
     };
 }
 

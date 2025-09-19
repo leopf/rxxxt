@@ -31,6 +31,11 @@ class EventBase(BaseModel):
     if event_name is not None: other["event"] = event_name
     return other
 
+class CustomOutputEvent(EventBase):
+  event: Literal["custom"] = "custom"
+  name: str
+  data: dict[str, int | float | str | bool | None]
+
 class EventRegisterWindowEvent(EventBase):
   event: Literal["event-modify-window"] = "event-modify-window"
   mode: Literal["add"] | Literal["remove"]
@@ -103,4 +108,4 @@ class ContextInputEvent(BaseModel):
   data: dict[str, int | float | str | bool | None]
 
 InputEvent = ContextInputEvent
-OutputEvent = SetCookieOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent | EventRegisterWindowEvent | EventRegisterQuerySelectorEvent
+OutputEvent = CustomOutputEvent | SetCookieOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent | EventRegisterWindowEvent | EventRegisterQuerySelectorEvent
