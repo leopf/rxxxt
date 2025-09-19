@@ -130,8 +130,7 @@ const outputEventHandlers: { [K in OutputEvent['event']]: (ev: Extract<OutputEve
 
 const onOutputEvents = (events: OutputEvent[]) => events.forEach(event => outputEventHandlers[event.event](event as any)); // typescript doesnt handle this well
 
-
-(window as any).rxxxt = {
+const rxxxt = {
     on: (name: string, handler: CustomEventHandler) => {
         const handlers = outputCustomEventHandlers.get(name) ?? new Set();
         outputCustomEventHandlers.set(name, handlers)
@@ -161,3 +160,12 @@ const onOutputEvents = (events: OutputEvent[]) => events.forEach(event => output
         applyHTML();
     },
 };
+
+(window as any).rxxxt = rxxxt;
+const initDataElement = document.getElementById("rxxxt-init-data");
+if (initDataElement != null && initDataElement.textContent !== null) {
+    rxxxt.init(JSON.parse(initDataElement.textContent));
+}
+else {
+    console.warn("failed to initialize rxxxt. init data not found.")
+}
