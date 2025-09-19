@@ -1,7 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 from pydantic import BaseModel
-from rxxxt.elements import El, Element, HTMLFragment, UnescapedHTMLElement, meta_element
+from rxxxt.elements import El, Element, HTMLFragment, ScriptContent, UnescapedHTMLElement, meta_element
 from rxxxt.events import InputEvent, OutputEvent
 from rxxxt.execution import Context, ContextConfig, State
 from rxxxt.helpers import to_awaitable
@@ -86,8 +86,7 @@ class Session:
     content_el = UnescapedHTMLElement(self._root_renderer.render_full())
     header_el = El.style(content=["rxxxt-meta { display: contents; }"])
     body_end_el = HTMLFragment([
-      El.script(type="application/json", id="rxxxt-init-data", content=[
-        UnescapedHTMLElement(init_data.model_dump_json(exclude_defaults=True).replace("</", "<\\/")) ]),
+      El.script(type="application/json", id="rxxxt-init-data", content=[ ScriptContent(init_data.model_dump_json(exclude_defaults=True)) ]),
       El.script(src="/rxxxt-client.js")
     ])
 

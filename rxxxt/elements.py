@@ -98,34 +98,36 @@ class WithRegistered(Element):
   def tonode(self, context: Context) -> 'Node':
     return self._child.tonode(context.update_registry(self._register))
 
-def lazy_element(fn: Callable[Concatenate[Context, FNP], Element]) -> Callable[FNP, 'Element']:
-  def _inner(*args: FNP.args, **kwargs: FNP.kwargs) -> Element:
-    return _LazyElement(fn, *args, **kwargs)
-  return _inner
-
 class _LazyElement(Element, Generic[FNP]):
-  def __init__(self, fn: Callable[Concatenate[Context, FNP], Element], *args: FNP.args, **kwargs: FNP.kwargs) -> None:
+  def __init__(self, fn: Callable[Concatenate[Context, FNP], Node], *args: FNP.args, **kwargs: FNP.kwargs) -> None:
     self._fn = fn
     self._fn_args = args
     self._fn_kwargs = kwargs
 
   def tonode(self, context: Context) -> 'Node':
-    return self._fn(context, *self._fn_args, **self._fn_kwargs).tonode(context)
+    return self._fn(context, *self._fn_args, **self._fn_kwargs)
 
-class TextElement(Element):
-  def __init__(self, text: str) -> None:
-    self._text = text
+def lazy_node(fn: Callable[Concatenate[Context, FNP], Node]) -> Callable[FNP, 'Element']:
+  def _inner(*args: FNP.args, **kwargs: FNP.kwargs) -> Element:
+    return _LazyElement(fn, *args, **kwargs)
+  return _inner
 
-  def tonode(self, context: Context) -> 'Node':
-    return TextNode(context, html.escape(self._text))
+def lazy_element(fn: Callable[Concatenate[Context, FNP], Element]) -> Callable[FNP, 'Element']:
+  def _inner(context: Context, *args: FNP.args, **kwargs: FNP.kwargs) -> Node:
+    return fn(context, *args, **kwargs).tonode(context)
+  return lazy_node(_inner)
 
-class UnescapedHTMLElement(Element):
-  def __init__(self, text: str) -> None:
-    super().__init__()
-    self._text = text
+@lazy_node
+def TextElement(context: Context, text: str):
+  return TextNode(context, html.escape(text))
 
-  def tonode(self, context: Context) -> 'Node':
-    return TextNode(context, self._text)
+@lazy_node
+def UnescapedHTMLElement(context: Context, text: str):
+  return TextNode(context, text)
+
+@lazy_node
+def ScriptContent(context: Context, script: str):
+  return TextNode(context, script.replace("</", "<\\/"))
 
 class CreateHTMLElement(Protocol):
   def __call__(self, content: ElementContent = (), key: str | None = None, **kwargs: HTMLAttributeValue) -> Element: ...
