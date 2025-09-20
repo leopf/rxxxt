@@ -33,3 +33,5 @@
 - [`HTMLVoidElement`](./api.md#rxxxt.elements.HTMLVoidElement) - long form of `VEl`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None]` to the constructor
 - [`HTMLElement`](./api.md#rxxxt.elements.HTMLElement) - long form of `El`, pass `tag: str, attributes: dict[str, str | CustomAttribute | None] = {}, content: Iterable[Element | str] = (), key: str | None = None` to the constructor
 - [`class_map`](./api.md#rxxxt.elements.class_map) - Turn a `dict[str, bool]` into a space separated class string.
+- [`merge_attributes`](./api.md#rxxxt.elements.merge_attributes) - Merge two attribute dictionaries, normalizing keys and joining `class` / `style` values.
+- [`add_attributes`](./api.md#rxxxt.elements.add_attributes) - Convenience wrapper to extend an attribute dict with keyword arguments via `merge_attributes`.
