@@ -34,15 +34,15 @@ def _merge_attribute_items(attrs: Iterable[tuple[str, HTMLAttributeValue]]):
 
 def _html_attributes_to_kv(attributes: HTMLAttributes):
   fattributes: dict[str, str | None] = {}
-  for k, v in ((k.lstrip("_"), v) for k, v in attributes.items()):
-    kv_pairs: tuple[tuple[str, Any], ...] = v.get_key_values(k) if isinstance(v, CustomAttribute) else ((k, v),)
-    for ik, iv in kv_pairs:
-      if iv is False: continue
-      elif iv is True: iv = None
-      elif isinstance(iv, (int, float)): iv = str(iv)
-      if iv is not None and not isinstance(iv, str):
-        raise ValueError("Invalid attribute value", iv)
-      fattributes[ik] = iv
+  items = _merge_attribute_items((k, v) for ok, ov in attributes.items()
+    for k, v in (ov.get_key_values(ok) if isinstance(ov, CustomAttribute) else ((ok, ov),)))
+  for k, v in items:
+    if v is False: continue
+    elif v is True: v = None
+    elif isinstance(v, (int, float)): v = str(v)
+    if v is not None and not isinstance(v, str):
+      raise ValueError("Invalid attribute value", v)
+    fattributes[k] = v
   return fattributes
 
 # to make elements that dont have state and are transformed to node 1:1

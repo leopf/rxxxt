@@ -18,9 +18,21 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
     def render(self):
       return El.div(content=[f"c{self.counter}"])
 
+  class Button(Component):
+    @event_handler()
+    def on_click(self): ...
+    def render(self):
+      return El.div(onclick=self.on_click, content=["click"])
+
   class RegistryComp(Component):
     def render(self):
       return El.div(content=[self.context.registered("header", str)])
+
+  async def test_render_event_handler(self):
+    comp = TestComponents.Button()
+    node = element_to_node(comp)
+    await node.expand()
+    self.assertIn("rxxxt-on-click", render_node(node))
 
   async def test_registry(self):
     comp = TestComponents.RegistryComp()
