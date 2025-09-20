@@ -2,7 +2,7 @@ import unittest
 from typing import Annotated
 from rxxxt.component import Component, event_handler
 from rxxxt.elements import El, WithRegistered
-from rxxxt.events import ContextInputEvent
+from rxxxt.events import InputEvent
 from rxxxt.state import local_state
 from tests.helpers import element_to_node, render_node
 
@@ -70,7 +70,7 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
      await node.expand()
      self.assertEqual(render_node(node), "<div>c0</div>")
 
-     await node.handle_event(ContextInputEvent(context_id=node.context.sid, data={ "$handler_name": "add", "value": 5 }))
+     await node.handle_event(InputEvent(context_id=node.context.sid, data={ "$handler_name": "add", "value": 5 }))
      await node.update()
      self.assertEqual(render_node(node), "<div>c5</div>")
      await node.destroy()

@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Any
 from rxxxt.cell import StateCell, StrStateCell
-from rxxxt.events import ContextInputEventDescriptor, CustomOutputEvent, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
-  OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, ContextInputEventDescriptorGenerator
+from rxxxt.events import InputEventDescriptor, CustomOutputEvent, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
+  OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, InputEventDescriptorGenerator
 from rxxxt.helpers import T, match_path
 
 ContextStackKey = str | int
@@ -219,14 +219,14 @@ class Context:
   def emit(self, name: str, data: dict[str, int | float | str | bool | None]):
     self.state.add_output_event(CustomOutputEvent(name=name, data=data))
 
-  def add_window_event(self, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator):
+  def add_window_event(self, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator):
     self._modify_window_event(name, descriptor, "add")
-  def add_query_selector_event(self, selector: str, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator, all: bool = False):
+  def add_query_selector_event(self, selector: str, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, all: bool = False):
     self._modify_query_selector_event(selector, name, descriptor, all, "add")
 
-  def remove_window_event(self, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator):
+  def remove_window_event(self, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator):
     self._modify_window_event(name, descriptor, "remove")
-  def remove_query_selector_event(self, selector: str, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator, all: bool = False):
+  def remove_query_selector_event(self, selector: str, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, all: bool = False):
     self._modify_query_selector_event(selector, name, descriptor, all, "remove")
 
   def navigate(self, location: str):
@@ -247,11 +247,11 @@ class Context:
     res = self.state.get_key_str(key)
     self.state.subscribe(self.id, key)
     return res
-  def _modify_window_event(self, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator, mode: Literal["add"] | Literal["remove"]):
-    descriptor = descriptor.descriptor if isinstance(descriptor, ContextInputEventDescriptorGenerator) else descriptor
+  def _modify_window_event(self, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, mode: Literal["add"] | Literal["remove"]):
+    descriptor = descriptor.descriptor if isinstance(descriptor, InputEventDescriptorGenerator) else descriptor
     self.state.add_output_event(EventRegisterWindowEvent(name=name, mode=mode, descriptor=descriptor))
-  def _modify_query_selector_event(self, selector: str, name: str, descriptor: ContextInputEventDescriptor | ContextInputEventDescriptorGenerator, all: bool, mode: Literal["add"] | Literal["remove"]):
-    descriptor = descriptor.descriptor if isinstance(descriptor, ContextInputEventDescriptorGenerator) else descriptor
+  def _modify_query_selector_event(self, selector: str, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, all: bool, mode: Literal["add"] | Literal["remove"]):
+    descriptor = descriptor.descriptor if isinstance(descriptor, InputEventDescriptorGenerator) else descriptor
     self.state.add_output_event(EventRegisterQuerySelectorEvent(
       name=name,
       mode=mode,

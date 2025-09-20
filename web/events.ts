@@ -1,4 +1,4 @@
-import { ContextInputEvent, ContextInputEventDescriptor } from "./types";
+import { InputEvent, InputEventDescriptor } from "./types";
 
 const eventPrefix = "rxxxt-on-";
 const now = () => new Date().getTime();
@@ -8,7 +8,7 @@ type TargetEvent = {
     submitId: number; // id for data
 
     // description
-    descriptor: ContextInputEventDescriptor;
+    descriptor: InputEventDescriptor;
     event: string;
     tag: string; // local or global
 
@@ -20,8 +20,8 @@ type TargetEvent = {
 
 type EventHandler = (e: Event) => void;
 
-const descriptorKeyCache = new WeakMap<ContextInputEventDescriptor, string>();
-function descriptorKey(d: ContextInputEventDescriptor) {
+const descriptorKeyCache = new WeakMap<InputEventDescriptor, string>();
+function descriptorKey(d: InputEventDescriptor) {
     let key = descriptorKeyCache.get(d);
     if (key === undefined) {
         key = JSON.stringify([ d.context_id, d.handler_name, d.options.debounce ?? null, d.options.prevent_default ?? null,
@@ -32,12 +32,12 @@ function descriptorKey(d: ContextInputEventDescriptor) {
 }
 
 function getLocalElementEventDescriptors(element: Element) {
-    const res = new Map<string, ContextInputEventDescriptor>();
+    const res = new Map<string, InputEventDescriptor>();
 
     for (const attributeName of element.getAttributeNames()) {
         if (attributeName.startsWith(eventPrefix)) {
             const eventName = attributeName.substring(eventPrefix.length);
-            const eventDesc: ContextInputEventDescriptor = JSON.parse(
+            const eventDesc: InputEventDescriptor = JSON.parse(
                 atob(element.getAttribute(attributeName) ?? ""),
             );
             res.set(eventName, eventDesc);
@@ -72,7 +72,7 @@ export function initEventManager(triggerUpdate: () => void) {
     let submitIdCounter = 0;
     const targetEvents = new WeakMap<EventTarget, TargetEvent[]>();
     const registeredTargetEvents = new WeakMap<EventTarget, Map<string, EventHandler>>();
-    const eventDataSubmissions = new Map<number, ContextInputEvent>(); // preserves insertion order. Important!
+    const eventDataSubmissions = new Map<number, InputEvent>(); // preserves insertion order. Important!
     const enabledContexts = new Set<string>();
 
 
@@ -178,7 +178,7 @@ export function initEventManager(triggerUpdate: () => void) {
             enabledContexts.delete(element.id)
         }
     }
-    const registerEvent = (target: EventTarget, event: string, descriptor: ContextInputEventDescriptor, tag: string = "global") => {
+    const registerEvent = (target: EventTarget, event: string, descriptor: InputEventDescriptor, tag: string = "global") => {
         const key = descriptorKey(descriptor);
         const elementEvents = targetEvents.get(target) ?? [];
         targetEvents.set(target, elementEvents);
@@ -193,7 +193,7 @@ export function initEventManager(triggerUpdate: () => void) {
 
         updateHandlers(target);
     };
-    const unregisterEvent = (target: EventTarget, event: string, descriptor: ContextInputEventDescriptor, tag: string = "global") => {
+    const unregisterEvent = (target: EventTarget, event: string, descriptor: InputEventDescriptor, tag: string = "global") => {
         const key = descriptorKey(descriptor);
         targetEvents.set(target, (targetEvents.get(target) ?? []).filter(e => e.event != event || descriptorKey(e.descriptor) !== key || e.tag !== tag));
         updateHandlers(target);
