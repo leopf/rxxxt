@@ -1,17 +1,16 @@
 import unittest
-
-from rxxxt import css_extend
+from rxxxt import add_attributes
 
 class TestOther(unittest.TestCase):
   def test_css_extend(self):
-    self.assertEqual(css_extend({}, class_attr="hello", style_attr="font-size: 10px;"), {
+    self.assertEqual(add_attributes({}, _class="hello", style="font-size: 10px;"), {
       "class": "hello",
       "style": "font-size: 10px;"
     })
 
-    self.assertEqual(css_extend({ "class": "world", "style": "color:green" }, class_attr="hello", style_attr="font-size: 10px;"), {
-      "class": "world hello",
-      "style": "color:green;font-size: 10px;"
+    self.assertEqual(add_attributes({ "class": "world", "style": "color:green" }, _class="hello", style="font-size: 10px;"), {
+      "class": "hello world",
+      "style": "font-size: 10px;;color:green"
     })
 
 if __name__ == "__main__":

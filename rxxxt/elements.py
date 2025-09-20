@@ -1,7 +1,6 @@
+import html, itertools, logging
 from abc import ABC, abstractmethod
-import html
-import logging
-from typing import Callable, Concatenate, Generic, Protocol
+from typing import Callable, Concatenate, Generic, Protocol, cast
 from collections.abc import Iterable
 from rxxxt.execution import Context
 from rxxxt.helpers import FNP
@@ -23,8 +22,15 @@ HTMLAttributes = dict[str, str | bool | int | float | CustomAttribute | None]
 def _element_content_to_ordered_nodes(context: Context, content: ElementContent) -> tuple[Node, ...]:
   return tuple((TextElement(item) if isinstance(item, str) else item).tonode(context.sub(idx)) for idx, item in enumerate(content))
 
-def _normalize_attrs(attrs: HTMLAttributes):
-  return { k.lstrip("_"): v for k,v in attrs.items() }
+def _merge_attribute_values(k: str, values: tuple[HTMLAttributeValue, ...]):
+  if len(values) == 1: return values[0]
+  if k == "style" and all(isinstance(v, str) for v in values): return ";".join(cast(tuple[str,...], values))
+  if k == "class" and all(isinstance(v, str) for v in values): return " ".join(cast(tuple[str,...], values))
+  raise ValueError(f"failed to merge attribute '{k}' with values {repr(values)}.")
+
+def _merge_attribute_items(attrs: Iterable[tuple[str, HTMLAttributeValue]]):
+  normalized = sorted(((k.lstrip("_"), v) for k, v in attrs), key=lambda item: item[0])
+  return ((k, _merge_attribute_values(k, tuple(item[1] for item in g))) for k,g in itertools.groupby(normalized, key=lambda item: item[0]))
 
 def _html_attributes_to_kv(attributes: HTMLAttributes):
   fattributes: dict[str, str | None] = {}
@@ -98,7 +104,7 @@ def ScriptContent(context: Context, script: str):
   return TextNode(context, script.replace("</", "<\\/"))
 
 def _create_el(name: str, attributes: HTMLAttributes, content: ElementContent | None) -> Element:
-  attributes = _normalize_attrs(attributes)
+  attributes = dict(_merge_attribute_items(attributes.items()))
   key = attributes.pop("key", None)
   el = HTMLVoidElement(name, attributes=attributes) if content is None else HTMLElement(name, attributes=attributes, content=list(content))
   if isinstance(key, str): el = KeyedElement(key, el)
@@ -139,12 +145,8 @@ def meta_element(id: str, inner: Element):
 def class_map(map: dict[str, bool]):
   return " ".join([ k for k, v in map.items() if v ])
 
-def css_extend(attrs: HTMLAttributes, class_attr: str = "", style_attr: str = ""):
-  attrs = _normalize_attrs(attrs)
-  if class_attr:
-    if "class" in attrs: attrs["class"] = (str(attrs["class"]) + " " + class_attr).strip()
-    else: attrs["class"] = class_attr
-  if style_attr:
-    if "style" in attrs: attrs["style"] = (str(attrs["style"]) + ";" + style_attr).strip()
-    else: attrs["style"] = style_attr
-  return attrs
+def merge_attributes(a: HTMLAttributes, b: HTMLAttributes):
+  return dict(_merge_attribute_items(itertools.chain(a.items(), b.items())))
+
+def add_attributes(base: HTMLAttributes, **kwargs: HTMLAttributeValue):
+  return merge_attributes(kwargs, base)

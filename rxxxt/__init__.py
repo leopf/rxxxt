@@ -1,6 +1,6 @@
 from rxxxt.elements import Element, CustomAttribute, ElementContent, HTMLAttributeValue, HTMLAttributes, HTMLFragment, HTMLVoidElement, \
-  HTMLElement, KeyedElement, WithRegistered, lazy_element, TextElement, UnescapedHTMLElement, El, VEl, ElementFactory, class_map, css_extend, \
-  ScriptContent
+  HTMLElement, KeyedElement, WithRegistered, lazy_element, TextElement, UnescapedHTMLElement, El, VEl, ElementFactory, class_map, merge_attributes, \
+  add_attributes, ScriptContent
 from rxxxt.component import EventHandler, event_handler, HandleNavigate, Component
 from rxxxt.page import PageFactory, default_page, PageBuilder
 from rxxxt.execution import State, Context
@@ -12,7 +12,7 @@ from rxxxt.helpers import match_path
 __all__ = [
   "Element", "CustomAttribute", "ElementContent", "HTMLAttributeValue", "HTMLAttributes", "HTMLFragment", "HTMLVoidElement", "HTMLElement",
     "KeyedElement", "WithRegistered", "lazy_element", "TextElement", "UnescapedHTMLElement", "El", "VEl", "ElementFactory", "class_map",
-    "css_extend", "ScriptContent",
+    "merge_attributes", "add_attributes", "ScriptContent",
 
   "EventHandler", "event_handler", "HandleNavigate", "Component",
 
