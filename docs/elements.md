@@ -6,6 +6,7 @@
 - [`HTMLAttributeValue`](./api.md#rxxxt.elements.HTMLAttributeValue) / [`HTMLAttributes`](./api.md#rxxxt.elements.HTMLAttributes) - Accepted attribute shapes for HTML elements. Non-string primitives are converted.
 - [`lazy_element`](./api.md#rxxxt.elements.lazy_element) - Wrap a factory that receives the current `Context` when the element is rendered.
 - [`TextElement`](./api.md#rxxxt.elements.TextElement) - Escapes text so it can be safely inserted into the DOM tree.
+- [`ScriptContent`](./api.md#rxxxt.elements.ScriptContent) - Wrap inline script content, escaping closing tags to prevent premature termination.
 - [`ElementFactory`](./api.md#rxxxt.elements.ElementFactory) - Protocol for callables that create elements.
 - [`El`](./api.md#rxxxt.elements.El) - A way to create html elements quickly.
   Write `El.<tag name>` or `El["<tag name>"]` to create an element with this tag name.
