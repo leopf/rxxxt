@@ -4,7 +4,7 @@ from rxxxt.app import App, AppHttpRequest, AppWebsocketInitMessage, AppWebsocket
 from rxxxt.asgi import ASGIHandler
 from rxxxt.component import Component, event_handler
 from rxxxt.elements import El, Element, lazy_element
-from rxxxt.events import ContextInputEvent
+from rxxxt.events import InputEvent
 from rxxxt.execution import Context
 from rxxxt.state import default_state_resolver, local_state
 
@@ -96,7 +96,7 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
     async with httpx_ws.aconnect_ws(str(client.base_url), client) as ws:
       await ws.send_text(AppWebsocketInitMessage(type="init", state_token=token, enable_state_updates=False).model_dump_json())
       await ws.send_text(AppWebsocketUpdateMessage(type="update", events=(
-        ContextInputEvent(context_id=context_id, data={ "$handler_name": "add", "value": 5 }),), location="/").model_dump_json())
+        InputEvent(context_id=context_id, data={ "$handler_name": "add", "value": 5 }),), location="/").model_dump_json())
       response_text = await ws.receive_text()
       self.assertIn("c5", response_text)
 

@@ -1,7 +1,7 @@
-import { AppHttpPostResponse, AppWebsocketResponse, ContextInputEvent, OutputEvent } from "./types";
+import { AppHttpPostResponse, AppWebsocketResponse, InputEvent, OutputEvent } from "./types";
 
 export type TransportConfig = {
-    popPendingEvents: () => Map<number, ContextInputEvent>;
+    popPendingEvents: () => Map<number, InputEvent>;
     onUpdate: (htmlParts: string[], events: OutputEvent[]) => void;
     enableWebSocketStateUpdates: boolean;
     stateToken: string;
@@ -12,8 +12,8 @@ export function initTransport(config: TransportConfig) {
     let isUpdateRunning = false;
     let isUpdatePending = false;
     let isUpdateScheduling = false;
-    let updateHandler: ((events: ContextInputEvent[]) => Promise<void>);
-    const pendingEvents = new Map<number, ContextInputEvent>();
+    let updateHandler: ((events: InputEvent[]) => Promise<void>);
+    const pendingEvents = new Map<number, InputEvent>();
 
     const update = () => {
         if (isUpdateRunning) {
@@ -41,7 +41,7 @@ export function initTransport(config: TransportConfig) {
     const useHTTP = () => {
         ws?.close();
         ws = undefined;
-        updateHandler = async (events: ContextInputEvent[]) => {
+        updateHandler = async (events: InputEvent[]) => {
             const httpResponse = await fetch(location.href, {
                 method: "POST",
                 body: JSON.stringify({ state_token: config.stateToken, events }),
@@ -65,7 +65,7 @@ export function initTransport(config: TransportConfig) {
             return;
         }
 
-        const wsUpdateHandler: typeof updateHandler = async (events: ContextInputEvent[]) =>
+        const wsUpdateHandler: typeof updateHandler = async (events: InputEvent[]) =>
             ws?.send(
                 JSON.stringify({
                     type: "update",

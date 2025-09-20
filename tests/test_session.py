@@ -2,7 +2,7 @@ from collections import defaultdict
 import unittest, typing
 from rxxxt.elements import El, lazy_element
 from rxxxt.component import Component, event_handler
-from rxxxt.events import ContextInputEvent, CustomOutputEvent, NavigateOutputEvent
+from rxxxt.events import InputEvent, CustomOutputEvent, NavigateOutputEvent
 from rxxxt.execution import Context
 from rxxxt.page import default_page
 from rxxxt.session import Session, SessionConfig
@@ -136,8 +136,8 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       session.set_location("/")
       await session.init(None)
       await session.handle_events((
-        ContextInputEvent(context_id=outer.inner.context.sid, data={ "$handler_name": "on_event", "value": "a" }),
-        ContextInputEvent(context_id=outer.context.sid, data={ "$handler_name": "on_event", "value": "b" }),
+        InputEvent(context_id=outer.inner.context.sid, data={ "$handler_name": "on_event", "value": "a" }),
+        InputEvent(context_id=outer.context.sid, data={ "$handler_name": "on_event", "value": "b" }),
       ))
       await session.update()
       self.assertEqual(event_outputs, ["a", "b"])

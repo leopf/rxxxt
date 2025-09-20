@@ -43,7 +43,7 @@ export interface EventRegisterWindowEvent {
     event: "event-modify-window";
     mode: "add" | "remove";
     name: string;
-    descriptor: ContextInputEventDescriptor;
+    descriptor: InputEventDescriptor;
 }
 
 export interface EventRegisterQuerySelectorEvent {
@@ -52,15 +52,15 @@ export interface EventRegisterQuerySelectorEvent {
     name: string;
     selector: string;
     all: boolean;
-    descriptor: ContextInputEventDescriptor;
+    descriptor: InputEventDescriptor;
 }
 
-export interface ContextInputEvent {
+export interface InputEvent {
     context_id: string;
     data: PrimitveRecord;
 }
 
-export interface ContextInputEventDescriptor {
+export interface InputEventDescriptor {
     context_id: string;
     handler_name: string;
     param_map: Record<string, string>;

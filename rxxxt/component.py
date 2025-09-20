@@ -6,27 +6,27 @@ from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get
 from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call
 from rxxxt.elements import CustomAttribute, Element, meta_element
-from rxxxt.events import ContextInputEventDescriptor, ContextInputEventDescriptorGenerator, ContextInputEventHandlerOptions, InputEvent
+from rxxxt.events import InputEventDescriptor, InputEventDescriptorGenerator, InputEventDescriptorOptions, InputEvent
 from rxxxt.execution import Context
 from rxxxt.helpers import to_awaitable, FNP, FNR
 from rxxxt.node import Node
 
 class ClassEventHandler(Generic[FNP, FNR]):
-  def __init__(self, fn: Callable[Concatenate[Any, FNP], FNR], options: ContextInputEventHandlerOptions) -> None:
+  def __init__(self, fn: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions) -> None:
     self._fn = fn
     self._options = options
   def __get__(self, instance: Any, _): return EventHandler(self._fn, self._options, instance)
   def __call__(self, *args: FNP.args, **kwargs: FNP.kwargs) -> FNR: raise RuntimeError("The event handler can only be called when attached to an instance!")
 
-class EventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribute, ContextInputEventDescriptorGenerator):
-  def __init__(self, fn: Callable[Concatenate[Any, FNP], FNR], options: ContextInputEventHandlerOptions, instance: Any) -> None:
+class EventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribute, InputEventDescriptorGenerator):
+  def __init__(self, fn: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions, instance: Any) -> None:
     super().__init__(validate_call(fn), options)
     if not isinstance(instance, Component): raise ValueError("The provided instance must be a component!")
     self._instance: 'Component' = instance
 
   @property
   def descriptor(self):
-    return ContextInputEventDescriptor(
+    return InputEventDescriptor(
       context_id=self._instance.context.sid,
       handler_name=self._fn.__name__,
       param_map=self._get_param_map(),
@@ -36,7 +36,7 @@ class EventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribu
 
   def bind(self, **kwargs: int | float | str | bool | None):
     if len(kwargs) == 0: return
-    new_options = ContextInputEventHandlerOptions.model_validate({
+    new_options = InputEventDescriptorOptions.model_validate({
       **self._options.model_dump(),
       "default_params": (self._options.default_params or {}) | kwargs
     })
@@ -61,7 +61,7 @@ class EventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribu
     return param_map
 
 def event_handler(**kwargs: Any):
-  options = ContextInputEventHandlerOptions.model_validate(kwargs)
+  options = InputEventDescriptorOptions.model_validate(kwargs)
   def _inner(fn: Callable[Concatenate[Any, FNP], FNR]) -> ClassEventHandler[FNP, FNR]: return ClassEventHandler(fn, options)
   return _inner
 

@@ -5,23 +5,23 @@ import re
 from typing import Any, Callable, Literal
 from pydantic import BaseModel, field_serializer, field_validator, model_serializer
 
-class ContextInputEventHandlerOptions(BaseModel):
+class InputEventDescriptorOptions(BaseModel):
   debounce: int | None = None
   throttle: int | None = None
   no_trigger: bool = False
   prevent_default: bool = False
   default_params: dict[str, int | float | str | bool | None] | None = None
 
-class ContextInputEventDescriptor(BaseModel):
+class InputEventDescriptor(BaseModel):
   context_id: str
   handler_name: str
   param_map: dict[str, str]
-  options: ContextInputEventHandlerOptions
+  options: InputEventDescriptorOptions
 
-class ContextInputEventDescriptorGenerator(ABC): # NOTE: this is a typing hack
+class InputEventDescriptorGenerator(ABC): # NOTE: this is a typing hack
   @property
   @abstractmethod
-  def descriptor(self) -> ContextInputEventDescriptor: pass
+  def descriptor(self) -> InputEventDescriptor: pass
 
 class EventBase(BaseModel):
   @model_serializer(mode="wrap")
@@ -40,7 +40,7 @@ class EventRegisterWindowEvent(EventBase):
   event: Literal["event-modify-window"] = "event-modify-window"
   mode: Literal["add"] | Literal["remove"]
   name: str
-  descriptor: ContextInputEventDescriptor
+  descriptor: InputEventDescriptor
 
 class EventRegisterQuerySelectorEvent(EventBase):
   event: Literal["event-modify-query-selector"] = "event-modify-query-selector"
@@ -48,7 +48,7 @@ class EventRegisterQuerySelectorEvent(EventBase):
   name: str
   selector: str
   all: bool
-  descriptor: ContextInputEventDescriptor
+  descriptor: InputEventDescriptor
 
 class SetCookieOutputEvent(EventBase):
   event: Literal["set-cookie"] = "set-cookie"
@@ -103,9 +103,8 @@ class NavigateOutputEvent(EventBase):
   location: str
   requires_refresh: bool = False
 
-class ContextInputEvent(BaseModel):
+class InputEvent(BaseModel):
   context_id: str
   data: dict[str, int | float | str | bool | None]
 
-InputEvent = ContextInputEvent
 OutputEvent = CustomOutputEvent | SetCookieOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent | EventRegisterWindowEvent | EventRegisterQuerySelectorEvent

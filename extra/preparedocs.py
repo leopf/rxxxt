@@ -14,7 +14,7 @@ imports.update([
   "rxxxt.helpers.match_path",
   "rxxxt.helpers.JWTManager",
   "rxxxt.helpers.JWTError",
-  "rxxxt.events.ContextInputEventHandlerOptions",
+  "rxxxt.events.InputEventDescriptorOptions",
   "rxxxt.asgi.TransportContext",
   "rxxxt.asgi.HTTPContext",
   "rxxxt.asgi.WebsocketContext",
