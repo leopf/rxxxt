@@ -1,7 +1,6 @@
+import html, itertools, logging
 from abc import ABC, abstractmethod
-import html
-import logging
-from typing import Callable, Concatenate, Generic, Protocol
+from typing import Callable, Concatenate, Generic, Protocol, cast
 from collections.abc import Iterable
 from rxxxt.execution import Context
 from rxxxt.helpers import FNP
@@ -20,85 +19,34 @@ ElementContent = Iterable[Element | str]
 HTMLAttributeValue = str | bool | int | float | CustomAttribute | None
 HTMLAttributes = dict[str, str | bool | int | float | CustomAttribute | None]
 
-def _elements_to_ordered_nodes(context: Context, elements: tuple[Element, ...]):
-  return tuple(el.tonode(context.sub(idx)) for idx, el in enumerate(elements))
+def _element_content_to_ordered_nodes(context: Context, content: ElementContent) -> tuple[Node, ...]:
+  return tuple((TextElement(item) if isinstance(item, str) else item).tonode(context.sub(idx)) for idx, item in enumerate(content))
 
-def _element_content_to_elements(content: ElementContent) -> tuple[Element, ...]:
-  return tuple(TextElement(item) if isinstance(item, str) else item for item in content)
+def _merge_attribute_values(k: str, values: tuple[HTMLAttributeValue, ...]):
+  if len(values) == 1: return values[0]
+  if k == "style" and all(isinstance(v, str) for v in values): return ";".join(cast(tuple[str,...], values))
+  if k == "class" and all(isinstance(v, str) for v in values): return " ".join(cast(tuple[str,...], values))
+  raise ValueError(f"failed to merge attribute '{k}' with values {repr(values)}.")
 
-def _normalize_attrs(attrs: HTMLAttributes):
-  return { k.lstrip("_"): v for k,v in attrs.items() }
+def _merge_attribute_items(attrs: Iterable[tuple[str, HTMLAttributeValue]]):
+  normalized = sorted(((k.lstrip("_"), v) for k, v in attrs), key=lambda item: item[0])
+  return ((k, _merge_attribute_values(k, tuple(item[1] for item in g))) for k,g in itertools.groupby(normalized, key=lambda item: item[0]))
 
-def _apply_attribute_kv(attributes: dict[str, str | None], k: str, v: Any):
-  if isinstance(v, bool):
-    if not v: return
-    v = None
-  elif isinstance(v, (int, float)): v = str(v)
-  if v is not None and not isinstance(v, str):
-    raise ValueError("Invalid attribute value", v)
-  attributes[k] = v
+def _html_attributes_to_kv(attributes: HTMLAttributes):
+  fattributes: dict[str, str | None] = {}
+  items = _merge_attribute_items((k, v) for ok, ov in attributes.items()
+    for k, v in (ov.get_key_values(ok) if isinstance(ov, CustomAttribute) else ((ok, ov),)))
+  for k, v in items:
+    if v is False: continue
+    elif v is True: v = None
+    elif isinstance(v, (int, float)): v = str(v)
+    if v is not None and not isinstance(v, str):
+      raise ValueError("Invalid attribute value", v)
+    fattributes[k] = v
+  return fattributes
 
-class HTMLFragment(Element):
-  def __init__(self, content: ElementContent) -> None:
-    super().__init__()
-    self._content = _element_content_to_elements(content)
-
-  def tonode(self, context: Context) -> Node:
-    return FragmentNode(context, _elements_to_ordered_nodes(context, self._content))
-
-class HTMLVoidElement(Element):
-  def __init__(self, tag: str, attributes: HTMLAttributes) -> None:
-    super().__init__()
-    self._tag = tag
-    self._attributes: dict[str, str | None] = {}
-    for k, v in attributes.items():
-      if isinstance(v, CustomAttribute):
-        for ik, iv in v.get_key_values(k):
-          _apply_attribute_kv(self._attributes, ik, iv)
-      else:
-        _apply_attribute_kv(self._attributes, k, v)
-
-  def tonode(self, context: Context) -> 'Node':
-    return VoidElementNode(context, self._tag, self._attributes)
-
-class HTMLElement(HTMLVoidElement):
-  def __init__(self, tag: str, attributes: HTMLAttributes, content: ElementContent) -> None:
-    super().__init__(tag, attributes)
-    self._content = _element_content_to_elements(content)
-
-  def tonode(self, context: Context) -> 'Node':
-    return ElementNode(context, self._tag, self._attributes, _elements_to_ordered_nodes(context, self._content))
-
-class KeyedElement(Element):
-  def __init__(self, key: str, element: Element) -> None:
-    super().__init__()
-    self._key = key
-    self._element = element
-
-  def tonode(self, context: Context) -> 'Node':
-    try: context = context.replace_index(self._key)
-    except ValueError as e: logging.debug(f"Failed to replace index with key {self._key}", e)
-    return self._element.tonode(context)
-
-class TaggedElement(Element):
-  def __init__(self, tag: str, element: Element) -> None:
-    super().__init__()
-    self._tag = tag
-    self._element = element
-
-  def tonode(self, context: Context) -> 'Node':
-    return self._element.tonode(context = context.sub(self._tag))
-
-class WithRegistered(Element):
-  def __init__(self, register: dict[str, Any], child: Element) -> None:
-    super().__init__()
-    self._register = register
-    self._child = child
-
-  def tonode(self, context: Context) -> 'Node':
-    return self._child.tonode(context.update_registry(self._register))
-
-class _LazyElement(Element, Generic[FNP]):
+# to make elements that dont have state and are transformed to node 1:1
+class _FnElement(Element, Generic[FNP]):
   def __init__(self, fn: Callable[Concatenate[Context, FNP], Node], *args: FNP.args, **kwargs: FNP.kwargs) -> None:
     self._fn = fn
     self._fn_args = args
@@ -107,37 +55,68 @@ class _LazyElement(Element, Generic[FNP]):
   def tonode(self, context: Context) -> 'Node':
     return self._fn(context, *self._fn_args, **self._fn_kwargs)
 
-def lazy_node(fn: Callable[Concatenate[Context, FNP], Node]) -> Callable[FNP, 'Element']:
+def fn_element(fn: Callable[Concatenate[Context, FNP], Node]) -> Callable[FNP, 'Element']:
   def _inner(*args: FNP.args, **kwargs: FNP.kwargs) -> Element:
-    return _LazyElement(fn, *args, **kwargs)
+    return _FnElement(fn, *args, **kwargs)
   return _inner
 
 def lazy_element(fn: Callable[Concatenate[Context, FNP], Element]) -> Callable[FNP, 'Element']:
   def _inner(context: Context, *args: FNP.args, **kwargs: FNP.kwargs) -> Node:
     return fn(context, *args, **kwargs).tonode(context)
-  return lazy_node(_inner)
+  return fn_element(_inner)
 
-@lazy_node
+@fn_element
+def HTMLFragment(context: Context, content: ElementContent):
+  return FragmentNode(context, _element_content_to_ordered_nodes(context, content))
+
+@fn_element
+def HTMLVoidElement(context: Context, tag: str, attributes: HTMLAttributes):
+  return VoidElementNode(context, tag, _html_attributes_to_kv(attributes))
+
+@fn_element
+def HTMLElement(context: Context, tag: str, attributes: HTMLAttributes, content: ElementContent):
+  return ElementNode(context, tag, _html_attributes_to_kv(attributes), _element_content_to_ordered_nodes(context, content))
+
+@fn_element
+def KeyedElement(context: Context, key: str, element: Element):
+  try: context = context.replace_index(key)
+  except ValueError as e: logging.debug(f"Failed to replace index with key {key}", e)
+  return element.tonode(context)
+
+@fn_element
+def TaggedElement(context: Context, tag: str, element: Element):
+  return element.tonode(context = context.sub(tag))
+
+@fn_element
+def WithRegistered(context: Context, register: dict[str, Any], child: Element):
+  return child.tonode(context.update_registry(register))
+
+@fn_element
 def TextElement(context: Context, text: str):
   return TextNode(context, html.escape(text))
 
-@lazy_node
+@fn_element
 def UnescapedHTMLElement(context: Context, text: str):
   return TextNode(context, text)
 
-@lazy_node
+@fn_element
 def ScriptContent(context: Context, script: str):
   return TextNode(context, script.replace("</", "<\\/"))
 
+def _create_el(name: str, attributes: HTMLAttributes, content: ElementContent | None) -> Element:
+  attributes = dict(_merge_attribute_items(attributes.items()))
+  key = attributes.pop("key", None)
+  el = HTMLVoidElement(name, attributes=attributes) if content is None else HTMLElement(name, attributes=attributes, content=list(content))
+  if isinstance(key, str): el = KeyedElement(key, el)
+  return el
+
 class CreateHTMLElement(Protocol):
-  def __call__(self, content: ElementContent = (), key: str | None = None, **kwargs: HTMLAttributeValue) -> Element: ...
+  def __call__(self, content: ElementContent = (), **kwargs: HTMLAttributeValue) -> Element: ...
 
 class _El(type):
   def __getitem__(cls, name: str) -> CreateHTMLElement:
-    def _inner(content: ElementContent = (), key: str | None = None, **kwargs: HTMLAttributeValue):
-      el = HTMLElement(name, attributes=_normalize_attrs(kwargs), content=list(content))
-      if key is not None: el = KeyedElement(key, el)
-      return el
+    def _inner(content: ElementContent = (), **kwargs: HTMLAttributeValue):
+      return _create_el(name, kwargs, content)
     return _inner
   def __getattribute__(cls, name: str):
     return cls[name]
@@ -145,14 +124,12 @@ class _El(type):
 class El(metaclass=_El): ...
 
 class CreateHTMLVoidElement(Protocol):
-  def __call__(self, key: str | None = None, **kwargs: HTMLAttributeValue) -> Element: ...
+  def __call__(self, **kwargs: HTMLAttributeValue) -> Element: ...
 
 class _VEl(type):
   def __getitem__(cls, name: str) -> CreateHTMLVoidElement:
-    def _inner(key: str | None = None, **kwargs: HTMLAttributeValue) -> Element:
-      el = HTMLVoidElement(name, attributes=_normalize_attrs(kwargs))
-      if key is not None: el = KeyedElement(key, el)
-      return el
+    def _inner(**kwargs: HTMLAttributeValue) -> Element:
+      return _create_el(name, kwargs, None)
     return _inner
   def __getattribute__(cls, name: str):
     return cls[name]
@@ -168,12 +145,8 @@ def meta_element(id: str, inner: Element):
 def class_map(map: dict[str, bool]):
   return " ".join([ k for k, v in map.items() if v ])
 
-def css_extend(attrs: HTMLAttributes, class_attr: str = "", style_attr: str = ""):
-  attrs = _normalize_attrs(attrs)
-  if class_attr:
-    if "class" in attrs: attrs["class"] = (str(attrs["class"]) + " " + class_attr).strip()
-    else: attrs["class"] = class_attr
-  if style_attr:
-    if "style" in attrs: attrs["style"] = (str(attrs["style"]) + ";" + style_attr).strip()
-    else: attrs["style"] = style_attr
-  return attrs
+def merge_attributes(a: HTMLAttributes, b: HTMLAttributes):
+  return dict(_merge_attribute_items(itertools.chain(a.items(), b.items())))
+
+def add_attributes(base: HTMLAttributes, **kwargs: HTMLAttributeValue):
+  return merge_attributes(kwargs, base)
