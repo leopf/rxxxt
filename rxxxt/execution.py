@@ -196,7 +196,6 @@ class Context:
   def sub(self, key: ContextStackKey): return Context(self.state, self._registry, self._config, self._stack + (key,))
   def replace_index(self, key: str):
     if isinstance(self._stack[-1], int): return Context(self.state, self._registry, self._config, self._stack[:-1] + (key,))
-    if isinstance(self._stack[-1], int): return Context(self.state, self._registry, self._config, self._stack[:-1] + (key,))
     raise ValueError("No index to replace!")
   def update_registry(self, registry: dict[str, Any]): return Context(self.state, self._registry | registry, self._config, self._stack)
   def registered(self, name: str, t: type[T]) -> T:
