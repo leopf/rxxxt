@@ -107,5 +107,4 @@ class InputEvent(BaseModel):
   context_id: str
   data: dict[str, int | float | str | bool | None]
 
-InputEvent = InputEvent
 OutputEvent = CustomOutputEvent | SetCookieOutputEvent | NavigateOutputEvent | UseWebsocketOutputEvent | EventRegisterWindowEvent | EventRegisterQuerySelectorEvent
