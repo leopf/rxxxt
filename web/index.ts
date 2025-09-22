@@ -155,8 +155,8 @@ const rxxxt = {
 
         window.addEventListener("popstate", transport.update);
         transportConfig.stateToken = data.state_token;
-        transportConfig.enableWebSocketStateUpdates = data.enableWebSocketStateUpdates;
-        transportConfig.disableHTTPRetry = data.disableHTTPRetry;
+        transportConfig.enableWebSocketStateUpdates = data.enable_web_socket_state_updates;
+        transportConfig.disableHTTPRetry = data.disable_http_update_retry;
         onOutputEvents(data.events);
         applyHTML();
     },

@@ -87,8 +87,8 @@ export interface AppWebsocketResponse {
 
 export interface InitData {
     state_token: string;
-    enableWebSocketStateUpdates?: boolean;
-    disableHTTPRetry?: boolean;
+    enable_web_socket_state_updates?: boolean;
+    disable_http_update_retry?: boolean;
     events: OutputEvent[];
     path: string;
 }
