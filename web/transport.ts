@@ -54,7 +54,7 @@ export function initTransport(config: TransportConfig) {
                 config.stateToken = response.state_token ?? config.stateToken;
             }
             else {
-                // TODO: implement retry for some error codes
+                finishUpdate([], []);
                 throw new Error(`Update failed! Server responded with ${httpResponse.statusText} (${httpResponse.status}).`);
             }
         };
