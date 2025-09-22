@@ -88,6 +88,8 @@ class StateDescriptor(StateBoxDescriptorBase[T]):
       raise TypeError("StateDescriptor used on non-component!")
 
     box = self._get_box(obj.context)
+    obj.context.subscribe(box.key)
+
     box.value = value
 
   def __get__(self, obj: Any, objtype: Any=None):
