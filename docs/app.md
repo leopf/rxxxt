@@ -4,7 +4,7 @@ A rxxxt app is an [ASGI](https://asgi.readthedocs.io/en/latest/specs/main.html) 
 
 Apps can be created by simply passing an element factory (a function producing an element) to [`App`](./api.md#rxxxt.app.App).
 
-Lets write a "Hello World!" app:
+Let's write a "Hello World!" app:
 ```python
 from rxxxt import App, El
 import uvicorn
@@ -31,7 +31,12 @@ app = App(HelloWorld)
 uvicorn.run(app)
 ```
 
-In addition to the element factory, a `state_resolver` (see [State](./state.md)) and `page_factory` can be passed to `App`.
+In addition to the element factory, a `state_resolver` (see [State](./state.md)), `page_factory`, and `config` (an [`AppConfig`](./api.md#rxxxt.session.AppConfig)) can be passed to `App`.
+
+## AppConfig
+
+- `enable_web_socket_state_updates`: set to `True` when websocket pushes should include a refreshed state token so the client can keep its `StateResolver` data after the socket closes or falls back to HTTP. Leave it `False` when the websocket never needs to persist state beyond its lifetime.
+- `disable_http_update_retry`: set to `True` to disable resending events over HTTP when the response indicates the update is stale (new events arrived while the request was processing).
 
 ## Page Factory
 
@@ -43,7 +48,7 @@ A page factory is a function receiving
 
 returning an element that represents the html page structure.
 
-Take a look the [`default_page`](./api.md#rxxxt.page.default_page) as an example:
+Take a look at the [`default_page`](./api.md#rxxxt.page.default_page) as an example:
 ```python
 def default_page(header: Element, content: Element, body_end: Element):
   return HTMLFragment([
@@ -67,7 +72,7 @@ A page builder can be used to modify the contents of a page.
 An instance of `PageBuilder` is a `page_factory`.
 
 Using the utility methods, the contents of header, content and body_end can be extended.
-Lets add a stylesheet to the header:
+Let's add a stylesheet to the header:
 ```python
 page_builder = PageBuilder()
 page_builder.add_stylesheet("/assets/main.css")
