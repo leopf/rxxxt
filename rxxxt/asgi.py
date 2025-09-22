@@ -91,9 +91,7 @@ class WebsocketContext(TransportContext):
     await self.send({ "type": "websocket.close", "code": code, "reason": reason })
     self._connected = False
 
-def content_headers(content_length: int, mime_type: str, charset: str | None = None):
-  content_type = mime_type
-  if charset is not None: content_type += f"; charset={charset}"
+def content_headers(content_length: int, content_type: str):
   return [
     (b"content-length", str(content_length).encode("utf-8")),
     (b"content-type", content_type.encode("utf-8"))
@@ -126,7 +124,7 @@ class HTTPContext(TransportContext):
 
   async def respond_text(self, text: str, status: int = 200, mime_type: str = "text/plain"):
     data = text.encode("utf-8")
-    self.add_response_headers(content_headers(len(data), mime_type, "utf-8"))
+    self.add_response_headers(content_headers(len(data), mime_type + "; charset=utf-8"))
     await self.response_start(status)
     await self.response_body(data, False)
 
