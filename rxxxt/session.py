@@ -14,6 +14,8 @@ class InitOutputData(BaseModel):
   path: str
   state_token: str
   events: tuple[OutputEvent, ...]
+  enable_web_socket_state_updates: bool | None = None
+  disable_http_update_retry: bool | None = None
 
 class UpdateOutputData(BaseModel):
   state_token: str | None = None
@@ -21,10 +23,16 @@ class UpdateOutputData(BaseModel):
   html_parts: tuple[str, ...]
 
 @dataclass
+class AppConfig:
+  enable_web_socket_state_updates: bool | None = None
+  disable_http_update_retry: bool | None = None
+
+@dataclass
 class SessionConfig:
   persistent: bool
   page_facotry: PageFactory
   state_resolver: StateResolver
+  app_config: AppConfig
 
 class Session:
   def __init__(self, config: SessionConfig, base: Element) -> None:
@@ -81,7 +89,9 @@ class Session:
     return UpdateOutputData(state_token=state_token, html_parts=html_parts, events=self.state.pop_output_events())
 
   async def render_page(self, path: str):
-    init_data = InitOutputData(state_token=await self._update_state_token(), events=self.state.pop_output_events(), path=path)
+    init_data = InitOutputData(state_token=await self._update_state_token(), events=self.state.pop_output_events(), path=path,
+      disable_http_update_retry=self.config.app_config.disable_http_update_retry,
+      enable_web_socket_state_updates=self.config.app_config.enable_web_socket_state_updates)
 
     content_el = UnescapedHTMLElement(self._root_renderer.render_full())
     header_el = El.style(content=["rxxxt-meta { display: contents; }"])

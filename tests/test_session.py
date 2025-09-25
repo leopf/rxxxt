@@ -5,10 +5,10 @@ from rxxxt.component import Component, event_handler
 from rxxxt.events import InputEvent, CustomOutputEvent, NavigateOutputEvent
 from rxxxt.execution import Context
 from rxxxt.page import default_page
-from rxxxt.session import Session, SessionConfig
+from rxxxt.session import AppConfig, Session, SessionConfig
 from rxxxt.state import JWTStateResolver, local_state, local_state_box
 
-session_config = SessionConfig(page_facotry=default_page, state_resolver=JWTStateResolver(b"deez"), persistent=False)
+session_config = SessionConfig(page_facotry=default_page, state_resolver=JWTStateResolver(b"deez"), persistent=False, app_config=AppConfig())
 
 class TestSession(unittest.IsolatedAsyncioTestCase):
   async def test_state_cell_update(self):

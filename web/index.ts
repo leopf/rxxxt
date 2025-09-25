@@ -9,7 +9,6 @@ let baseUrl: URL | undefined;
 
 const transportConfig: TransportConfig = {
     stateToken: "",
-    enableWebSocketStateUpdates: false,
     onUpdate: (htmlParts: string[], events: OutputEvent[]) => {
         for (const htmlPart of htmlParts) {
             applyHTML(htmlPart);
@@ -156,6 +155,8 @@ const rxxxt = {
 
         window.addEventListener("popstate", transport.update);
         transportConfig.stateToken = data.state_token;
+        transportConfig.enableWebSocketStateUpdates = data.enable_web_socket_state_updates;
+        transportConfig.disableHTTPRetry = data.disable_http_update_retry;
         onOutputEvents(data.events);
         applyHTML();
     },

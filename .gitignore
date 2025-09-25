@@ -2,6 +2,8 @@ playground/
 .data
 node_modules/
 
+.direnv
+.envrc
 *.prof
 *.mp4
 

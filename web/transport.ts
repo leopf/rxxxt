@@ -3,7 +3,8 @@ import { AppHttpPostResponse, AppWebsocketResponse, InputEvent, OutputEvent } fr
 export type TransportConfig = {
     popPendingEvents: () => Map<number, InputEvent>;
     onUpdate: (htmlParts: string[], events: OutputEvent[]) => void;
-    enableWebSocketStateUpdates: boolean;
+    enableWebSocketStateUpdates?: boolean;
+    disableHTTPRetry?: boolean;
     stateToken: string;
 };
 
@@ -15,6 +16,13 @@ export function initTransport(config: TransportConfig) {
     let updateHandler: ((events: InputEvent[]) => Promise<void>);
     const pendingEvents = new Map<number, InputEvent>();
 
+    const movePendingEvents = () => {
+        const foundEvents = config.popPendingEvents();
+        for (const item of foundEvents) {
+            pendingEvents.set(item[0], item[1]);
+        }
+        return foundEvents.size
+    };
     const update = () => {
         if (isUpdateRunning) {
             isUpdatePending = true;
@@ -23,9 +31,7 @@ export function initTransport(config: TransportConfig) {
         isUpdateRunning = true;
         isUpdatePending = false;
 
-        for (const item of config.popPendingEvents()) {
-            pendingEvents.set(item[0], item[1]);
-        }
+        movePendingEvents();
         updateHandler(Array.from(pendingEvents.values()));
     };
     const finishUpdate = (htmlParts: string[], events: OutputEvent[]) => {
@@ -50,11 +56,18 @@ export function initTransport(config: TransportConfig) {
             });
             if (httpResponse.ok) {
                 const response: AppHttpPostResponse = await httpResponse.json();
-                finishUpdate(response.html_parts, response.events);
-                config.stateToken = response.state_token ?? config.stateToken;
+                if (movePendingEvents() > 0 && !config.disableHTTPRetry) { // retry, works only on http as it is (server side) stateless
+                    console.info("retry http update");
+                    isUpdateRunning = false;
+                    update();
+                }
+                else {
+                    finishUpdate(response.html_parts, response.events);
+                    config.stateToken = response.state_token ?? config.stateToken;
+                }
             }
             else {
-                // TODO: implement retry for some error codes
+                finishUpdate([], []);
                 throw new Error(`Update failed! Server responded with ${httpResponse.statusText} (${httpResponse.status}).`);
             }
         };

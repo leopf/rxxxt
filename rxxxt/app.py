@@ -5,7 +5,7 @@ from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, Composer, HTTPConte
 from rxxxt.elements import ElementFactory
 from rxxxt.events import InputEvent
 from rxxxt.page import PageFactory, default_page
-from rxxxt.session import Session, SessionConfig
+from rxxxt.session import AppConfig, Session, SessionConfig
 from rxxxt.state import StateResolver, default_state_resolver
 
 class AppHttpRequest(BaseModel):
@@ -23,11 +23,13 @@ class AppWebsocketUpdateMessage(BaseModel):
   location: str
 
 class App:
-  def __init__(self, content: ElementFactory, state_resolver: StateResolver | None = None, page_factory: PageFactory = default_page) -> None:
+  def __init__(self, content: ElementFactory, state_resolver: StateResolver | None = None, page_factory: PageFactory = default_page, \
+      config: AppConfig | None = None) -> None:
     self._content = content
     self._page_factory: PageFactory = page_factory
     self._state_resolver = state_resolver or default_state_resolver()
     self._composer = Composer()
+    self._config = config or AppConfig()
     _ = self._composer.add_handler(http_handler(routed_handler("/rxxxt-client.js")(self._http_static_rxxxt_client_js)))
     _ = self._composer.add_handler(http_handler(self._http_session))
     _ = self._composer.add_handler(websocket_handler(self._ws_session))
@@ -97,4 +99,4 @@ class App:
       return await context.respond_file(file_path, use_last_modified=True)
 
   def _get_session_config(self, persistent: bool):
-    return SessionConfig(page_facotry=self._page_factory, state_resolver=self._state_resolver, persistent=persistent)
+    return SessionConfig(page_facotry=self._page_factory, state_resolver=self._state_resolver, persistent=persistent, app_config=self._config)
