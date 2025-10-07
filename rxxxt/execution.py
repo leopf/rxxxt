@@ -1,7 +1,7 @@
 import asyncio, hashlib, functools, itertools, re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, Any
+from typing import Iterable, Literal, Any
 from rxxxt.cell import StateCell, StrStateCell
 from rxxxt.events import InputEventDescriptor, CustomOutputEvent, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
   OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, InputEventDescriptorGenerator
@@ -71,6 +71,11 @@ class State:
   def request_context_updates(self, ids: set[ContextStack]):
     for id in ids: self._pending_updates.add(id)
     self._set_update_event()
+  def remove_context_updates(self, ids: Iterable[ContextStack]):
+    for id in ids:
+      if id in self._pending_updates:
+        self._pending_updates.remove(id)
+    self._set_update_event()
 
   def request_key_updates(self, keys: set[str]):
     ids: set[ContextStack] = set(itertools.chain(*(self._key_subscribers.get(key, ()) for key in keys)))
@@ -101,7 +106,7 @@ class State:
     self._output_events = []
     return tuple(res)
 
-  def pop_updates(self):
+  def pop_context_updates(self):
     res = self._pending_updates
     self._pending_updates = set()
     self._set_update_event()

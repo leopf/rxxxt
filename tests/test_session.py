@@ -194,6 +194,7 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
         testobj.assertEqual(counters["render"], counters["before_update"])
         return El.div()
       async def on_after_update(self) -> None:
+        self.context.request_update()
         counters["after_update"] += 1
         testobj.assertEqual(counters["after_update"], counters["render"])
       async def on_before_destroy(self) -> None:

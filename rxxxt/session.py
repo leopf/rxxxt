@@ -66,7 +66,7 @@ class Session:
     self.state.destroy()
 
   async def update(self):
-    await self._root_renderer.update(self.state.pop_updates())
+    await self._root_renderer.update(self.state.pop_context_updates())
     self.state.cleanup()
 
   async def handle_events(self, events: tuple[InputEvent, ...]):
