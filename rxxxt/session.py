@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 from rxxxt.elements import El, Element, HTMLFragment, ScriptContent, UnescapedHTMLElement, meta_element
 from rxxxt.events import InputEvent, OutputEvent
-from rxxxt.execution import Context, ContextConfig, ContextData, State
+from rxxxt.execution import Context, ContextConfig, State
 from rxxxt.helpers import to_awaitable
 from rxxxt.node import LazyNode
 from rxxxt.page import PageFactory
@@ -41,7 +41,7 @@ class Session:
     self.state = State(self._update_event)
 
     context_config = ContextConfig(persistent=config.persistent, render_meta=True)
-    self._root_renderer = Renderer(LazyNode(Context(ContextData(id=("root",), state=self.state, registry={}, config=context_config)),
+    self._root_renderer = Renderer(LazyNode(Context(id=("root",), state=self.state, registry={}, config=context_config),
       meta_element("root", base).tonode))
     self._last_token: str | None = None
 
@@ -102,7 +102,7 @@ class Session:
     ])
 
     page = self.config.page_facotry(header_el, content_el, body_end_el)
-    node = page.tonode(Context(ContextData(id=("page",), state=self.state, registry={}, config=ContextConfig(persistent=False, render_meta=False))))
+    node = page.tonode(Context(id=("page",), state=self.state, registry={}, config=ContextConfig(persistent=False, render_meta=False)))
     await node.expand()
     res = render_node(node)
     await node.destroy()

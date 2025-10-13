@@ -151,31 +151,18 @@ class ContextConfig:
   render_meta: bool
 
 @dataclasses.dataclass(frozen=True)
-class ContextData:
+class Context:
   id: ContextStack
   state: State
   registry: dict[str, Any]
   config: ContextConfig
 
-class Context:
-  def __init__(self, data: ContextData) -> None:
-    self._data = data
-
-  @property
-  def state(self): return self._data.state
-
-  @property
-  def config(self): return self._data.config
-
-  @property
-  def id(self): return self._data.id
-
   @functools.cached_property
-  def sid(self): return get_context_stack_sid(self._data.id)
+  def sid(self): return get_context_stack_sid(self.id)
 
   @property
   def stack_sids(self):
-    return [ get_context_stack_sid(self._data.id[:i + 1]) for i in range(len(self._data.id)) ]
+    return [ get_context_stack_sid(self.id[:i + 1]) for i in range(len(self.id)) ]
 
   @property
   def location(self):
@@ -204,13 +191,13 @@ class Context:
       except ValueError: pass
     return result
 
-  def sub(self, key: ContextStackKey): return Context(dataclasses.replace(self._data, id=self._data.id + (key,)))
+  def sub(self, key: ContextStackKey): return dataclasses.replace(self, id=self.id + (key,))
   def replace_index(self, key: str):
-    if isinstance(self.id[-1], int): return Context(dataclasses.replace(self._data, id=self._data.id[:-1] + (key,)))
+    if isinstance(self.id[-1], int): return dataclasses.replace(self, id=self.id[:-1] + (key,))
     raise ValueError("No index to replace!")
-  def update_registry(self, registry: dict[str, Any]): return Context(dataclasses.replace(self._data, registry=self._data.registry | registry))
+  def update_registry(self, registry: dict[str, Any]): return dataclasses.replace(self, registry=self.registry | registry)
   def registered(self, name: str, t: type[T]) -> T:
-    if not isinstance((val:=self._data.registry.get(name)), t):
+    if not isinstance((val:=self.registry.get(name)), t):
       raise TypeError(f"Invalid type in get_registered '{type(val)}'!")
     return val
 
