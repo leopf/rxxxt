@@ -1,5 +1,4 @@
-import asyncio, hashlib, functools, itertools, re
-from dataclasses import dataclass
+import asyncio, hashlib, functools, itertools, re, dataclasses
 from datetime import datetime
 from typing import Iterable, Literal, Any
 from rxxxt.cell import StateCell, StrStateCell
@@ -146,30 +145,37 @@ def get_context_stack_sid(stack: ContextStack):
     hasher.update((k + ";").encode("utf-8"))
   return hasher.hexdigest()
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class ContextConfig:
   persistent: bool
   render_meta: bool
 
+@dataclasses.dataclass(frozen=True)
+class ContextData:
+  id: ContextStack
+  state: State
+  registry: dict[str, Any]
+  config: ContextConfig
+
 class Context:
-  def __init__(self, state: State, registry: dict[str, Any], config: ContextConfig, stack: ContextStack) -> None:
-    self._stack: ContextStack = stack
-    self._config = config
-    self._registry: dict[str, Any] = dict(registry)
-    self.state = state
+  def __init__(self, data: ContextData) -> None:
+    self._data = data
 
   @property
-  def config(self): return self._config
+  def state(self): return self._data.state
 
   @property
-  def id(self): return self._stack
+  def config(self): return self._data.config
+
+  @property
+  def id(self): return self._data.id
 
   @functools.cached_property
-  def sid(self): return get_context_stack_sid(self._stack)
+  def sid(self): return get_context_stack_sid(self._data.id)
 
   @property
   def stack_sids(self):
-    return [ get_context_stack_sid(self._stack[:i + 1]) for i in range(len(self._stack)) ]
+    return [ get_context_stack_sid(self._data.id[:i + 1]) for i in range(len(self._data.id)) ]
 
   @property
   def location(self):
@@ -198,13 +204,13 @@ class Context:
       except ValueError: pass
     return result
 
-  def sub(self, key: ContextStackKey): return Context(self.state, self._registry, self._config, self._stack + (key,))
+  def sub(self, key: ContextStackKey): return Context(dataclasses.replace(self._data, id=self._data.id + (key,)))
   def replace_index(self, key: str):
-    if isinstance(self._stack[-1], int): return Context(self.state, self._registry, self._config, self._stack[:-1] + (key,))
+    if isinstance(self.id[-1], int): return Context(dataclasses.replace(self._data, id=self._data.id[:-1] + (key,)))
     raise ValueError("No index to replace!")
-  def update_registry(self, registry: dict[str, Any]): return Context(self.state, self._registry | registry, self._config, self._stack)
+  def update_registry(self, registry: dict[str, Any]): return Context(dataclasses.replace(self._data, registry=self._data.registry | registry))
   def registered(self, name: str, t: type[T]) -> T:
-    if not isinstance((val:=self._registry.get(name)), t):
+    if not isinstance((val:=self._data.registry.get(name)), t):
       raise TypeError(f"Invalid type in get_registered '{type(val)}'!")
     return val
 
