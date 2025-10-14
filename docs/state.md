@@ -20,9 +20,9 @@ To handle the livetime of state prefixes are used.
 
 There are helpers for defining and using states in Components.
 These let you define state variables and access them *almost* like they were native fields.
-Descriptors such as `local_state` return the raw value, whereas the `_box` variants hand you a [`StateBox`](./api.md#rxxxt.state.StateBox). A box exposes a `.value` attribute so you can both read and assign; writing to `.value` immediately schedules an update, while mutating the referenced object in-place requires an explicit `.update()` afterwards to keep dependants in sync. `StateBox` instances also act as context managers: using `with state_box` automatically calls `update()` on exit, which is handy when batching mutations.
+Descriptors such as `local_state` return the raw value, whereas the `_box` variants hand you a [`StateBox`](./api.md#rxxxt.component.StateBox). A box exposes a `.value` attribute so you can both read and assign; writing to `.value` immediately schedules an update, while mutating the referenced object in-place requires an explicit `.update()` afterwards to keep dependants in sync.
 
-1. **[`local_state`](./api.md#rxxxt.state.local_state)** - which is confined to a single component instance
+1. **[`local_state`](./api.md#rxxxt.component.local_state)** - which is confined to a single component instance
 ```python
 from typing import Annotated
 from rxxxt import Component, event_handler, VEl, Element, local_state
@@ -37,7 +37,7 @@ class InputExample(Component):
   def render(self) -> Element:
     return VEl.input(oninput=self.on_input, type="text", value=self.text)
 ```
-2. **[`global_state`](./api.md#rxxxt.state.global_state)** - which is shared accross the entire application
+2. **[`global_state`](./api.md#rxxxt.component.global_state)** - which is shared accross the entire application
 ```python
 from typing import Annotated
 from rxxxt import Component, event_handler, VEl, Element, global_state
@@ -52,7 +52,7 @@ class InputExample(Component):
   def render(self) -> Element:
     return VEl.input(oninput=self.on_input, type="text", value=self.text)
 ```
-3. **[`context_state`](./api.md#rxxxt.state.context_state)** - which is shared across components down the tree from the first component that uses it
+3. **[`context_state`](./api.md#rxxxt.component.context_state)** - which is shared across components down the tree from the first component that uses it
 ```python
 from typing import Annotated
 from rxxxt import Component, Element, event_handler, VEl, El, context_state
@@ -76,7 +76,7 @@ class Child(Component):
   def render(self) -> Element:
     return El.div(content=[f"Shared text: {self.text}"])
 ```
-4. **[`local_state_box`](./api.md#rxxxt.state.local_state_box)** - which is confined to a single component instance, but requires manual updates
+4. **[`local_state_box`](./api.md#rxxxt.component.local_state_box)** - which is confined to a single component instance, but requires manual updates
 ```python
 from rxxxt import Component, Element, event_handler, El, local_state_box
 
@@ -93,7 +93,7 @@ class Counter(Component):
       El.span(content=[f"Count: {self.count.value}"]),
     ])
 ```
-5. **[`global_state_box`](./api.md#rxxxt.state.global_state_box)** - which is shared accross the entire application, but requires manual updates
+5. **[`global_state_box`](./api.md#rxxxt.component.global_state_box)** - which is shared accross the entire application, but requires manual updates
 ```python
 from typing import Annotated
 from rxxxt import Component, event_handler, VEl, Element, global_state_box
@@ -108,7 +108,7 @@ class InputExample(Component):
   def render(self) -> Element:
     return VEl.input(oninput=self.on_input, type="text", value=self.text.value)
 ```
-6. **[`context_state_box`](./api.md#rxxxt.state.context_state_box)** - which is shared across components down the tree from the first component that uses it, but requires manual updates
+6. **[`context_state_box`](./api.md#rxxxt.component.context_state_box)** - which is shared across components down the tree from the first component that uses it, but requires manual updates
 ```python
 from rxxxt import Component, Element, context_state_box, El, event_handler
 

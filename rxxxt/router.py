@@ -1,8 +1,7 @@
 import typing
 from rxxxt.elements import El, Element, ElementFactory, TaggedElement
-from rxxxt.component import Component
+from rxxxt.component import Component, context_state
 from rxxxt.helpers import match_path
-from rxxxt.state import context_state
 
 def router_params(): return context_state(dict[str, str], "*rp*")
 

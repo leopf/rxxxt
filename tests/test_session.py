@@ -1,12 +1,12 @@
 from collections import defaultdict
 import unittest, typing
 from rxxxt.elements import El, lazy_element
-from rxxxt.component import Component, event_handler
+from rxxxt.component import Component, event_handler, local_state, local_state_box
 from rxxxt.events import InputEvent, CustomOutputEvent, NavigateOutputEvent
 from rxxxt.execution import Context
 from rxxxt.page import default_page
 from rxxxt.session import AppConfig, Session, SessionConfig
-from rxxxt.state import JWTStateResolver, local_state, local_state_box
+from rxxxt.state import JWTStateResolver
 
 session_config = SessionConfig(page_facotry=default_page, state_resolver=JWTStateResolver(b"deez"), persistent=False, app_config=AppConfig())
 
@@ -91,8 +91,8 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       self.assertIn("1337", update1.html_parts[0])
 
       outer.inner.value = "133742"
-      self.assertIn(outer.inner.context.id, session.state.pending_updates)
-      self.assertEqual(len(session.state.pending_updates), 1)
+      self.assertIn(outer.inner.context.id, session.execution.pending_updates)
+      self.assertEqual(len(session.execution.pending_updates), 1)
       await session.update()
 
       update2 = await session.render_update(True, False)
@@ -106,8 +106,8 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       session.set_location("/")
       await session.init(update2.state_token)
       outer.inner.value = "247331"
-      self.assertIn(outer.inner.context.id, session.state.pending_updates)
-      self.assertEqual(len(session.state.pending_updates), 1)
+      self.assertIn(outer.inner.context.id, session.execution.pending_updates)
+      self.assertEqual(len(session.execution.pending_updates), 1)
       await session.update()
 
       update3 = await session.render_update(True, False)
@@ -194,6 +194,7 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
         testobj.assertEqual(counters["render"], counters["before_update"])
         return El.div()
       async def on_after_update(self) -> None:
+        self.context.request_update()
         counters["after_update"] += 1
         testobj.assertEqual(counters["after_update"], counters["render"])
       async def on_before_destroy(self) -> None:

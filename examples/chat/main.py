@@ -6,7 +6,7 @@ import uvicorn
 import ollama
 import os
 
-MODEL_NAME = os.getenv("MODEL_NAME", "phi3.5:latest")
+MODEL_NAME = os.getenv("MODEL_NAME", "llama3.2:3b")
 
 class Chat(Component):
   messages = local_state_box(list[ollama.Message])
@@ -20,15 +20,13 @@ class Chat(Component):
     gen_opts = ollama.Options(num_predict=500)
     response = await ollama.AsyncClient().chat(MODEL_NAME, self.messages.value[:-1], stream=True, options=gen_opts)
     async for part in response:
-      with self.messages:
-        self.messages.value[-1].content = (self.messages.value[-1].content or "") + (part.message.content or "")
+      self.messages.value[-1].content = (self.messages.value[-1].content or "") + (part.message.content or "")
     self.generating = False
 
   @event_handler(prevent_default=True)
   def on_message(self):
-    with self.messages:
-      self.messages.value.append(ollama.Message(role="user", content=self.current_message))
-      self.messages.value.append(ollama.Message(role="assistant", content=""))
+    self.messages.value.append(ollama.Message(role="user", content=self.current_message))
+    self.messages.value.append(ollama.Message(role="assistant", content=""))
 
     self.current_message = ""
     self.generating = True
