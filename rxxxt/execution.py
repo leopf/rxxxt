@@ -1,6 +1,6 @@
 import asyncio, hashlib, functools, re, dataclasses, weakref
 from datetime import datetime
-from typing import Callable, Literal, Any
+from typing import Literal, Any, Callable
 from rxxxt.events import InputEventDescriptor, CustomOutputEvent, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
   OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, InputEventDescriptorGenerator
 from rxxxt.helpers import T, match_path
@@ -8,15 +8,6 @@ from rxxxt.state import State, StateConsumer
 
 ContextStackKey = str | int
 ContextStack = tuple[ContextStackKey, ...]
-
-@functools.lru_cache(maxsize=2048)
-def get_context_stack_sid(stack: ContextStack):
-  hasher = hashlib.sha256()
-  for k in stack:
-    if isinstance(k, str): k = k.replace(";", ";;")
-    else: k = str(k)
-    hasher.update((k + ";").encode("utf-8"))
-  return hashlib.sha256(hasher.digest()).hexdigest() # NOTE: double hash to prevent hash continuation
 
 @dataclasses.dataclass
 class Execution:
@@ -50,6 +41,15 @@ class Execution:
       self.update_pending_event.clear()
     else:
       self.update_pending_event.set()
+
+@functools.lru_cache(maxsize=2048)
+def get_context_stack_sid(stack: ContextStack):
+  hasher = hashlib.sha256()
+  for k in stack:
+    if isinstance(k, str): k = k.replace(";", ";;")
+    else: k = str(k)
+    hasher.update((k + ";").encode("utf-8"))
+  return hashlib.sha256(hasher.digest()).hexdigest() # NOTE: double hash to prevent hash continuation
 
 @dataclasses.dataclass(frozen=True)
 class ContextConfig:
