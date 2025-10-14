@@ -9,7 +9,7 @@ imports.update([
   "rxxxt.execution.State",
   "rxxxt.state.StateResolver",
   "rxxxt.state.JWTStateResolver",
-  "rxxxt.state.StateBox",
+  "rxxxt.component.StateBox",
   "rxxxt.state.default_state_resolver",
   "rxxxt.helpers.match_path",
   "rxxxt.helpers.JWTManager",

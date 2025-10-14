@@ -5,11 +5,10 @@ from rxxxt.elements import El, Element, HTMLFragment, ScriptContent, UnescapedHT
 from rxxxt.events import InputEvent, OutputEvent
 from rxxxt.execution import Context, ContextConfig, Execution
 from rxxxt.helpers import to_awaitable
-from rxxxt.newstate import State
 from rxxxt.node import LazyNode
 from rxxxt.page import PageFactory
 from rxxxt.renderer import Renderer, render_node
-from rxxxt.state import StateResolver
+from rxxxt.state import StateResolver, State
 
 class InitOutputData(BaseModel):
   path: str

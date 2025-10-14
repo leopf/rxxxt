@@ -1,15 +1,144 @@
+import asyncio, inspect, weakref, base64
 from abc import abstractmethod
-import asyncio
-import base64
-import inspect
 from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, cast
 from collections.abc import Awaitable, Coroutine
-from pydantic import validate_call
+from pydantic import validate_call, TypeAdapter
 from rxxxt.elements import CustomAttribute, Element, meta_element
 from rxxxt.events import InputEventDescriptor, InputEventDescriptorGenerator, InputEventDescriptorOptions, InputEvent
 from rxxxt.execution import Context
-from rxxxt.helpers import to_awaitable, FNP, FNR
+from rxxxt.helpers import to_awaitable, FNP, FNR, T
 from rxxxt.node import Node
+from rxxxt.state import StateCell, State
+
+class StateBox(Generic[T], StateCell):
+  def __init__(self, key: str, state: State, default_factory: Callable[[], T], adapter: TypeAdapter[T]) -> None:
+    super().__init__()
+    self._key = key
+    self._state = state
+    self._adapter = adapter
+    self._value: T
+
+    key_state = state.get(key)
+    key_state.add_consumer(self)
+    try: self._value = adapter.validate_json(key_state.get())
+    except ValueError:
+      self._value = default_factory()
+      key_state.set(self)
+
+  @property
+  def key(self): return self._key
+
+  @property
+  def value(self): return self._value
+
+  @value.setter
+  def value(self, v: T):
+    self._value = v
+    self.update()
+
+  def update(self):
+    self._state.get(self._key).set(self)
+
+  def produce(self, key: str) -> str:
+    return self._adapter.dump_json(self._value).decode()
+
+  def consume(self, key: str, producer: Callable[[], str]) -> Any:
+    self._value = self._adapter.validate_json(producer())
+
+  def detach(self, key: str) -> Any:
+    del self._value
+
+class StateBoxDescriptorBase(Generic[T]):
+  def __init__(self, state_key_producer: Callable[[Context, str], str], default_factory: Callable[[], T], state_name: str | None = None) -> None:
+    self._state_name = state_name
+    self._default_factory = default_factory
+    self._state_key_producer = state_key_producer
+    self._box_cache: weakref.WeakKeyDictionary[Context, StateBox] = weakref.WeakKeyDictionary()
+
+    native_types = (bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple)
+    if default_factory in native_types or get_origin(default_factory) in native_types:
+      self._val_type_adapter: TypeAdapter[Any] = TypeAdapter(default_factory)
+    else:
+      sig = inspect.signature(default_factory)
+      self._val_type_adapter = TypeAdapter(sig.return_annotation)
+
+  def __set_name__(self, owner: Any, name: str):
+    if self._state_name is None:
+      self._state_name = name
+
+  def _get_box(self, context: Context) -> StateBox[T]:
+    if not self._state_name: raise ValueError("State name not defined!")
+    key = self._state_key_producer(context, self._state_name)
+    context.subscribe(key)
+
+    if (box := self._box_cache.get(context)) is None:
+      box = StateBox(key, context.state, self._default_factory, self._val_type_adapter)
+      self._box_cache[context] = box
+
+    return box
+
+class StateBoxDescriptor(StateBoxDescriptorBase[T]):
+  def __get__(self, obj: Any, objtype: Any=None):
+    if not isinstance(obj, Component):
+      raise TypeError("StateDescriptor used on non-component!")
+
+    box = self._get_box(obj.context)
+    obj.context.subscribe(box.key)
+
+    return box
+
+class StateDescriptor(StateBoxDescriptorBase[T]):
+  def __set__(self, obj: Any, value: Any):
+    if not isinstance(obj, Component):
+      raise TypeError("StateDescriptor used on non-component!")
+
+    box = self._get_box(obj.context)
+    obj.context.subscribe(box.key)
+
+    box.value = value
+
+  def __get__(self, obj: Any, objtype: Any=None):
+    if not isinstance(obj, Component):
+      raise TypeError("StateDescriptor used on non-component!")
+
+    box = self._get_box(obj.context)
+    obj.context.subscribe(box.key)
+
+    return box.value
+
+def get_global_state_key(_context: Context, name: str):
+  return f"global;{name}"
+
+def get_local_state_key(context: Context, name: str):
+  return f"#local;{context.sid};{name}"
+
+def get_context_state_key(context: Context, name: str):
+  state_key = None
+  exisiting_keys = context.state.keys
+  for sid in context.stack_sids:
+    state_key = f"#context;{sid};{name}"
+    if state_key in exisiting_keys:
+      return state_key
+  if state_key is None: raise ValueError(f"State key not found for context '{name}'!")
+  return state_key # this is just the key for context.sid
+
+def local_state(default_factory: Callable[[], T], name: str | None = None):
+  return StateDescriptor(get_local_state_key, default_factory, state_name=name)
+
+def global_state(default_factory: Callable[[], T], name: str | None = None):
+  return StateDescriptor(get_global_state_key, default_factory, state_name=name)
+
+def context_state(default_factory: Callable[[], T], name: str | None = None):
+  return StateDescriptor(get_context_state_key, default_factory, state_name=name)
+
+def local_state_box(default_factory: Callable[[], T], name: str | None = None):
+  return StateBoxDescriptor(get_local_state_key, default_factory, state_name=name)
+
+def global_state_box(default_factory: Callable[[], T], name: str | None = None):
+  return StateBoxDescriptor(get_global_state_key, default_factory, state_name=name)
+
+def context_state_box(default_factory: Callable[[], T], name: str | None = None):
+  return StateBoxDescriptor(get_context_state_key, default_factory, state_name=name)
 
 class ClassEventHandler(Generic[FNP, FNR]):
   def __init__(self, fn: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions) -> None:

@@ -1,9 +1,8 @@
 import unittest
 from typing import Annotated
-from rxxxt.component import Component, event_handler
+from rxxxt.component import Component, event_handler, local_state
 from rxxxt.elements import El, WithRegistered
 from rxxxt.events import InputEvent
-from rxxxt.state import local_state
 from tests.helpers import element_to_node, render_node
 
 

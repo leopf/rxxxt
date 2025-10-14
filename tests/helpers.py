@@ -3,7 +3,7 @@ from io import StringIO
 from typing import Any
 from rxxxt.elements import Element
 from rxxxt.execution import Context, ContextConfig, Execution
-from rxxxt.newstate import State
+from rxxxt.state import State
 from rxxxt.node import Node
 
 def element_to_node(el: Element, registry: dict[str, Any] | None = None):

@@ -5,7 +5,7 @@ import weakref
 from rxxxt.events import InputEventDescriptor, CustomOutputEvent, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
   OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, InputEventDescriptorGenerator
 from rxxxt.helpers import T, match_path
-from rxxxt.newstate import State as NState, StateConsumer
+from rxxxt.state import State, StateConsumer
 
 ContextStackKey = str | int
 ContextStack = tuple[ContextStackKey, ...]
@@ -60,7 +60,7 @@ class ContextConfig:
 @dataclasses.dataclass(frozen=True)
 class Context:
   id: ContextStack
-  state: NState
+  state: State
   registry: dict[str, Any]
   config: ContextConfig
   execution: Execution

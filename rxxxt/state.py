@@ -1,145 +1,108 @@
-import inspect, os, secrets, weakref
+import os, secrets, weakref
 from abc import ABC, abstractmethod
 from datetime import timedelta
-from typing import Callable, Generic, get_origin, Any
 from collections.abc import Awaitable
 from pydantic import TypeAdapter, ValidationError
-from rxxxt.component import Component
-from rxxxt.execution import Context
-from rxxxt.helpers import T, JWTError, JWTManager
-from rxxxt.newstate import StateCell, State
+from rxxxt.helpers import JWTError, JWTManager
+from typing import Any, Callable, Set
 
-StateDataAdapter = TypeAdapter(dict[str, str])
+class StateProducer(ABC):
+  @abstractmethod
+  def produce(self, key: str) -> str: pass
 
-class StateBox(Generic[T], StateCell):
-  def __init__(self, key: str, state: State, default_factory: Callable[[], T], adapter: TypeAdapter[T]) -> None:
-    super().__init__()
-    self._key = key
-    self._state = state
-    self._adapter = adapter
-    self._value: T
+class StateConsumer(ABC):
+  @abstractmethod
+  def consume(self, key: str, producer: Callable[[], str]) -> Any: pass
+  def detach(self, key: str) -> Any: pass
 
-    key_state = state.get(key)
-    key_state.add_consumer(self)
-    try: self._value = adapter.validate_json(key_state.get())
-    except ValueError:
-      self._value = default_factory()
-      key_state.set(self)
+class StateCell(StateConsumer, StateProducer):
+  pass
 
-  @property
-  def key(self): return self._key
+class KeyState:
+  def __init__(self, key: str, value: str | None) -> None:
+    self.key: str = key
+    self.value: str | None = value
+    self.producer: StateProducer | None = None
+    self.consumers: weakref.WeakSet[StateConsumer] = weakref.WeakSet()
 
   @property
-  def value(self): return self._value
+  def has_value(self):
+    return self.value is not None or self.producer is not None
 
-  @value.setter
-  def value(self, v: T):
-    self._value = v
-    self.update()
+  def get(self) -> str:
+    if self.producer is not None:
+      self.value = self.producer.produce(self.key)
+      self.producer = None
+    if self.value is None:
+      raise ValueError("key value is None!")
+    return self.value
 
-  def update(self):
-    self._state.get(self._key).set(self)
-
-  def produce(self, key: str) -> str:
-    return self._adapter.dump_json(self._value).decode()
-
-  def consume(self, key: str, producer: Callable[[], str]) -> Any:
-    self._value = self._adapter.validate_json(producer())
-
-  def detach(self, key: str) -> Any:
-    del self._value
-
-class StateBoxDescriptorBase(Generic[T]):
-  def __init__(self, state_key_producer: Callable[[Context, str], str], default_factory: Callable[[], T], state_name: str | None = None) -> None:
-    self._state_name = state_name
-    self._default_factory = default_factory
-    self._state_key_producer = state_key_producer
-    self._box_cache: weakref.WeakKeyDictionary[Context, StateBox] = weakref.WeakKeyDictionary()
-
-    native_types = (bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple)
-    if default_factory in native_types or get_origin(default_factory) in native_types:
-      self._val_type_adapter: TypeAdapter[Any] = TypeAdapter(default_factory)
+  def set(self, value: str | StateProducer):
+    if isinstance(value, str):
+      self.value = value
+      self.producer = None
     else:
-      sig = inspect.signature(default_factory)
-      self._val_type_adapter = TypeAdapter(sig.return_annotation)
+      self.producer = value
 
-  def __set_name__(self, owner: Any, name: str):
-    if self._state_name is None:
-      self._state_name = name
+    for consumer in self.consumers:
+      if consumer is not self.producer:
+        consumer.consume(self.key, self.get)
 
-  def _get_box(self, context: Context) -> StateBox[T]:
-    if not self._state_name: raise ValueError("State name not defined!")
-    key = self._state_key_producer(context, self._state_name)
-    context.subscribe(key)
+  def add_consumer(self, consumer: StateConsumer):
+    self.consumers.add(consumer)
 
-    if (box := self._box_cache.get(context)) is None:
-      box = StateBox(key, context.state, self._default_factory, self._val_type_adapter)
-      self._box_cache[context] = box
+  def remove_consumer(self, consumer: StateConsumer):
+    try:
+      self.consumers.remove(consumer)
+      consumer.detach(self.key)
+    except KeyError: pass
 
-    return box
+  def destroy(self):
+    for consumer in self.consumers:
+      consumer.detach(self.key)
+    self.consumers.clear()
+    self.producer = None
+    self.value = None
 
-class StateBoxDescriptor(StateBoxDescriptorBase[T]):
-  def __get__(self, obj: Any, objtype: Any=None):
-    if not isinstance(obj, Component):
-      raise TypeError("StateDescriptor used on non-component!")
+class State:
+  def __init__(self) -> None:
+    self._key_states: dict[str, KeyState] = {}
 
-    box = self._get_box(obj.context)
-    obj.context.subscribe(box.key)
+  @property
+  def keys(self): return set(self._key_states.keys())
 
-    return box
+  def get(self, key: str):
+    if (state := self._key_states.get(key)) is None:
+      state = KeyState(key, None)
+      self._key_states[key] = state
+    return state
 
-class StateDescriptor(StateBoxDescriptorBase[T]):
-  def __set__(self, obj: Any, value: Any):
-    if not isinstance(obj, Component):
-      raise TypeError("StateDescriptor used on non-component!")
+  def set_many(self, kvs: dict[str, str]):
+    for k, v in kvs.items(): self.get(k).set(v)
 
-    box = self._get_box(obj.context)
-    obj.context.subscribe(box.key)
+  def delete(self, key: str):
+    state = self._key_states.pop(key, None)
+    if state is not None:
+      state.destroy()
 
-    box.value = value
+  def get_key_values(self, inactive_prefixes: Set[str]):
+    active_keys = self._get_active_keys(inactive_prefixes)
+    return { key: state.get() for key, state in self._key_states.items() if key in active_keys and state.has_value }
 
-  def __get__(self, obj: Any, objtype: Any=None):
-    if not isinstance(obj, Component):
-      raise TypeError("StateDescriptor used on non-component!")
+  def cleanup(self, inactive_prefixes: Set[str]):
+    active_keys = self._get_active_keys(inactive_prefixes)
+    inactive_keys = tuple(key for key in self._key_states.keys() if key not in active_keys)
+    for key in inactive_keys:
+      return self.delete(key)
 
-    box = self._get_box(obj.context)
-    obj.context.subscribe(box.key)
+  def destroy(self):
+    for state in self._key_states.values():
+      state.destroy()
+    self._key_states.clear()
 
-    return box.value
+  def _get_active_keys(self, inactive_prefixes: Set[str]):
+    return set(k for k, v in self._key_states.items() if len(k) == 0 or k[0] not in inactive_prefixes or len(v.consumers) > 0)
 
-def get_global_state_key(_context: Context, name: str):
-  return f"global;{name}"
-
-def get_local_state_key(context: Context, name: str):
-  return f"#local;{context.sid};{name}"
-
-def get_context_state_key(context: Context, name: str):
-  state_key = None
-  exisiting_keys = context.state.keys
-  for sid in context.stack_sids:
-    state_key = f"#context;{sid};{name}"
-    if state_key in exisiting_keys:
-      return state_key
-  if state_key is None: raise ValueError(f"State key not found for context '{name}'!")
-  return state_key # this is just the key for context.sid
-
-def local_state(default_factory: Callable[[], T], name: str | None = None):
-  return StateDescriptor(get_local_state_key, default_factory, state_name=name)
-
-def global_state(default_factory: Callable[[], T], name: str | None = None):
-  return StateDescriptor(get_global_state_key, default_factory, state_name=name)
-
-def context_state(default_factory: Callable[[], T], name: str | None = None):
-  return StateDescriptor(get_context_state_key, default_factory, state_name=name)
-
-def local_state_box(default_factory: Callable[[], T], name: str | None = None):
-  return StateBoxDescriptor(get_local_state_key, default_factory, state_name=name)
-
-def global_state_box(default_factory: Callable[[], T], name: str | None = None):
-  return StateBoxDescriptor(get_global_state_key, default_factory, state_name=name)
-
-def context_state_box(default_factory: Callable[[], T], name: str | None = None):
-  return StateBoxDescriptor(get_context_state_key, default_factory, state_name=name)
 
 class StateResolverError(BaseException): pass
 
@@ -150,6 +113,8 @@ class StateResolver(ABC):
   def resolve(self, token: str) -> dict[str, str] | Awaitable[dict[str, str]]: pass
 
 class JWTStateResolver(StateResolver):
+  StateDataAdapter = TypeAdapter(dict[str, str])
+
   def __init__(self, secret: bytes, max_age: timedelta | None = None, algorithm: str = "HS512") -> None:
     super().__init__()
     self._jwt_manager = JWTManager(secret, timedelta(days=1) if max_age is None else max_age, algorithm)
@@ -161,7 +126,7 @@ class JWTStateResolver(StateResolver):
   def resolve(self, token: str) -> dict[str, str]:
     try:
       payload = self._jwt_manager.verify(token)
-      return StateDataAdapter.validate_python(payload["d"])
+      return JWTStateResolver.StateDataAdapter.validate_python(payload["d"])
     except (ValidationError, JWTError) as e: raise StateResolverError(e)
 
 def default_state_resolver() -> JWTStateResolver:

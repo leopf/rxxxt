@@ -2,11 +2,11 @@ import importlib.resources, os, unittest, httpx, httpx_ws, httpx_ws.transport
 from typing import Annotated
 from rxxxt.app import App, AppHttpRequest, AppWebsocketInitMessage, AppWebsocketUpdateMessage
 from rxxxt.asgi import ASGIHandler
-from rxxxt.component import Component, event_handler
+from rxxxt.component import Component, event_handler, local_state
 from rxxxt.elements import El, Element, lazy_element
 from rxxxt.events import InputEvent
 from rxxxt.execution import Context
-from rxxxt.state import default_state_resolver, local_state
+from rxxxt.state import default_state_resolver
 
 class TestApp(unittest.IsolatedAsyncioTestCase):
 
