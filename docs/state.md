@@ -20,7 +20,7 @@ To handle the livetime of state prefixes are used.
 
 There are helpers for defining and using states in Components.
 These let you define state variables and access them *almost* like they were native fields.
-Descriptors such as `local_state` return the raw value, whereas the `_box` variants hand you a [`StateBox`](./api.md#rxxxt.state.StateBox). A box exposes a `.value` attribute so you can both read and assign; writing to `.value` immediately schedules an update, while mutating the referenced object in-place requires an explicit `.update()` afterwards to keep dependants in sync. `StateBox` instances also act as context managers: using `with state_box` automatically calls `update()` on exit, which is handy when batching mutations.
+Descriptors such as `local_state` return the raw value, whereas the `_box` variants hand you a [`StateBox`](./api.md#rxxxt.state.StateBox). A box exposes a `.value` attribute so you can both read and assign; writing to `.value` immediately schedules an update, while mutating the referenced object in-place requires an explicit `.update()` afterwards to keep dependants in sync.
 
 1. **[`local_state`](./api.md#rxxxt.state.local_state)** - which is confined to a single component instance
 ```python

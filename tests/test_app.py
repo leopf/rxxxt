@@ -72,7 +72,6 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
       ref_text = importlib.resources.read_text("rxxxt.assets", "main.js")
       self.assertEqual(r.text, ref_text)
 
-  @unittest.skip("")
   async def test_ws(self):
     context_id: str = ""
     class Counter(Component):

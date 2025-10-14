@@ -54,7 +54,12 @@ class Session:
   async def __aenter__(self): return self
   async def __aexit__(self, *_): await self.destroy()
 
-  async def wait_for_update(self): _ = await self._update_event.wait()
+  async def wait_for_update(self):
+    self.execution.reset_event()
+    while not self._update_event.is_set():
+      _ = await self._update_event.wait()
+      await asyncio.sleep(0.001)
+      self.execution.reset_event()
 
   async def init(self, state_token: str | None):
     if state_token is not None:
@@ -71,6 +76,7 @@ class Session:
   async def update(self):
     await self._root_renderer.update(self.execution.pop_pending_updates())
     self.state.cleanup({ "#" })
+    self.execution.reset_event()
 
   async def handle_events(self, events: tuple[InputEvent, ...]):
     await self._root_renderer.handle_events(events)

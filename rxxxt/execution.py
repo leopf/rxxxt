@@ -46,6 +46,12 @@ class Execution:
     self.pending_updates.clear()
     return result
 
+  def reset_event(self):
+    if len(self.pending_updates) == 0 and len(self.output_events) == 0:
+      self.update_pending_event.clear()
+    else:
+      self.update_pending_event.set()
+
 @dataclasses.dataclass(frozen=True)
 class ContextConfig:
   persistent: bool
