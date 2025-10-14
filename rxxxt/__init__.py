@@ -3,7 +3,8 @@ from rxxxt.elements import Element, CustomAttribute, ElementContent, HTMLAttribu
   add_attributes, ScriptContent
 from rxxxt.component import EventHandler, event_handler, HandleNavigate, Component
 from rxxxt.page import PageFactory, default_page, PageBuilder
-from rxxxt.execution import State, Context
+from rxxxt.execution import Context
+from rxxxt.newstate import State
 from rxxxt.app import App
 from rxxxt.session import AppConfig
 from rxxxt.router import router_params, Router

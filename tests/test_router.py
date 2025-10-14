@@ -26,15 +26,15 @@ class TestRouter(unittest.IsolatedAsyncioTestCase):
 
     comp = router()
     node = element_to_node(comp)
-    node.context.state.update_state_strs({ "!location": "/hello" })
+    node.context.state.set_many({ "!location": "/hello" })
     await node.expand()
     self.assertEqual(render_node(node), "<div>hello</div>")
 
-    node.context.state.update_state_strs({ "!location": "/world" })
+    node.context.state.set_many({ "!location": "/world" })
     await node.update()
     self.assertEqual(render_node(node), "<div>world</div>")
 
-    node.context.state.update_state_strs({ "!location": "/no" })
+    node.context.state.set_many({ "!location": "/no" })
     await node.update()
     self.assertEqual(render_node(node), "<h1>Not found!</h1>")
 
@@ -50,15 +50,15 @@ class TestRouter(unittest.IsolatedAsyncioTestCase):
 
     comp = router()
     node = element_to_node(comp)
-    node.context.state.update_state_strs({ "!location": "/hello" })
+    node.context.state.set_many({ "!location": "/hello" })
     await node.expand()
     self.assertEqual(render_node(node), "<div>not found</div>")
 
-    node.context.state.update_state_strs({ "!location": "/var/1" })
+    node.context.state.set_many({ "!location": "/var/1" })
     await node.update()
     self.assertEqual(render_node(node), "<div>var1</div>")
 
-    node.context.state.update_state_strs({ "!location": "/var/1/2" })
+    node.context.state.set_many({ "!location": "/var/1/2" })
     await node.update()
     self.assertEqual(render_node(node), "<div>var2</div>")
 

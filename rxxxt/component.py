@@ -109,7 +109,8 @@ class Component(Element):
   async def lc_render(self) -> Element:
     await self.on_before_update()
     el = await to_awaitable(self.render)
-    self.context.state.remove_context_updates((self.context.id,)) # NOTE: remove any update that was requested during render
+    try: self.context.execution.pending_updates.remove(self.context.id) # NOTE: remove any update that was requested during render
+    except KeyError: pass
     await self.on_after_update()
     return el
   async def lc_destroy(self) -> None:
@@ -167,7 +168,7 @@ class ComponentNode(Node):
     self.children = ()
 
     await self.element.lc_destroy()
-    self.context.unsubscribe_all()
+    # self.context.unsubscribe_all()
 
   async def _render_inner(self):
     inner = await self.element.lc_render()

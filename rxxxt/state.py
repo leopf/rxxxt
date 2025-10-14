@@ -6,36 +6,50 @@ import secrets
 from typing import Callable, Generic, get_origin, Any
 from collections.abc import Awaitable
 from pydantic import TypeAdapter, ValidationError
-
-from rxxxt.cell import SerilializableStateCell
 from rxxxt.component import Component
-from rxxxt.execution import Context, State
+from rxxxt.execution import Context
 from rxxxt.helpers import T, JWTError, JWTManager
+from rxxxt.newstate import StateCell, State
 
 StateDataAdapter = TypeAdapter(dict[str, str])
 
-class StateBox(Generic[T]):
-  def __init__(self, key: str, state: State, inner: SerilializableStateCell[T]) -> None:
+class StateBox(Generic[T], StateCell):
+  def __init__(self, key: str, state: State, default_factory: Callable[[], T], adapter: TypeAdapter[T]) -> None:
     super().__init__()
     self._key = key
     self._state = state
-    self._inner = inner
+    self._adapter = adapter
+    self._value: T
 
-  def __enter__(self): return self
-  def __exit__(self, *_): self.update()
+    key_state = state.get(key)
+    key_state.add_consumer(self)
+    try: self._value = adapter.validate_json(key_state.get())
+    except ValueError:
+      self._value = default_factory()
+      key_state.set(self)
 
   @property
   def key(self): return self._key
 
   @property
-  def value(self): return self._inner.value
+  def value(self): return self._value
 
   @value.setter
   def value(self, v: T):
-    self._inner.value = v
+    self._value = v
     self.update()
 
-  def update(self): self._state.request_key_updates({ self._key })
+  def update(self):
+    self._state.get(self._key).set(self)
+
+  def produce(self, key: str) -> str:
+    return self._adapter.dump_json(self._value).decode()
+
+  def consume(self, key: str, producer: Callable[[], str]) -> Any:
+    self._value = self._adapter.validate_json(producer())
+
+  def detach(self, key: str) -> Any:
+    del self._value
 
 class StateBoxDescriptorBase(Generic[T]):
   def __init__(self, state_key_producer: Callable[[Context, str], str], default_factory: Callable[[], T], state_name: str | None = None) -> None:
@@ -57,20 +71,14 @@ class StateBoxDescriptorBase(Generic[T]):
   def _get_box(self, context: Context) -> StateBox[T]:
     if not self._state_name: raise ValueError("State name not defined!")
     key = self._state_key_producer(context, self._state_name)
+    context.subscribe(key)
+    # TODO one StateBox per key/state/type
+    # if (cell:=context.state.get_key_cell(key)) is not None:
+    #   if not isinstance(cell, SerilializableStateCell):
+    #     raise ValueError(f"Cell is not serializable for key '{key}'!")
+    #   return StateBox(key, context.state, cell)
 
-    if (cell:=context.state.get_key_cell(key)) is not None:
-      if not isinstance(cell, SerilializableStateCell):
-        raise ValueError(f"Cell is not serializable for key '{key}'!")
-      return StateBox(key, context.state, cell)
-
-    old_str_value = context.state.get_key_str(key)
-    if old_str_value is None:
-      value = self._default_factory()
-    else:
-      value = self._val_type_adapter.validate_json(old_str_value)
-    cell = SerilializableStateCell(value, lambda v: self._val_type_adapter.dump_json(v).decode("utf-8"))
-    context.state.set_key_cell(key, cell)
-    return StateBox(key, context.state, cell)
+    return StateBox(key, context.state, self._default_factory, self._val_type_adapter)
 
 class StateBoxDescriptor(StateBoxDescriptorBase[T]):
   def __get__(self, obj: Any, objtype: Any=None):
