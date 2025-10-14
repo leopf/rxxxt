@@ -1,7 +1,6 @@
-import asyncio, hashlib, functools, re, dataclasses
+import asyncio, hashlib, functools, re, dataclasses, weakref
 from datetime import datetime
 from typing import Callable, Literal, Any
-import weakref
 from rxxxt.events import InputEventDescriptor, CustomOutputEvent, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
   OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, InputEventDescriptorGenerator
 from rxxxt.helpers import T, match_path
