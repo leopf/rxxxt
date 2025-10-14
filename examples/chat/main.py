@@ -6,7 +6,7 @@ import uvicorn
 import ollama
 import os
 
-MODEL_NAME = os.getenv("MODEL_NAME", "phi3.5:latest")
+MODEL_NAME = os.getenv("MODEL_NAME", "llama3.2:3b")
 
 class Chat(Component):
   messages = local_state_box(list[ollama.Message])

@@ -94,7 +94,7 @@ export function initTransport(config: TransportConfig) {
         ws.addEventListener("open", () => {
             updateHandler = wsUpdateHandler;
             ws?.send(
-                JSON.stringify({ type: "init", state_token: config.stateToken, enable_state_updates: config.enableWebSocketStateUpdates }));
+                JSON.stringify({ type: "init", state_token: config.stateToken, enable_state_updates: config.enableWebSocketStateUpdates ?? false }));
         });
         ws.addEventListener("message", (e) => {
             if (typeof e.data !== "string") return;
