@@ -171,9 +171,8 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
     async with Session(session_config, el) as session:
       session.set_location("/")
       await session.init(None)
-      box = el.data
-      box.value["hello"] = "yes"
-      box.update()
+      el.data.value["hello"] = "yes"
+      el.data.update()
       if session.update_pending:
         await session.update()
       update = await session.render_update(True, True)

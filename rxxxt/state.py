@@ -1,8 +1,6 @@
+import inspect, os, secrets, weakref
 from abc import ABC, abstractmethod
 from datetime import timedelta
-import inspect
-import os
-import secrets
 from typing import Callable, Generic, get_origin, Any
 from collections.abc import Awaitable
 from pydantic import TypeAdapter, ValidationError
@@ -56,6 +54,7 @@ class StateBoxDescriptorBase(Generic[T]):
     self._state_name = state_name
     self._default_factory = default_factory
     self._state_key_producer = state_key_producer
+    self._box_cache: weakref.WeakKeyDictionary[Context, StateBox] = weakref.WeakKeyDictionary()
 
     native_types = (bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple)
     if default_factory in native_types or get_origin(default_factory) in native_types:
@@ -72,13 +71,12 @@ class StateBoxDescriptorBase(Generic[T]):
     if not self._state_name: raise ValueError("State name not defined!")
     key = self._state_key_producer(context, self._state_name)
     context.subscribe(key)
-    # TODO one StateBox per key/state/type
-    # if (cell:=context.state.get_key_cell(key)) is not None:
-    #   if not isinstance(cell, SerilializableStateCell):
-    #     raise ValueError(f"Cell is not serializable for key '{key}'!")
-    #   return StateBox(key, context.state, cell)
 
-    return StateBox(key, context.state, self._default_factory, self._val_type_adapter)
+    if (box := self._box_cache.get(context)) is None:
+      box = StateBox(key, context.state, self._default_factory, self._val_type_adapter)
+      self._box_cache[context] = box
+
+    return box
 
 class StateBoxDescriptor(StateBoxDescriptorBase[T]):
   def __get__(self, obj: Any, objtype: Any=None):
