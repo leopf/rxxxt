@@ -79,7 +79,7 @@ class Context:
       return consumer
 
   def __hash__(self) -> int:
-    return id(self)
+    return hash(self.id)
 
   @functools.cached_property
   def sid(self): return get_context_stack_sid(self.id)
