@@ -2,8 +2,7 @@ from collections import defaultdict
 import unittest, typing
 from rxxxt.elements import El, lazy_element
 from rxxxt.component import Component, event_handler, local_state, local_state_box
-from rxxxt.events import InputEvent, CustomOutputEvent, NavigateOutputEvent
-from rxxxt.execution import Context
+from rxxxt.execution import Context, InputEvent
 from rxxxt.page import default_page
 from rxxxt.session import AppConfig, Session, SessionConfig
 from rxxxt.state import JWTStateResolver
@@ -58,7 +57,7 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       update2 = await session.render_update(True, False)
       self.assertEqual(len(update2.html_parts), 0)
       self.assertEqual(len(update2.events), 1)
-      self.assertEqual(update2.events[0], CustomOutputEvent(name="download", data={ "url": "https://google.com" }))
+      self.assertEqual(update2.events[0], dict(event="custom", name="download", data={ "url": "https://google.com" }))
 
   async def test_partial_update(self):
     class Inner(Component):
@@ -155,8 +154,8 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       await session.init(None)
       update = await session.render_update(True, True)
       self.assertEqual(update.events, (
-        NavigateOutputEvent(location = "/hello-world"),
-        NavigateOutputEvent(location = "/world-hello")
+        dict(event="navigate", location = "/hello-world"),
+        dict(event="navigate", location = "/world-hello")
       ))
 
   async def test_deep_state_update(self):

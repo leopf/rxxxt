@@ -1,7 +1,6 @@
 
 from io import StringIO
-from rxxxt.events import InputEvent
-from rxxxt.execution import ContextStack
+from rxxxt.execution import ContextStack, InputEvent
 from rxxxt.node import Node
 
 def render_node(node: Node) -> str:

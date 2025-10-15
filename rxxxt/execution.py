@@ -1,13 +1,36 @@
 import asyncio, hashlib, functools, re, dataclasses, weakref
 from datetime import datetime
+from abc import ABC, abstractmethod
+from pydantic import BaseModel
 from typing import Literal, Any, Callable
-from rxxxt.events import InputEventDescriptor, CustomOutputEvent, EventRegisterQuerySelectorEvent, NavigateOutputEvent, \
-  OutputEvent, UseWebsocketOutputEvent, SetCookieOutputEvent, EventRegisterWindowEvent, InputEventDescriptorGenerator
 from rxxxt.helpers import T, match_path
 from rxxxt.state import State, StateConsumer
 
 ContextStackKey = str | int
 ContextStack = tuple[ContextStackKey, ...]
+OutputEvent = dict[str, Any]
+
+class InputEventDescriptorOptions(BaseModel):
+  debounce: int | None = None
+  throttle: int | None = None
+  no_trigger: bool = False
+  prevent_default: bool = False
+  default_params: dict[str, int | float | str | bool | None] | None = None
+
+class InputEventDescriptor(BaseModel):
+  context_id: str
+  handler_name: str
+  param_map: dict[str, str]
+  options: InputEventDescriptorOptions
+
+class InputEventDescriptorGenerator(ABC): # NOTE: this is a typing hack
+  @property
+  @abstractmethod
+  def descriptor(self) -> InputEventDescriptor: pass
+
+class InputEvent(BaseModel):
+  context_id: str
+  data: dict[str, int | float | str | bool | None]
 
 @dataclasses.dataclass
 class Execution:
@@ -20,7 +43,7 @@ class Execution:
     self.update_pending_event.set()
 
   def add_output_event(self, event: OutputEvent):
-    self.output_events.append(event)
+    self.output_events.append({ k: v for k, v in event.items() if v is not None })
     self.update_pending_event.set()
 
   def pop_output_events(self):
@@ -41,6 +64,9 @@ class Execution:
       self.update_pending_event.clear()
     else:
       self.update_pending_event.set()
+
+def resolve_input_event_descriptor(descriptor: InputEventDescriptor | InputEventDescriptorGenerator):
+  return (descriptor.descriptor if isinstance(descriptor, InputEventDescriptorGenerator) else descriptor).model_dump()
 
 @functools.lru_cache(maxsize=2048)
 def get_context_stack_sid(stack: ContextStack):
@@ -133,39 +159,52 @@ class Context:
   def subscribe(self, key: str): self.state.get(key).add_consumer(self.update_consumer)
 
   def emit(self, name: str, data: dict[str, int | float | str | bool | None]):
-    self.execution.add_output_event(CustomOutputEvent(name=name, data=data))
+    self.execution.add_output_event(dict(event="custom", name=name, data=data))
 
   def add_window_event(self, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator):
     self._modify_window_event(name, descriptor, "add")
+
   def add_query_selector_event(self, selector: str, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, all: bool = False):
     self._modify_query_selector_event(selector, name, descriptor, all, "add")
 
   def remove_window_event(self, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator):
     self._modify_window_event(name, descriptor, "remove")
+
   def remove_query_selector_event(self, selector: str, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, all: bool = False):
     self._modify_query_selector_event(selector, name, descriptor, all, "remove")
 
   def navigate(self, location: str):
     is_full_url = ":" in location # colon means full url
     if not is_full_url: self.state.get("!location").set(location)
-    self.execution.add_output_event(NavigateOutputEvent(location=location, requires_refresh=is_full_url))
-  def use_websocket(self, websocket: bool = True): self.execution.add_output_event(UseWebsocketOutputEvent(websocket=websocket))
-  def set_cookie(self, name: str, value: str, expires: datetime | None = None, path: str | None = None,
+    self.execution.add_output_event(dict(event="navigate", location=location, requires_refresh=is_full_url or None))
+
+  def use_websocket(self, websocket: bool = True): self.execution.add_output_event(dict(event="use-websocket", websocket=websocket))
+
+  def set_cookie(self, name: str, value: str | None = None, expires: datetime | None = None, path: str | None = None,
                 secure: bool | None = None, http_only: bool | None = None, domain: str | None = None, max_age: int | None = None, mirror_state: bool = True):
-    self.execution.add_output_event(SetCookieOutputEvent(name=name, value=value, expires=expires, path=path, secure=secure, http_only=http_only, domain=domain, max_age=max_age))
+    if not re.match(r'^[^=;, \t\n\r\f\v]+$', name): raise ValueError("Invalid cookie name")
+    if value is not None and not re.match(r'^[^;, \t\n\r\f\v]+$', value): raise ValueError("Invalid value.")
+    if domain is not None and not re.match(r'^[^;, \t\n\r\f\v]+$', domain): raise ValueError("Invalid domain.")
+    if path is not None and not re.match(r'^[^\x00-\x20;,\s]+$', path): raise ValueError("Invalid path.")
+
+    expires_str = None if expires is None else expires.isoformat()
+
+    self.execution.add_output_event(dict(event="set-cookie", name=name, value=value, expires=expires_str, path=path, secure=secure, http_only=http_only, domain=domain, max_age=max_age))
     if mirror_state:
       self.state.set_many({ "!header;cookie": "; ".join(f"{k}={v}" for k, v in (self.cookies | { name: value }).items()) })
+
   def delete_cookie(self, name: str, mirror_state: bool = True):
-    self.execution.add_output_event(SetCookieOutputEvent(name=name, max_age=-1))
+    self.set_cookie(name=name, max_age=-1, mirror_state=False)
     if mirror_state:
       self.state.set_many({ "!header;cookie": "; ".join(f"{k}={v}" for k, v in self.cookies.items() if k != name) })
+
   def _get_state_str_subscribe(self, key: str):
     res = self.state.get(key).get()
     self.subscribe(key)
     return res
+
   def _modify_window_event(self, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, mode: Literal["add"] | Literal["remove"]):
-    descriptor = descriptor.descriptor if isinstance(descriptor, InputEventDescriptorGenerator) else descriptor
-    self.execution.add_output_event(EventRegisterWindowEvent(name=name, mode=mode, descriptor=descriptor))
+    self.execution.add_output_event(dict(event="event-modify-window", name=name, mode=mode, descriptor=resolve_input_event_descriptor(descriptor)))
+
   def _modify_query_selector_event(self, selector: str, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, all: bool, mode: Literal["add"] | Literal["remove"]):
-    descriptor = descriptor.descriptor if isinstance(descriptor, InputEventDescriptorGenerator) else descriptor
-    self.execution.add_output_event(EventRegisterQuerySelectorEvent(name=name, mode=mode, selector=selector, all=all, descriptor=descriptor))
+    self.execution.add_output_event(dict(event="event-modify-query-selector", name=name, mode=mode, selector=selector, all=all, descriptor=resolve_input_event_descriptor(descriptor)))

@@ -3,7 +3,7 @@ from typing import Any, Literal
 from pydantic import BaseModel
 from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, Composer, HTTPContext, WebsocketContext, http_handler, http_not_found_handler, routed_handler, websocket_handler
 from rxxxt.elements import ElementFactory
-from rxxxt.events import InputEvent
+from rxxxt.execution import InputEvent
 from rxxxt.page import PageFactory, default_page
 from rxxxt.session import AppConfig, Session, SessionConfig
 from rxxxt.state import StateResolver, default_state_resolver

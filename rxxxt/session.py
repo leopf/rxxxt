@@ -2,8 +2,7 @@ import asyncio
 from dataclasses import dataclass
 from pydantic import BaseModel
 from rxxxt.elements import El, Element, HTMLFragment, ScriptContent, UnescapedHTMLElement, meta_element
-from rxxxt.events import InputEvent, OutputEvent
-from rxxxt.execution import Context, ContextConfig, Execution
+from rxxxt.execution import Context, ContextConfig, Execution, InputEvent, OutputEvent
 from rxxxt.helpers import to_awaitable
 from rxxxt.node import LazyNode
 from rxxxt.page import PageFactory

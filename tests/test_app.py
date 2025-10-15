@@ -4,8 +4,7 @@ from rxxxt.app import App, AppHttpRequest, AppWebsocketInitMessage, AppWebsocket
 from rxxxt.asgi import ASGIHandler
 from rxxxt.component import Component, event_handler, local_state
 from rxxxt.elements import El, Element, lazy_element
-from rxxxt.events import InputEvent
-from rxxxt.execution import Context
+from rxxxt.execution import Context, InputEvent
 from rxxxt.state import default_state_resolver
 
 class TestApp(unittest.IsolatedAsyncioTestCase):

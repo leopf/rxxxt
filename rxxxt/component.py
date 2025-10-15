@@ -4,8 +4,7 @@ from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get
 from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call, TypeAdapter
 from rxxxt.elements import CustomAttribute, Element, meta_element
-from rxxxt.events import InputEventDescriptor, InputEventDescriptorGenerator, InputEventDescriptorOptions, InputEvent
-from rxxxt.execution import Context
+from rxxxt.execution import Context, InputEventDescriptor, InputEventDescriptorGenerator, InputEventDescriptorOptions, InputEvent
 from rxxxt.helpers import to_awaitable, FNP, FNR, T
 from rxxxt.node import Node
 from rxxxt.state import StateCell, State
