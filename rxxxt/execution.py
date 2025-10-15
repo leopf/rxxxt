@@ -71,15 +71,11 @@ class Context:
     def consume(self, key: str, producer: Callable[[], str]) -> Any: self.context.request_update()
     def detach(self, key: str) -> Any: self.context.request_update()
 
-    @staticmethod
-    def for_context(context: 'Context'):
-      if (consumer := Context.StateConsumer._context_cache.get(context)) is None:
-        consumer = Context.StateConsumer(context)
-        Context.StateConsumer._context_cache[context] = consumer
-      return consumer
-
   def __hash__(self) -> int:
     return hash(self.id)
+
+  @functools.cached_property
+  def update_consumer(self): return Context.StateConsumer(self)
 
   @functools.cached_property
   def sid(self): return get_context_stack_sid(self.id)
@@ -134,7 +130,7 @@ class Context:
     else: return tuple(header_lines.splitlines())
 
   def request_update(self): self.execution.request_update(self.id)
-  def subscribe(self, key: str): self.state.get(key).add_consumer(Context.StateConsumer.for_context(self))
+  def subscribe(self, key: str): self.state.get(key).add_consumer(self.update_consumer)
 
   def emit(self, name: str, data: dict[str, int | float | str | bool | None]):
     self.execution.add_output_event(CustomOutputEvent(name=name, data=data))
