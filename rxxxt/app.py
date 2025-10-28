@@ -31,7 +31,8 @@ class App:
     self._composer = Composer()
     self._config = config or AppConfig()
     _ = self._composer.add_handler(http_handler(routed_handler("/rxxxt-client.js")(self._http_static_rxxxt_client_js)))
-    _ = self._composer.add_handler(http_handler(self._http_session))
+    _ = self._composer.add_handler(http_handler(self._http_post_session))
+    _ = self._composer.add_handler(http_handler(self._http_get_session))
     _ = self._composer.add_handler(websocket_handler(self._ws_session))
     _ = self._composer.add_handler(http_not_found_handler)
 
@@ -44,7 +45,7 @@ class App:
     init_message = AppWebsocketInitMessage.model_validate_json(message)
 
     with contextlib.suppress(ConnectionError):
-      async with Session(self._get_session_config(True), self._content()) as session:
+      async with self._create_session(True) as session:
         updating_lock = asyncio.Lock()
 
         async def updater():
@@ -70,33 +71,38 @@ class App:
               await session.handle_events(update_message.events)
         finally: _ = updater_task.cancel()
 
-  async def _http_session(self, context: HTTPContext):
-    if context.method not in ("POST", "GET"): context.next()
-    async with Session(self._get_session_config(False), self._content()) as session:
-      if context.method == "POST":
-        req = AppHttpRequest.model_validate_json(await context.receive_json_raw())
-        await session.init(req.state_token)
-        session.set_location(context.location)
-        session.set_headers(context.headers)
-        await session.handle_events(req.events)
-      else:
-        session.set_location(context.location)
-        session.set_headers(context.headers)
-        await session.init(None)
+  async def _http_post_session(self, context: HTTPContext):
+    if context.method != "POST": context.next()
+    async with self._create_session(False) as session:
+      req = AppHttpRequest.model_validate_json(await context.receive_json_raw())
+      await session.init(req.state_token)
+      session.set_location(context.location)
+      session.set_headers(context.headers)
+      await session.handle_events(req.events)
 
       if session.update_pending:
         await session.update()
 
-      if context.method == "POST":
-        result = await session.render_update(include_state_token=True, render_full=False)
-        await context.respond_text(result.model_dump_json(exclude_defaults=True), mime_type="application/json")
-      else:
-        result = await session.render_page(context.path)
-        await context.respond_text(result, mime_type="text/html")
+      result = await session.render_update(include_state_token=True, render_full=False)
+      await context.respond_text(result.model_dump_json(exclude_defaults=True), mime_type="application/json")
+
+  async def _http_get_session(self, context: HTTPContext):
+    if context.method != "GET": context.next()
+    async with self._create_session(False) as session:
+      session.set_location(context.location)
+      session.set_headers(context.headers)
+      await session.init(None)
+
+      if session.update_pending:
+        await session.update()
+
+      result = await session.render_page(context.path)
+      await context.respond_text(result, mime_type="text/html")
 
   async def _http_static_rxxxt_client_js(self, context: HTTPContext, _: dict[str, str]):
     with importlib.resources.path("rxxxt.assets", "main.js") as file_path:
       return await context.respond_file(file_path, use_last_modified=True)
 
-  def _get_session_config(self, persistent: bool):
-    return SessionConfig(page_facotry=self._page_factory, state_resolver=self._state_resolver, persistent=persistent, app_config=self._config)
+  def _create_session(self, persistent: bool):
+    config = SessionConfig(page_facotry=self._page_factory, state_resolver=self._state_resolver, persistent=persistent, app_config=self._config)
+    return Session(config, self._content())
