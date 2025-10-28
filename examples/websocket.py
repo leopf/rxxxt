@@ -7,7 +7,6 @@ class Counter(Component):
 
   async def on_init(self) -> None:
     self.add_worker(self.do_toggle())
-    self.context.use_websocket()
 
   async def count_100(self):
     for _ in range(100):
