@@ -38,6 +38,10 @@ class Execution:
   pending_updates: set[ContextStack]
   update_pending_event: asyncio.Event
 
+  @property
+  def is_websocket_closing(self):
+    return any(event["event"] == "use-websocket" and event["websocket"] == False for event in self.output_events)
+
   def request_update(self, id: ContextStack):
     self.pending_updates.add(id)
     self.update_pending_event.set()
