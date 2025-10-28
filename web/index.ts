@@ -75,7 +75,7 @@ const outputEventHandlers: { [K in OutputEvent['event']]: (ev: Extract<OutputEve
     },
     navigate: event => {
         const targetUrl = new URL(event.location, location.href);
-        if (baseUrl === undefined || baseUrl.origin !== targetUrl.origin || !targetUrl.pathname.startsWith(baseUrl.pathname)) {
+        if (baseUrl === undefined || baseUrl.origin !== targetUrl.origin) {
             location.assign(targetUrl);
         } else {
             window.history.pushState({}, "", event.location);
@@ -144,14 +144,7 @@ const rxxxt = {
     },
     init: (data: InitData) => {
         baseUrl = new URL(location.href);
-        if (baseUrl.pathname.endsWith(data.path)) {
-            baseUrl.pathname = baseUrl.pathname.slice(
-                0,
-                baseUrl.pathname.length - data.path.length,
-            );
-        } else {
-            console.warn("Invalid base url!");
-        }
+        baseUrl.pathname = "/";
 
         window.addEventListener("popstate", transport.update);
         transportConfig.stateToken = data.state_token;
