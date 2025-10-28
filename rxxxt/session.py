@@ -71,7 +71,8 @@ class Session:
     await self._root_renderer.destroy()
     self.state.destroy()
 
-  async def update(self):
+  async def update(self, *, optional: bool = False):
+    if optional and not self.update_pending: return
     await self._root_renderer.update(self.execution.pop_pending_updates())
     self.state.cleanup({ "#" })
     self.execution.reset_event()

@@ -79,10 +79,7 @@ class App:
       session.set_location(context.location)
       session.set_headers(context.headers)
       await session.handle_events(req.events)
-
-      if session.update_pending:
-        await session.update()
-
+      await session.update(optional=True)
       result = await session.render_update(include_state_token=True, render_full=False)
       await context.respond_text(result.model_dump_json(exclude_defaults=True), mime_type="application/json")
 
@@ -92,10 +89,7 @@ class App:
       session.set_location(context.location)
       session.set_headers(context.headers)
       await session.init(None)
-
-      if session.update_pending:
-        await session.update()
-
+      await session.update(optional=True)
       result = await session.render_page(context.path)
       await context.respond_text(result, mime_type="text/html")
 
