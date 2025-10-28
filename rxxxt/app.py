@@ -1,4 +1,4 @@
-import asyncio, contextlib, importlib.resources
+import asyncio, importlib.resources
 from typing import Any, Literal
 from pydantic import BaseModel
 from rxxxt.asgi import ASGIFnReceive, ASGIFnSend, ASGIScope, Composer, HTTPContext, WebsocketContext, http_handler, http_not_found_handler, routed_handler, websocket_handler
@@ -31,7 +31,8 @@ class App:
     self._composer = Composer()
     self._config = config or AppConfig()
     _ = self._composer.add_handler(http_handler(routed_handler("/rxxxt-client.js")(self._http_static_rxxxt_client_js)))
-    _ = self._composer.add_handler(http_handler(self._http_session))
+    _ = self._composer.add_handler(http_handler(self._http_post_session))
+    _ = self._composer.add_handler(http_handler(self._http_get_session))
     _ = self._composer.add_handler(websocket_handler(self._ws_session))
     _ = self._composer.add_handler(http_not_found_handler)
 
@@ -39,64 +40,72 @@ class App:
     return await self._composer(scope, receive, send)
 
   async def _ws_session(self, context: WebsocketContext):
-    await context.setup()
-    message = await context.receive_message()
-    init_message = AppWebsocketInitMessage.model_validate_json(message)
+    updating_lock = asyncio.Lock()
+    session = self._create_session(True)
+    try:
+      await context.setup()
+      message = await context.receive_message()
+      init_message = AppWebsocketInitMessage.model_validate_json(message)
 
-    with contextlib.suppress(ConnectionError):
-      async with Session(self._get_session_config(True), self._content()) as session:
-        updating_lock = asyncio.Lock()
+      await session.init(init_message.state_token)
+      session.set_location(context.location)
+      session.set_headers(context.headers)
 
-        async def updater():
-          while context.connected:
-            await session.wait_for_update()
-            async with updating_lock:
-              await session.update()
-              data = await session.render_update(include_state_token=init_message.enable_state_updates, render_full=False)
-              await context.send_message(data.model_dump_json(exclude_defaults=True))
+      async def updater():
+        while True:
+          await session.wait_for_update()
+          async with updating_lock:
+            await session.update()
+            include_state_token = init_message.enable_state_updates or session.execution.is_websocket_closing
+            data = await session.render_update(include_state_token=include_state_token, render_full=False)
+            await context.send_message(data.model_dump_json(exclude_defaults=True))
 
-        await session.init(init_message.state_token)
+      async def receiver():
+        while True:
+          message = await context.receive_message()
+          async with updating_lock:
+            update_message = AppWebsocketUpdateMessage.model_validate_json(message)
+            session.set_location(update_message.location)
+            await session.handle_events(update_message.events)
 
-        session.set_location(context.location)
-        session.set_headers(context.headers)
+      async with asyncio.TaskGroup() as task_group:
+        _ = task_group.create_task(receiver())
+        _ = task_group.create_task(updater())
 
-        updater_task = asyncio.create_task(updater())
-        try:
-          while True:
-            message = await context.receive_message()
-            async with updating_lock:
-              update_message = AppWebsocketUpdateMessage.model_validate_json(message)
-              session.set_location(update_message.location)
-              await session.handle_events(update_message.events)
-        finally: _ = updater_task.cancel()
+    except ConnectionError: pass
+    except ExceptionGroup as eg:
+      _, remaining_eg = eg.split(ConnectionError)
+      if remaining_eg is not None:
+        raise remaining_eg
+    finally:
+      await session.destroy()
 
-  async def _http_session(self, context: HTTPContext):
-    if context.method not in ("POST", "GET"): context.next()
-    async with Session(self._get_session_config(False), self._content()) as session:
-      if context.method == "POST":
-        req = AppHttpRequest.model_validate_json(await context.receive_json_raw())
-        await session.init(req.state_token)
-        session.set_location(context.location)
-        session.set_headers(context.headers)
-        await session.handle_events(req.events)
-      else:
-        session.set_location(context.location)
-        session.set_headers(context.headers)
-        await session.init(None)
+  async def _http_post_session(self, context: HTTPContext):
+    if context.method != "POST": context.next()
+    async with self._create_session(False) as session:
+      req = AppHttpRequest.model_validate_json(await context.receive_json_raw())
+      await session.init(req.state_token)
+      session.set_location(context.location)
+      session.set_headers(context.headers)
+      await session.handle_events(req.events)
+      await session.update(optional=True)
+      result = await session.render_update(include_state_token=True, render_full=False)
+      await context.respond_text(result.model_dump_json(exclude_defaults=True), mime_type="application/json")
 
-      if session.update_pending:
-        await session.update()
-
-      if context.method == "POST":
-        result = await session.render_update(include_state_token=True, render_full=False)
-        await context.respond_text(result.model_dump_json(exclude_defaults=True), mime_type="application/json")
-      else:
-        result = await session.render_page(context.path)
-        await context.respond_text(result, mime_type="text/html")
+  async def _http_get_session(self, context: HTTPContext):
+    if context.method != "GET": context.next()
+    async with self._create_session(False) as session:
+      session.set_location(context.location)
+      session.set_headers(context.headers)
+      await session.init(None)
+      await session.update(optional=True)
+      result = await session.render_page(context.path)
+      await context.respond_text(result, mime_type="text/html")
 
   async def _http_static_rxxxt_client_js(self, context: HTTPContext, _: dict[str, str]):
     with importlib.resources.path("rxxxt.assets", "main.js") as file_path:
       return await context.respond_file(file_path, use_last_modified=True)
 
-  def _get_session_config(self, persistent: bool):
-    return SessionConfig(page_facotry=self._page_factory, state_resolver=self._state_resolver, persistent=persistent, app_config=self._config)
+  def _create_session(self, persistent: bool):
+    config = SessionConfig(page_facotry=self._page_factory, state_resolver=self._state_resolver, persistent=persistent, app_config=self._config)
+    return Session(config, self._content())
