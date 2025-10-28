@@ -9,7 +9,7 @@ import os
 MODEL_NAME = os.getenv("MODEL_NAME", "llama3.2:3b")
 
 class Chat(Component):
-  messages = local_state_box(list[ollama.Message])
+  messages_box = local_state_box(list[ollama.Message])
   current_message = local_state(str)
   generating = local_state(bool)
 
@@ -18,15 +18,17 @@ class Chat(Component):
 
   async def generate_response(self):
     gen_opts = ollama.Options(num_predict=500)
-    response = await ollama.AsyncClient().chat(MODEL_NAME, self.messages.value[:-1], stream=True, options=gen_opts)
+    response = await ollama.AsyncClient().chat(MODEL_NAME, self.messages_box.value[:-1], stream=True, options=gen_opts)
     async for part in response:
-      self.messages.value[-1].content = (self.messages.value[-1].content or "") + (part.message.content or "")
+      with self.messages_box as messages:
+        messages[-1].content = (self.messages_box.value[-1].content or "") + (part.message.content or "")
     self.generating = False
 
   @event_handler(prevent_default=True)
   def on_message(self):
-    self.messages.value.append(ollama.Message(role="user", content=self.current_message))
-    self.messages.value.append(ollama.Message(role="assistant", content=""))
+    with self.messages_box as messages:
+      messages.append(ollama.Message(role="user", content=self.current_message))
+      messages.append(ollama.Message(role="assistant", content=""))
 
     self.current_message = ""
     self.generating = True
@@ -40,7 +42,7 @@ class Chat(Component):
   def render(self):
     return El.div(_class="content", content=[
       El.div(_class="messages", content=[
-        self._render_message(msg) for msg in self.messages.value
+        self._render_message(msg) for msg in self.messages_box.value
       ]),
       self._render_user_input()
     ])

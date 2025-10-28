@@ -24,6 +24,9 @@ class StateBox(Generic[T], StateCell):
       self._value = default_factory()
       key_state.set(self)
 
+  def __enter__(self): return self.value
+  def __exit__(self, *_): self.update()
+
   @property
   def key(self): return self._key
 
