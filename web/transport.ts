@@ -14,6 +14,7 @@ export function initTransport(config: TransportConfig) {
     let isUpdatePending = false;
     let isUpdateScheduling = false;
     let updateHandler: ((events: InputEvent[]) => Promise<void>);
+    let closeUpdateHandler: (() => Promise<void>) = async () => {};
     const pendingEvents = new Map<number, InputEvent>();
 
     const movePendingEvents = () => {
@@ -44,9 +45,10 @@ export function initTransport(config: TransportConfig) {
         }
     };
 
-    const useHTTP = () => {
-        ws?.close();
-        ws = undefined;
+    const useHTTP = async () => {
+        await closeUpdateHandler()
+        closeUpdateHandler = async () => {};
+
         updateHandler = async (events: InputEvent[]) => {
             const httpResponse = await fetch(location.href, {
                 method: "POST",
@@ -72,11 +74,17 @@ export function initTransport(config: TransportConfig) {
             }
         };
     };
-    const useWebSocket = () => {
+    const useWebSocket = async () => {
         if (ws !== undefined) {
             console.warn("tried to switch to websocket again, despite using it already");
             return;
         }
+
+        await closeUpdateHandler()
+        closeUpdateHandler = async () => {
+            ws?.close();
+            ws = undefined;
+        };
 
         const wsUpdateHandler: typeof updateHandler = async (events: InputEvent[]) =>
             ws?.send(
