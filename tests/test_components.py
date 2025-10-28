@@ -2,9 +2,8 @@ import unittest
 from typing import Annotated
 from rxxxt.component import Component, event_handler, local_state
 from rxxxt.elements import El, WithRegistered
-from rxxxt.events import InputEvent
+from rxxxt.execution import InputEvent
 from tests.helpers import element_to_node, render_node
-
 
 class TestComponents(unittest.IsolatedAsyncioTestCase):
   class Counter(Component):

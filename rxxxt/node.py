@@ -3,8 +3,7 @@ from abc import ABC
 import html
 from io import StringIO
 from typing import Callable
-from rxxxt.events import InputEvent
-from rxxxt.execution import Context
+from rxxxt.execution import Context, InputEvent
 
 class Node(ABC):
   def __init__(self, context: Context, children: tuple['Node', ...]) -> None:
