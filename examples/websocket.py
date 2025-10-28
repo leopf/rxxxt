@@ -1,0 +1,33 @@
+import uvicorn, asyncio
+from rxxxt import Component, local_state, App, event_handler, El
+
+class Counter(Component):
+  count = local_state(int)
+  someswitch = local_state(bool)
+
+  async def on_init(self) -> None:
+    self.add_worker(self.do_toggle())
+    self.context.use_websocket()
+
+  async def count_100(self):
+    for _ in range(100):
+      await asyncio.sleep(0.1)
+      self.count += 1
+
+  async def do_toggle(self):
+    while True:
+      self.someswitch = not self.someswitch
+      await asyncio.sleep(1)
+
+  @event_handler(prevent_default=True)
+  def on_submit(self):
+    self.add_job(self.count_100())
+
+  def render(self):
+    return El.div(content=[
+      El.div(content="on" if self.someswitch else "off"),
+      El.div(content=f"count: {self.count}"),
+      El.button(onclick=self.on_submit, content=["submit"])
+    ])
+
+uvicorn.run(App(Counter))
