@@ -4,10 +4,10 @@ Server side rendered, reactive web applications in python.
 **1 dependency (pydantic).**
 
 ## [Documentation](https://leopf.github.io/rxxxt/)
-- [App](https://leopf.github.io/rxxxt/app/) - the app
-- [Elements](https://leopf.github.io/rxxxt/elements/) - creating html elements
-- [Component](https://leopf.github.io/rxxxt/component/) - defining components
-- [State](https://leopf.github.io/rxxxt/state/) - how state works
+- [App](https://leopf.github.io/rxxxt/app/)
+- [Elements](https://leopf.github.io/rxxxt/elements/)
+- [Component](https://leopf.github.io/rxxxt/component/)
+- [State](https://leopf.github.io/rxxxt/state/)
 
 ## Installation
 
