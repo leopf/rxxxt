@@ -38,6 +38,7 @@ class Counter(Component):
 app = App(Counter)
 uvicorn.run(app)
 ```
+[result.webm](https://github.com/user-attachments/assets/cbfd61cb-8630-4d3c-87ec-e17cbae3a421)
 
 ## Usage with FastAPI
 ```python
