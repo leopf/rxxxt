@@ -31,7 +31,7 @@ def on_click(self):
   self.count += 1
 ```
 
-Event handlers can receive [`InputEventDescriptorOptions`](./api.md#rxxxt.events.InputEventDescriptorOptions).
+Event handlers can receive [`InputEventDescriptorOptions`](./api.md#rxxxt.execution.InputEventDescriptorOptions).
 
 Parameters on event handlers can be pre-filled with [`EventHandler.bind`](./api.md#rxxxt.component.EventHandler.bind):
 ```python

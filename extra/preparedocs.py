@@ -7,6 +7,7 @@ module = griffe.load("rxxxt/__init__.py")
 imports = set(module.imports.values())
 imports.update([
   "rxxxt.execution.State",
+  "rxxxt.execution.InputEventDescriptorOptions",
   "rxxxt.state.StateResolver",
   "rxxxt.state.JWTStateResolver",
   "rxxxt.component.StateBox",
@@ -14,7 +15,6 @@ imports.update([
   "rxxxt.helpers.match_path",
   "rxxxt.helpers.JWTManager",
   "rxxxt.helpers.JWTError",
-  "rxxxt.events.InputEventDescriptorOptions",
   "rxxxt.asgi.TransportContext",
   "rxxxt.asgi.HTTPContext",
   "rxxxt.asgi.WebsocketContext",
