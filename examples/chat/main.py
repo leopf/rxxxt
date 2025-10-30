@@ -1,10 +1,7 @@
+import uvicorn, ollama, os, typing
 from rxxxt import Component, local_state, App, event_handler, El, VEl, PageBuilder, local_state_box
-from typing import Annotated
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI
-import uvicorn
-import ollama
-import os
 
 MODEL_NAME = os.getenv("MODEL_NAME", "llama3.2:3b")
 
@@ -36,7 +33,7 @@ class Chat(Component):
     self.add_job(self.generate_response())
 
   @event_handler(debounce=500, throttle=500)
-  def on_message_input(self, text: Annotated[str, "target.value"]):
+  def on_message_input(self, text: typing.Annotated[str, "target.value"]):
     self.current_message = text
 
   def render(self):
