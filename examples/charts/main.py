@@ -13,18 +13,9 @@ class Dashboard(Component):
 
   async def render(self):
     return El.div(_class="dashboard", content=[
-      chart(config={
-        "type": "bar",
-        "data": await self.load_data()
-      }, style="height: 33vh;"),
-      chart(config={
-        "type": "line",
-        "data": await self.load_data()
-      }, style="height: 33vh;"),
-      chart(config={
-        "type": "pie",
-        "data": await self.load_data()
-      }, style="height: 33vh;"),
+      chart(config={ "type": "bar", "data": await self.load_data() }),
+      chart(config={ "type": "line", "data": await self.load_data() }),
+      chart(config={ "type": "pie", "data": await self.load_data() }),
     ])
 
 composer = Composer()

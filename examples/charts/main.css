@@ -11,3 +11,7 @@ body {
     grid-gap: 1rem;
     align-items: center;
 }
+
+.dashboard chart-js {
+    height: 30vh;
+}
