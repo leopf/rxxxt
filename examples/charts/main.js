@@ -27,9 +27,11 @@ class ChartJsElement extends HTMLElement {
     connectedCallback() {
         this.#render();
     }
+
     disconnectedCallback() {
         this.#destroy();
     }
+
     attributeChangedCallback(name, oldVal, newVal) {
         if (name === "config" && oldVal !== newVal) {
             this._config = JSON.parse(newVal);
