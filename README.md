@@ -3,6 +3,15 @@ Server side rendered, reactive web applications in python.
 
 **1 dependency (pydantic).**
 
+Features:
+- stateless and stateful sessions
+- server to client updates
+- integrated state management
+- background workers
+- routing and navigation
+- partial page updates
+- more...
+
 ## [Documentation](https://leopf.github.io/rxxxt/)
 - [App](https://leopf.github.io/rxxxt/app/)
 - [Elements](https://leopf.github.io/rxxxt/elements/)
@@ -15,9 +24,9 @@ Server side rendered, reactive web applications in python.
 pip install rxxxt
 ```
 
-If you want to run the application, you will have to install an ASGI web server like uvicorn as well:
+If you want to run the application, you will have to install an ASGI web server like uvicorn (with `[standard]` to allow for websockets) as well:
 ```bash
-pip install rxxxt uvicorn
+pip install rxxxt uvicorn[standard]
 ```
 
 ## Usage
@@ -69,3 +78,6 @@ app = App(Counter, page_factory=page_builder)
 server.mount("/", app)
 uvicorn.run(server)
 ```
+
+## Notes
+- after restarting python, your browser session will stop working (until you refresh), because your old state has been invalidated. Make sure to set `JWT_SECRET` to avoid this.
