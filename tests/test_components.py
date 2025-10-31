@@ -42,6 +42,30 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
     await node.expand()
     self.assertEqual(render_node(node), "<div>1337</div>")
 
+  async def test_event_handler(self):
+    class Main(Component):
+      @event_handler(prevent_default=True, debounce=500, throttle=250)
+      def on_input(self, value: Annotated[str, "target.value"]):
+        pass
+
+      @event_handler(prevent_default=True, debounce=500, throttle=250)
+      def on_toggle(self, active: 'Annotated[str, "target.checked"]'):
+        pass
+
+      def render(self):
+        return El.div()
+
+    comp = Main()
+    node = element_to_node(comp)
+    await node.expand()
+
+    descriptor = comp.on_input.descriptor
+    self.assertDictEqual(descriptor.param_map, { "value": "target.value" })
+    self.assertTrue(descriptor.options.prevent_default)
+    self.assertEqual(descriptor.options.debounce, 500)
+    self.assertEqual(descriptor.options.throttle, 250)
+    self.assertDictEqual(comp.on_toggle.descriptor.param_map, { "active": "target.checked" })
+
   async def test_with_registered(self):
     comp = WithRegistered({ "header": "deadbeef" }, TestComponents.RegistryComp())
     node = element_to_node(comp, {})
