@@ -38,9 +38,9 @@ In addition to the element factory, a `state_resolver` (see [State](./state.md))
 - `enable_web_socket_state_updates`: set to `True` when websocket pushes should include a refreshed state token so the client can keep its `StateResolver` data after the socket closes or falls back to HTTP. Leave it `False` when the websocket never needs to persist state beyond its lifetime.
 - `disable_http_update_retry`: set to `True` to disable resending events over HTTP when the response indicates the update is stale (new events arrived while the request was processing).
 
-## Page Factory
+## PageFactory
 
-A page factory is a function receiving
+A PageFactory is a function receiving
 
 - a header element,
 - a content element,
