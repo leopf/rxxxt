@@ -1,6 +1,6 @@
 import asyncio, inspect, weakref, base64
 from abc import abstractmethod
-from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, cast
+from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, cast, get_type_hints
 from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call, TypeAdapter
 from rxxxt.elements import CustomAttribute, Element, meta_element
@@ -181,14 +181,19 @@ class EventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribu
   def _get_param_map(self):
     param_map: dict[str, str] = {}
     sig = inspect.signature(self._fn)
+    hints = get_type_hints(self._fn, include_extras=True)
     for i, (name, param) in enumerate(sig.parameters.items()):
-      if i == 0: continue # skip self
-      if get_origin(param.annotation) is Annotated:
-        args = get_args(param.annotation)
+      if i == 0: continue  # skip self
+      ann = hints.get(name, param.annotation)
+      if get_origin(ann) is Annotated:
+        args = get_args(ann)
         metadata = args[1:]
         if len(metadata) < 1:
           raise ValueError(f"Parameter '{name}' is missing the second annotation.")
+        if not isinstance(metadata[0], str):
+          raise TypeError(f"Parameter '{name}' second annotation must be a str, got {type(metadata[0]).__name__}.")
         param_map[name] = metadata[0]
+
     return param_map
 
 def event_handler(**kwargs: Any):
