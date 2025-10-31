@@ -3,6 +3,15 @@ Server side rendered, reactive web applications in python.
 
 **1 dependency (pydantic).**
 
+Features:
+- stateless and stateful sessions
+- server to client updates
+- integrated state management
+- background workers
+- routing and navigation
+- partial page updates
+- more...
+
 ## [Documentation](https://leopf.github.io/rxxxt/)
 - [App](https://leopf.github.io/rxxxt/app/)
 - [Elements](https://leopf.github.io/rxxxt/elements/)
