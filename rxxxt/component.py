@@ -216,9 +216,6 @@ class Component(Element):
     self._worker_tasks: list[asyncio.Task[Any]] = []
     self._job_tasks: list[asyncio.Task[Any]] = []
 
-  @abstractmethod
-  def render(self) -> Element | Awaitable[Element]: ...
-
   def add_job(self, a: Coroutine[Any, Any, Any]):
     """
     Runs a background job until completion. Only runs when the session is persistent.
@@ -240,17 +237,17 @@ class Component(Element):
 
   async def lc_init(self, context: Context) -> None:
     self.context = context
-    await self.on_init()
+    await to_awaitable(self.on_init)
 
   async def lc_render(self) -> Element:
-    await self.on_before_update()
+    await to_awaitable(self.on_before_update)
     el = await to_awaitable(self.render)
     try: self.context.execution.pending_updates.remove(self.context.id) # NOTE: remove any update that was requested during render
     except KeyError: pass
-    await self.on_after_update()
+    await to_awaitable(self.on_after_update)
     return el
   async def lc_destroy(self) -> None:
-    await self.on_before_destroy()
+    await to_awaitable(self.on_before_destroy)
     if len(self._job_tasks) > 0:
       try: _ = await asyncio.wait(self._job_tasks)
       except asyncio.CancelledError: pass
@@ -260,7 +257,7 @@ class Component(Element):
       try: _ = await asyncio.wait(self._worker_tasks)
       except asyncio.CancelledError: pass
       self._worker_tasks.clear()
-    await self.on_after_destroy()
+    await to_awaitable(self.on_after_destroy)
 
   async def lc_handle_event(self, event: dict[str, int | float | str | bool | None]):
     handler_name = event.pop("$handler_name", None)
@@ -269,11 +266,14 @@ class Component(Element):
       if isinstance(fn, EventHandler):
         await to_awaitable(cast(EventHandler[..., Any], fn), **event)
 
-  async def on_init(self) -> None: ...
-  async def on_before_update(self) -> None: ...
-  async def on_after_update(self) -> None: ...
-  async def on_before_destroy(self) -> None: ...
-  async def on_after_destroy(self) -> None: ...
+  def on_init(self) -> None | Awaitable[None]: ...
+  def on_before_update(self) -> None | Awaitable[None]: ...
+  def on_after_update(self) -> None | Awaitable[None]: ...
+  def on_before_destroy(self) -> None | Awaitable[None]: ...
+  def on_after_destroy(self) -> None | Awaitable[None]: ...
+
+  @abstractmethod
+  def render(self) -> Element | Awaitable[Element]: ...
 
   def tonode(self, context: Context) -> 'Node': return ComponentNode(context, self)
 
