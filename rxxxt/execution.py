@@ -1,4 +1,4 @@
-import asyncio, hashlib, functools, re, dataclasses, weakref
+import asyncio, hashlib, functools, re, dataclasses
 from datetime import datetime
 from abc import ABC, abstractmethod
 from pydantic import BaseModel
@@ -95,8 +95,6 @@ class Context:
   execution: Execution
 
   class StateConsumer(StateConsumer):
-    _context_cache: weakref.WeakKeyDictionary['Context', 'Context.StateConsumer'] = weakref.WeakKeyDictionary()
-
     def __init__(self, context: 'Context') -> None: self.context = context
     def consume(self, key: str, producer: Callable[[], str]) -> Any: self.context.request_update()
     def detach(self, key: str) -> Any: self.context.request_update()
