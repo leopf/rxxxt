@@ -1,6 +1,6 @@
 import unittest
 from typing import Annotated
-from rxxxt.component import Component, event_handler, local_state
+from rxxxt.component import Component, SharedExternalState, event_handler, local_state
 from rxxxt.elements import El, WithRegistered
 from rxxxt.execution import InputEvent
 from tests.helpers import element_to_node, render_node
@@ -103,6 +103,40 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
     await node.expand()
     with self.assertRaises(Exception):
       await node.expand()
+
+  async def test_shared_external_state(self):
+    class Subscriber(Component):
+      shared = SharedExternalState[dict[str, int]]({ "count": 10 })
+      def render(self):
+        _ = self.shared  # trigger registration
+        return El.div(content=[f"shared:{self.shared.value['count']}"])
+
+    node_a = element_to_node(Subscriber())
+    await node_a.expand()
+    node_b = element_to_node(Subscriber())
+    await node_b.expand()
+    self.assertEqual(render_node(node_a), "<div>shared:10</div>")
+
+    Subscriber.shared.value = { "count": 1337 }
+    await node_a.update()
+    await node_b.update()
+    self.assertEqual(render_node(node_a), "<div>shared:1337</div>")
+    self.assertEqual(render_node(node_b), "<div>shared:1337</div>")
+
+    Subscriber.shared.value["count"] = 7331
+    Subscriber.shared.update()
+    await node_a.update()
+    await node_b.update()
+    self.assertEqual(render_node(node_a), "<div>shared:7331</div>")
+    self.assertEqual(render_node(node_b), "<div>shared:7331</div>")
+
+    class NotAComponent:
+      shared = Subscriber.shared
+    with self.assertRaises(TypeError):
+      _ = NotAComponent().shared
+
+    await node_a.destroy()
+    await node_b.destroy()
 
 if __name__ == "__main__":
   _ = unittest.main()
