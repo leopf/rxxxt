@@ -142,6 +142,32 @@ def global_state_box(default_factory: Callable[[], T], name: str | None = None):
 def context_state_box(default_factory: Callable[[], T], name: str | None = None):
   return StateBoxDescriptor(get_context_state_key, default_factory, state_name=name)
 
+class SharedExternalState(Generic[T]):
+  def __init__(self, initial_value: T) -> None:
+    self._components: weakref.WeakSet[Component] = weakref.WeakSet()
+    self._value: T = initial_value
+
+  @property
+  def value(self) -> T:
+    return self._value
+
+  @value.setter
+  def value(self, nv: T):
+    self._value = nv
+    self.update()
+
+  def __get__(self, obj: Any, objtype: Any=None):
+    if obj is None:
+      return self
+    if not isinstance(obj, Component):
+      raise TypeError("SharedExternalState must only be accessed from inside a component!")
+    self._components.add(obj)
+    return self
+
+  def update(self):
+    for component in self._components:
+      component.context.request_update()
+
 class ClassEventHandler(Generic[FNP, FNR]):
   def __init__(self, fn: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions) -> None:
     self._fn = fn

@@ -1,13 +1,11 @@
-import uvicorn, asyncio, logging
-from rxxxt import App, Component, PageBuilder, local_state, El, VEl, event_handler
+import uvicorn, logging
+from rxxxt import App, Component, PageBuilder, local_state, El, VEl, event_handler, SharedExternalState
 from typing import Annotated
 
 logging.basicConfig(level=logging.DEBUG)
 
-waiting_futures: list[asyncio.Future] = []
-messages: list[tuple[str, str]] = []
-
 class Main(Component):
+  messages = SharedExternalState[list[tuple[str, str]] ]([])
   message = local_state(str)
   username = local_state(str)
 
@@ -27,32 +25,18 @@ class Main(Component):
   def send_message(self):
     if not self.message_allowed:
       return
-
-    global messages, waiting_futures
-    messages.append((self.username, self.message))
-    resolving_futures = waiting_futures
-    waiting_futures = []
-    for fut in resolving_futures:
-      fut.set_result(0)
+    self.messages.value.append((self.username, self.message))
+    self.messages.update()
     self.message = ""
-
-
-  async def message_update_loop(self):
-    while True:
-      fut = asyncio.Future()
-      waiting_futures.append(fut)
-      await fut
-      self.context.request_update()
 
   async def on_init(self):
     self.context.use_websocket()
-    self.add_worker(self.message_update_loop())
 
   def render(self):
     return El.div(_class="content", content=[
       El.div(style="font-size: 0.9rem;", content=["your name:"]),
       VEl.input(_type="text", value=self.username, oninput=self.on_username_input, placeholder="username", style="display: block;"),
-      El.div(style="flex: 1; padding: 1rem 0;", content=[ El.div(content=[f"{username}: {message}"]) for username, message in messages ]),
+      El.div(style="flex: 1; padding: 1rem 0;", content=[ El.div(content=[f"{username}: {message}"]) for username, message in self.messages.value ]),
       El.form(style="display: flex; gap: 0.5rem; align-items: center;", onsubmit=self.send_message, content=[
         VEl.input(_type="text", value=self.message, oninput=self.on_message_input, placeholder="new message", style="display: block; flex: 1"),
         El.button(disabled=not self.message_allowed, content=["send"])

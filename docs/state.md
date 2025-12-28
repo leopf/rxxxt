@@ -129,3 +129,27 @@ class SharedData(Component):
       El.span(content=[f"Visits: {self.settings.value['visits']}"]),
     ])
 ```
+
+7. **[`SharedExternalState`](./api.md#rxxxt.component.SharedExternalState)** - server-only shared state that stays outside the session token. Declare it on the component class with an initial value, call `self.context.use_websocket()` so updates can be pushed to clients, read the data via `.value`, and call `.update()` whenever you mutate that value in place so every subscribing component refreshes.
+```python
+from rxxxt import Component, Element, SharedExternalState, event_handler, El
+
+class Scoreboard(Component):
+  stats = SharedExternalState({"blue": 0, "red": 0})
+
+  async def on_init(self):
+    self.context.use_websocket()
+
+  @event_handler()
+  def add_blue(self):
+    self.stats.value["blue"] += 1
+    self.stats.update()  # notify after changing the shared dict in place
+
+  def render(self) -> Element:
+    return El.div(content=[
+      El.div(content=[f"Blue: {self.stats.value['blue']}"]),
+      El.div(content=[f"Red: {self.stats.value['red']}"]),
+      El.button(onclick=self.add_blue, content=["Add point"]),
+    ])
+```
+See `examples/chat.py` for a larger example that streams shared messages through this descriptor.
