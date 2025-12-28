@@ -4,7 +4,7 @@ Server side rendered, reactive web applications in python.
 **1 dependency (pydantic).**
 
 Features:
-- stateless and stateful sessions
+- stateless (HTTP) and stateful (websocket) sessions
 - server to client updates
 - integrated state management
 - background workers
