@@ -1,5 +1,5 @@
 # rxxxt (R-3-X-T)
-Server side rendered, reactive web applications in python.
+Server side rendered, reactive web applications in python. 
 
 **1 dependency (pydantic).**
 
@@ -12,11 +12,7 @@ Features:
 - partial page updates
 - more...
 
-## [Documentation](https://leopf.github.io/rxxxt/)
-- [App](https://leopf.github.io/rxxxt/app/)
-- [Elements](https://leopf.github.io/rxxxt/elements/)
-- [Component](https://leopf.github.io/rxxxt/component/)
-- [State](https://leopf.github.io/rxxxt/state/)
+Have a look at the [Getting Started guide](https://leopf.github.io/rxxxt/getting-started/) or check out the [full documentation](https://leopf.github.io/rxxxt/).
 
 ## Installation
 
