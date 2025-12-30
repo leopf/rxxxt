@@ -9,6 +9,7 @@ theme:
     accent: lime
 nav:
   - Home: index.md
+  - "Getting Started": getting-started.md
   - app.md
   - asgi.md
   - elements.md
