@@ -17,6 +17,7 @@ nav:
   - router.md
   - path-matching.md
   - state.md
+  - debugging.md
   - api.md
 markdown_extensions:
   - pymdownx.highlight
