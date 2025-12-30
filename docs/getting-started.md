@@ -111,10 +111,10 @@ See [state.md](./state.md) for more on external and `global_state`.
 from rxxxt import Component, El, Element, global_state
 
 class ShoppingList(Component):
-  user_id = global_state(lambda: "guest")
+  user_id = global_state(int)
 
   async def render(self) -> Element:
-    rows = await sql_select("select item, qty from shopping_list where user = ?", self.user_id)
+    rows = await sql_select("select item, qty from shopping_list where user_id = ?", self.user_id)
     return El.ul(content=[
       El.li(content=[f"{row['item']} x{row['qty']}"])
       for row in rows
