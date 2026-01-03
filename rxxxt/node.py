@@ -11,19 +11,24 @@ class Node(ABC):
     self.children = children
 
   async def expand(self):
-    for c in self.children: await c.expand()
+    for c in self.children:
+      await c.expand()
 
   async def update(self):
-    for c in self.children: await c.update()
+    for c in self.children:
+      await c.update()
 
   async def handle_event(self, event: InputEvent):
-    for c in self.children: await c.handle_event(event)
+    for c in self.children:
+      await c.handle_event(event)
 
   async def destroy(self):
-    for c in self.children: await c.destroy()
+    for c in self.children:
+      await c.destroy()
 
   def write(self, io: StringIO):
-    for c in self.children: c.write(io)
+    for c in self.children:
+      c.write(io)
 
 class LazyNode(Node):
   def __init__(self, context: Context, producer: Callable[[Context], Node]) -> None:
@@ -41,7 +46,8 @@ class TextNode(Node):
     super().__init__(context, ())
     self.text = text
 
-  def write(self, io: StringIO): _ = io.write(self.text)
+  def write(self, io: StringIO):
+    _ = io.write(self.text)
 
 def _write_opening_tag(io: StringIO, tag: str, attributes: tuple['Node', ...]):
   _ = io.write(f"<{html.escape(tag)}")
@@ -68,5 +74,6 @@ class ElementNode(Node):
 
   def write(self, io: StringIO):
     _write_opening_tag(io, self.tag, self.attributes)
-    for c in self.children: c.write(io)
+    for c in self.children:
+      c.write(io)
     _ = io.write(f"</{html.escape(self.tag)}>")
