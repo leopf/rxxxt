@@ -43,24 +43,30 @@ class TextNode(Node):
 
   def write(self, io: StringIO): _ = io.write(self.text)
 
+def _write_opening_tag(io: StringIO, tag: str, attributes: tuple['Node', ...]):
+  _ = io.write(f"<{html.escape(tag)}")
+  for a in attributes:
+    io.write(" ")
+    a.write(io)
+  _ = io.write(">")
+
 class VoidElementNode(Node):
-  def __init__(self, context: Context, tag: str, attributes: dict[str, str | None], children: tuple['Node', ...] = ()) -> None:
-    super().__init__(context, children)
+  def __init__(self, context: Context, tag: str, attributes: tuple['Node', ...]) -> None:
+    super().__init__(context, attributes)
     self.attributes = attributes
     self.tag = tag
 
   def write(self, io: StringIO):
-    _ = io.write(f"<{html.escape(self.tag)}")
-    for k, v in self.attributes.items():
-      _ = io.write(f" {html.escape(k)}")
-      if v is not None: _ = io.write(f"=\"{html.escape(v)}\"")
-    _ = io.write(">")
+    _write_opening_tag(io, self.tag, self.attributes)
 
-class ElementNode(VoidElementNode):
-  def __init__(self, context: Context, tag: str, attributes: dict[str, str | None], children: tuple['Node', ...]) -> None:
-    super().__init__(context, tag, attributes, children)
+class ElementNode(Node):
+  def __init__(self, context: Context, tag: str, attributes: tuple['Node', ...], content: tuple['Node', ...]) -> None:
+    super().__init__(context, attributes + content)
+    self.tag = tag
+    self.attributes = attributes
+    self.content = content
 
   def write(self, io: StringIO):
-    super().write(io)
+    _write_opening_tag(io, self.tag, self.attributes)
     for c in self.children: c.write(io)
     _ = io.write(f"</{html.escape(self.tag)}>")

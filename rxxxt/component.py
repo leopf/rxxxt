@@ -1,4 +1,4 @@
-import asyncio, inspect, weakref, base64
+import asyncio, inspect, weakref, base64, html
 from abc import abstractmethod
 from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, cast, get_type_hints
 from collections.abc import Awaitable, Coroutine
@@ -6,7 +6,7 @@ from pydantic import validate_call, TypeAdapter
 from rxxxt.elements import CustomAttribute, Element, meta_element
 from rxxxt.execution import Context, InputEventDescriptor, InputEventDescriptorGenerator, InputEventDescriptorOptions, InputEvent
 from rxxxt.helpers import to_awaitable, FNP, FNR, T
-from rxxxt.node import Node
+from rxxxt.node import Node, TextNode
 from rxxxt.state import StateCell, State
 
 class StateBox(Generic[T], StateCell):
@@ -199,10 +199,10 @@ class EventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribu
     })
     return EventHandler(self._fn, new_options, self._instance)
 
-  def get_key_values(self, original_key: str):
+  def tonode(self, context: Context, original_key: str):
     if not original_key.startswith("on"): raise ValueError("Event handler must be applied to an attribute starting with 'on'.")
     v = base64.b64encode(self.descriptor.model_dump_json(exclude_defaults=True).encode("utf-8")).decode("utf-8")
-    return ((f"rxxxt-on-{original_key[2:]}", v),)
+    return TextNode(context, f"rxxxt-on-{original_key[2:]}=\"{html.escape(v)}\"")
 
   def _get_param_map(self):
     param_map: dict[str, str] = {}
@@ -232,8 +232,8 @@ class HandleNavigate(CustomAttribute):
     super().__init__()
     self.location = location
 
-  def get_key_values(self, original_key: str) -> tuple[tuple[str, str],...]:
-    return ((original_key, f"window.rxxxt.navigate('{self.location}');"),)
+  def tonode(self, context: Context, original_key: str) -> Node:
+    return TextNode(context, f"{html.escape(original_key)}=\"window.rxxxt.navigate('{html.escape(self.location)}');\"")
 
 class Component(Element):
   def __init__(self) -> None:

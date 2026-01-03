@@ -1,4 +1,4 @@
-import unittest
+import unittest, html
 from rxxxt.component import Component
 from rxxxt.elements import El, HTMLFragment, VEl, lazy_element, class_map
 from rxxxt.execution import Context
@@ -45,6 +45,16 @@ class TestElements(unittest.IsolatedAsyncioTestCase):
 
     text = await render_element(TestComp())
     self.assertEqual(text, "<div>Hello World!</div>")
+
+  async def test_attribute_name_is_sanitized(self):
+    malicious_name = "\"><script>alert(1)</script>"
+    text = await render_element(VEl.input(**{malicious_name: "safe"}))
+    self.assertEqual(text, f"<input {html.escape(malicious_name)}=\"safe\">")
+
+  async def test_attribute_value_is_sanitized(self):
+    malicious_value = "\" onfocus=\"alert(1) & <script>alert('x')</script>"
+    text = await render_element(VEl.input(value=malicious_value))
+    self.assertEqual(text, f"<input value=\"{html.escape(malicious_value)}\">")
 
 if __name__ == "__main__":
   _ = unittest.main()

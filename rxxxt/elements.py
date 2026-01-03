@@ -13,7 +13,7 @@ class Element(ABC):
 
 class CustomAttribute(ABC):
   @abstractmethod
-  def get_key_values(self, original_key: str) -> tuple[tuple[str, str | None],...]: ...
+  def tonode(self, context: Context, original_key: str) -> Node: ...
 
 ElementContent = Iterable[Element | str]
 HTMLAttributeValue = str | bool | int | float | CustomAttribute | None
@@ -32,18 +32,23 @@ def _merge_attribute_items(attrs: Iterable[tuple[str, HTMLAttributeValue]]):
   normalized = sorted(((k.lstrip("_"), v) for k, v in attrs), key=lambda item: item[0])
   return ((k, _merge_attribute_values(k, tuple(item[1] for item in g))) for k,g in itertools.groupby(normalized, key=lambda item: item[0]))
 
-def _html_attributes_to_kv(attributes: HTMLAttributes):
-  fattributes: dict[str, str | None] = {}
-  items = _merge_attribute_items((k, v) for ok, ov in attributes.items()
-    for k, v in (ov.get_key_values(ok) if isinstance(ov, CustomAttribute) else ((ok, ov),)))
-  for k, v in items:
-    if v is False: continue
-    elif v is True: v = None
-    elif isinstance(v, (int, float)): v = str(v)
-    if v is not None and not isinstance(v, str):
-      raise ValueError("Invalid attribute value", v)
-    fattributes[k] = v
-  return fattributes
+def _html_attributes_to_nodes(context: Context, attributes: HTMLAttributes):
+  attribute_nodes: list[Node] = []
+  for key, value in _merge_attribute_items(attributes.items()):
+    sanitized_key = html.escape(key)
+    attr_context = context.sub(sanitized_key)
+    if isinstance(value, CustomAttribute):
+      attribute_nodes.append(value.tonode(attr_context, sanitized_key))
+    elif value is None or isinstance(value, bool):
+      if value is None or value == True:
+        attribute_nodes.append(TextNode(attr_context, sanitized_key))
+    else:
+      if isinstance(value, (int, float)):
+        value = str(value)
+      if value is not None and not isinstance(value, str):
+        raise ValueError("Invalid attribute value", value)
+      attribute_nodes.append(TextNode(attr_context, f"{sanitized_key}=\"{html.escape(value)}\""))
+  return tuple(attribute_nodes)
 
 # to make elements that dont have state and are transformed to node 1:1
 class _FnElement(Element, Generic[FNP]):
@@ -71,11 +76,12 @@ def HTMLFragment(context: Context, content: ElementContent):
 
 @fn_element
 def HTMLVoidElement(context: Context, tag: str, attributes: HTMLAttributes):
-  return VoidElementNode(context, tag, _html_attributes_to_kv(attributes))
+  return VoidElementNode(context, tag, _html_attributes_to_nodes(context.sub("attributes"), attributes))
 
 @fn_element
 def HTMLElement(context: Context, tag: str, attributes: HTMLAttributes, content: ElementContent):
-  return ElementNode(context, tag, _html_attributes_to_kv(attributes), _element_content_to_ordered_nodes(context, content))
+  return ElementNode(context, tag, _html_attributes_to_nodes(context.sub("attributes"), attributes), \
+    _element_content_to_ordered_nodes(context.sub("children"), content))
 
 @fn_element
 def KeyedElement(context: Context, key: str, element: Element):
