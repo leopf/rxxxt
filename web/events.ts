@@ -24,7 +24,7 @@ const descriptorKeyCache = new WeakMap<InputEventDescriptor, string>();
 function descriptorKey(d: InputEventDescriptor) {
     let key = descriptorKeyCache.get(d);
     if (key === undefined) {
-        key = JSON.stringify([ d.context_id, d.handler_name, d.options.debounce ?? null, d.options.prevent_default ?? null,
+        key = JSON.stringify([ d.context_id, d.options.debounce ?? null, d.options.prevent_default ?? null,
             d.options.throttle ?? null, ...Object.entries(d.param_map).sort((a, b) => a[0].localeCompare(b[0])) ]);
         descriptorKeyCache.set(d, key);
     }
@@ -87,7 +87,6 @@ export function initEventManager(triggerUpdate: () => void) {
 
         for (const targetEvent of peningEvents.filter(te => te.event === e.type)) {
             const eventData: Record<string, number | boolean | string | undefined> = {
-                $handler_name: targetEvent.descriptor.handler_name,
                 ...(targetEvent.descriptor.options.default_params ?? {}),
                 ...Object.fromEntries(Object.entries(targetEvent.descriptor.param_map)
                     .map(entry => [entry[0], getEventPathValue(e, entry[1])]))

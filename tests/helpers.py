@@ -1,7 +1,7 @@
 import asyncio
 from io import StringIO
-from typing import Any
-from rxxxt.elements import Element
+from typing import Any, override
+from rxxxt.elements import CustomAttribute, Element
 from rxxxt.execution import Context, ContextConfig, Execution
 from rxxxt.state import State
 from rxxxt.node import Node
@@ -22,3 +22,13 @@ async def render_element(el: Element, registry: dict[str, Any] | None = None):
   s = render_node(node)
   await node.destroy()
   return s
+
+class TrackedCustomAttribute(CustomAttribute):
+  def __init__(self, inner: CustomAttribute) -> None:
+    super().__init__()
+    self._inner = inner
+    self.last_context: Context | None = None
+
+  def tonode(self, context: Context, original_key: str) -> Node:
+    self.last_context = context
+    return self._inner.tonode(context, original_key)

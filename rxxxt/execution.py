@@ -1,8 +1,7 @@
 import asyncio, hashlib, functools, re, dataclasses
 from datetime import datetime
-from abc import ABC, abstractmethod
 from pydantic import BaseModel
-from typing import Literal, Any, Callable
+from typing import Any, Callable
 from rxxxt.helpers import T, match_path
 from rxxxt.state import State, StateConsumer
 
@@ -19,14 +18,8 @@ class InputEventDescriptorOptions(BaseModel):
 
 class InputEventDescriptor(BaseModel):
   context_id: str
-  handler_name: str
   param_map: dict[str, str]
   options: InputEventDescriptorOptions
-
-class InputEventDescriptorGenerator(ABC): # NOTE: this is a typing hack
-  @property
-  @abstractmethod
-  def descriptor(self) -> InputEventDescriptor: pass
 
 class InputEvent(BaseModel):
   context_id: str
@@ -68,9 +61,6 @@ class Execution:
       self.update_pending_event.clear()
     else:
       self.update_pending_event.set()
-
-def resolve_input_event_descriptor(descriptor: InputEventDescriptor | InputEventDescriptorGenerator):
-  return (descriptor.descriptor if isinstance(descriptor, InputEventDescriptorGenerator) else descriptor).model_dump()
 
 @functools.lru_cache(maxsize=2048)
 def get_context_stack_sid(stack: ContextStack):
@@ -163,18 +153,6 @@ class Context:
   def emit(self, name: str, data: dict[str, int | float | str | bool | None]):
     self.execution.add_output_event(dict(event="custom", name=name, data=data))
 
-  def add_window_event(self, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator):
-    self._modify_window_event(name, descriptor, "add")
-
-  def add_query_selector_event(self, selector: str, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, all: bool = False):
-    self._modify_query_selector_event(selector, name, descriptor, all, "add")
-
-  def remove_window_event(self, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator):
-    self._modify_window_event(name, descriptor, "remove")
-
-  def remove_query_selector_event(self, selector: str, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, all: bool = False):
-    self._modify_query_selector_event(selector, name, descriptor, all, "remove")
-
   def navigate(self, location: str):
     is_full_url = ":" in location # colon means full url
     if not is_full_url: self.state.get("!location").set(location)
@@ -204,9 +182,3 @@ class Context:
     res = self.state.get(key).get()
     self.subscribe(key)
     return res
-
-  def _modify_window_event(self, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, mode: Literal["add"] | Literal["remove"]):
-    self.execution.add_output_event(dict(event="event-modify-window", name=name, mode=mode, descriptor=resolve_input_event_descriptor(descriptor)))
-
-  def _modify_query_selector_event(self, selector: str, name: str, descriptor: InputEventDescriptor | InputEventDescriptorGenerator, all: bool, mode: Literal["add"] | Literal["remove"]):
-    self.execution.add_output_event(dict(event="event-modify-query-selector", name=name, mode=mode, selector=selector, all=all, descriptor=resolve_input_event_descriptor(descriptor)))

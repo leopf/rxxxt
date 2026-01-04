@@ -62,7 +62,6 @@ export interface InputEvent {
 
 export interface InputEventDescriptor {
     context_id: string;
-    handler_name: string;
     param_map: Record<string, string>;
     options: {
         throttle?: number;

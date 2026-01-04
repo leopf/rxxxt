@@ -6,6 +6,7 @@ from rxxxt.execution import Context, InputEvent
 from rxxxt.page import default_page
 from rxxxt.session import AppConfig, Session, SessionConfig
 from rxxxt.state import JWTStateResolver
+from tests.helpers import TrackedCustomAttribute
 
 session_config = SessionConfig(page_facotry=default_page, state_resolver=JWTStateResolver(b"deez"), persistent=False, app_config=AppConfig())
 
@@ -118,25 +119,31 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
   async def test_input_event_handling_order(self):
     event_outputs: list[str] = []
     class Inner(Component):
+      def __init__(self) -> None:
+        super().__init__()
+        self.on_event_tracked = TrackedCustomAttribute(self.on_event)
       @event_handler()
       def on_event(self, value: str): event_outputs.append(value)
-      def render(self): return El.div()
+      def render(self): return El.div(onclick=self.on_event_tracked)
 
     class Outer(Component):
       def __init__(self) -> None:
         super().__init__()
         self.inner = Inner()
+        self.on_event_tracked = TrackedCustomAttribute(self.on_event)
       @event_handler()
       def on_event(self, value: str): event_outputs.append(value)
-      def render(self): return self.inner
+      def render(self): return El.div(onclick=self.on_event_tracked, content=[self.inner])
 
     outer = Outer()
     async with Session(session_config, outer) as session:
       session.set_location("/")
       await session.init(None)
+      assert outer.inner.on_event_tracked.last_context is not None
+      assert outer.on_event_tracked.last_context is not None
       await session.handle_events((
-        InputEvent(context_id=outer.inner.context.sid, data={ "$handler_name": "on_event", "value": "a" }),
-        InputEvent(context_id=outer.context.sid, data={ "$handler_name": "on_event", "value": "b" }),
+        InputEvent(context_id=outer.inner.on_event_tracked.last_context.sid, data={ "value": "a" }),
+        InputEvent(context_id=outer.on_event_tracked.last_context.sid, data={ "value": "b" }),
       ))
       await session.update()
       self.assertEqual(event_outputs, ["a", "b"])
