@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call, TypeAdapter
 from rxxxt.elements import CustomAttribute, Element, meta_element
 from rxxxt.execution import Context, InputEventDescriptorOptions
-from rxxxt.helpers import to_awaitable, FNP, FNR, T
+from rxxxt.helpers import attribute_key_to_event_name, to_awaitable, FNP, FNR, T
 from rxxxt.node import EventHandlerNode, Node, TextNode
 from rxxxt.state import StateCell, State
 
@@ -179,8 +179,7 @@ class BoundEventHandler(Generic[FNP, FNR], CustomAttribute):
     return self._handler(self._instance, *args, **kwds)
 
   def tonode(self, context: Context, original_key: str) -> Node:
-    event_name = original_key[2:] if original_key.startswith("on") else original_key
-    return EventHandlerNode(context, event_name, self._handler, (self._instance,), self._options)
+    return EventHandlerNode(context, attribute_key_to_event_name(original_key), self._handler, (self._instance,), self._options)
 
 class UnboundEventHandler(Generic[FNP, FNR]):
   def __init__(self, handler: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions) -> None:

@@ -1,3 +1,4 @@
+import "./components";
 import { initEventManager } from "./events";
 import { initTransport, TransportConfig } from "./transport";
 import { InitData, OutputEvent, CustomEventHandler } from "./types";

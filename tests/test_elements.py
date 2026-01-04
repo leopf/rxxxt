@@ -38,6 +38,11 @@ class TestElements(unittest.IsolatedAsyncioTestCase):
     self.assertEqual(await render_element(VEl.input(disabled=True)), "<input disabled>")
     self.assertEqual(await render_element(VEl.input(disabled=False)), "<input>")
 
+  async def test_callable_attribute_value(self):
+    async def handler(): ...
+    text = await render_element(El.button(onclick=handler, content=["Click"]))
+    self.assertIn("rxxxt-on-click", text)
+
   async def test_component(self):
     class TestComp(Component):
       def render(self):

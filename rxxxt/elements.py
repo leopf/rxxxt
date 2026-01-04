@@ -2,9 +2,9 @@ import html, itertools, logging
 from abc import ABC, abstractmethod
 from typing import Callable, Concatenate, Generic, Protocol, cast
 from collections.abc import Iterable
-from rxxxt.execution import Context
-from rxxxt.helpers import FNP
-from rxxxt.node import ElementNode, FragmentNode, Node, TextNode, VoidElementNode
+from rxxxt.execution import Context, InputEventDescriptorOptions
+from rxxxt.helpers import FNP, attribute_key_to_event_name
+from rxxxt.node import ElementNode, EventHandlerNode, FragmentNode, Node, TextNode, VoidElementNode
 from typing import Any
 
 class Element(ABC):
@@ -16,8 +16,8 @@ class CustomAttribute(ABC):
   def tonode(self, context: Context, original_key: str) -> Node: ...
 
 ElementContent = Iterable[Element | str]
-HTMLAttributeValue = str | bool | int | float | CustomAttribute | None
-HTMLAttributes = dict[str, str | bool | int | float | CustomAttribute | None]
+HTMLAttributeValue = str | bool | int | float | CustomAttribute | Callable | None
+HTMLAttributes = dict[str, HTMLAttributeValue]
 
 def _element_content_to_ordered_nodes(context: Context, content: ElementContent) -> tuple[Node, ...]:
   return tuple((TextElement(item) if isinstance(item, str) else item).tonode(context.sub(idx)) for idx, item in enumerate(content))
@@ -39,6 +39,8 @@ def _html_attributes_to_nodes(context: Context, attributes: HTMLAttributes):
     attr_context = context.sub(sanitized_key)
     if isinstance(value, CustomAttribute):
       attribute_nodes.append(value.tonode(attr_context, sanitized_key))
+    elif callable(value):
+      attribute_nodes.append(EventHandlerNode(context, attribute_key_to_event_name(key), value, (), InputEventDescriptorOptions()))
     elif value is None or isinstance(value, bool):
       if value is None or value == True:
         attribute_nodes.append(TextNode(attr_context, sanitized_key))
@@ -147,6 +149,12 @@ class ElementFactory(Protocol):
 
 def meta_element(id: str, inner: Element):
   return HTMLElement("rxxxt-meta", {"id":id}, [inner])
+
+def window_event(name: str, handler: Callable):
+  return El["rxxxt-window-event"](name=name, content=[], **{ name: handler })
+
+def query_selector_all_event(name: str, selector: str, handler: Callable):
+  return El["rxxxt-query-selector-event"](name=name, selector=selector, content=[], **{ name: handler })
 
 def class_map(map: dict[str, bool]):
   return " ".join([ k for k, v in map.items() if v ])
