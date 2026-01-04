@@ -48,13 +48,7 @@ const applyHTML = (html?: string) => {
         }
 
         target = ttarget;
-        morphdom(target, updateRoot, {
-            onNodeDiscarded: node => {
-                if (node instanceof Element) {
-                    eventManager.onElementDeleted(node);
-                }
-            }
-        });
+        morphdom(target, updateRoot);
     }
 
     for (const element of target.getElementsByTagName("*")) {
@@ -101,29 +95,6 @@ const outputEventHandlers: { [K in OutputEvent['event']]: (ev: Extract<OutputEve
         if (event.http_only) parts.push(`httponly`);
 
         document.cookie = parts.join(";");
-    },
-    "event-modify-window": event => {
-        if (event.mode === "add") {
-            eventManager.registerEvent(window, event.name, event.descriptor);
-        } else if (event.mode === "remove") {
-            eventManager.unregisterEvent(window, event.name, event.descriptor);
-        }
-    },
-    "event-modify-query-selector": event => {
-        let elements: EventTarget[];
-        if (event.all) {
-            elements = Array.from(document.querySelectorAll(event.selector));
-        } else {
-            const element = document.querySelector(event.selector);
-            elements = element === null ? [] : [element];
-        }
-        for (const element of elements) {
-            if (event.mode === "add") {
-                eventManager.registerEvent(element, event.name, event.descriptor);
-            } else if (event.mode === "remove") {
-                eventManager.unregisterEvent(element, event.name, event.descriptor);
-            }
-        }
     }
 };
 

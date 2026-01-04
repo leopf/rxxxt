@@ -1,6 +1,6 @@
 import asyncio
 from io import StringIO
-from typing import Any, override
+from typing import Any
 from rxxxt.elements import CustomAttribute, Element
 from rxxxt.execution import Context, ContextConfig, Execution
 from rxxxt.state import State

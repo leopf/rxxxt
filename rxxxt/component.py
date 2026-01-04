@@ -1,7 +1,6 @@
-import functools
-import asyncio, inspect, weakref, base64, html
+import asyncio, inspect, weakref, html
 from abc import abstractmethod
-from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, cast, get_type_hints, override
+from typing import Any, Callable, Concatenate, Generic, get_origin
 from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call, TypeAdapter
 from rxxxt.elements import CustomAttribute, Element, meta_element

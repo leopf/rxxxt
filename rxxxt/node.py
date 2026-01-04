@@ -2,7 +2,7 @@
 from abc import ABC
 import base64, html, inspect
 from io import StringIO
-from typing import Annotated, Any, Callable, get_args, get_origin, get_type_hints, override
+from typing import Annotated, Any, Callable, get_args, get_origin, get_type_hints
 from rxxxt.execution import Context, InputEvent, InputEventDescriptor, InputEventDescriptorOptions
 from rxxxt.helpers import to_awaitable
 

@@ -6,9 +6,7 @@ export type OutputEvent =
     | CustomOutputEvent
     | SetCookieOutputEvent
     | NavigateOutputEvent
-    | UseWebsocketOutputEvent
-    | EventRegisterWindowEvent
-    | EventRegisterQuerySelectorEvent;
+    | UseWebsocketOutputEvent;
 
 export interface CustomOutputEvent {
     event: "custom";
@@ -37,22 +35,6 @@ export interface NavigateOutputEvent {
 export interface UseWebsocketOutputEvent {
     event: "use-websocket";
     websocket: boolean;
-}
-
-export interface EventRegisterWindowEvent {
-    event: "event-modify-window";
-    mode: "add" | "remove";
-    name: string;
-    descriptor: InputEventDescriptor;
-}
-
-export interface EventRegisterQuerySelectorEvent {
-    event: "event-modify-query-selector";
-    mode: "add" | "remove";
-    name: string;
-    selector: string;
-    all: boolean;
-    descriptor: InputEventDescriptor;
 }
 
 export interface InputEvent {

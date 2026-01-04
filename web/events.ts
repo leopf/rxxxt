@@ -3,44 +3,79 @@ import { InputEvent, InputEventDescriptor } from "./types";
 const eventPrefix = "rxxxt-on-";
 const now = () => new Date().getTime();
 
-type TargetEvent = {
-    // unique id
-    submitId: number; // id for data
+class RegisteredEvent {
+    private static submitIdCounter = 0;
 
-    // description
-    descriptor: InputEventDescriptor;
-    event: string;
-    tag: string; // local or global
+    public descriptorRaw: string;
+    public handler: (e: Event) => void;
 
-    // state
-    timeoutHandle?: number;
-    lastCall?: number;
+    private readonly submitId: number;
+    private readonly triggerCallback: () => void;
+    private readonly submitMap: Map<number, InputEvent>;
 
-};
-
-type EventHandler = (e: Event) => void;
-
-const descriptorKeyCache = new WeakMap<InputEventDescriptor, string>();
-function descriptorKey(d: InputEventDescriptor) {
-    let key = descriptorKeyCache.get(d);
-    if (key === undefined) {
-        key = JSON.stringify([ d.context_id, d.options.debounce ?? null, d.options.prevent_default ?? null,
-            d.options.throttle ?? null, ...Object.entries(d.param_map).sort((a, b) => a[0].localeCompare(b[0])) ]);
-        descriptorKeyCache.set(d, key);
+    private get descriptor() {
+        return JSON.parse(atob(this.descriptorRaw)) as InputEventDescriptor;
     }
-    return key;
+
+    private timeoutHandle?: number;
+    private lastCall?: number;
+
+    constructor(triggerCallback: () => void, submitMap: Map<number, InputEvent>, descriptorRaw: string) {
+        this.triggerCallback = triggerCallback;
+        this.descriptorRaw = descriptorRaw;
+        this.handler = this.handle.bind(this);
+        this.submitMap = submitMap;
+        this.submitId = ++RegisteredEvent.submitIdCounter;
+    }
+
+    private handle(e: Event) {
+        const eventData: Record<string, number | boolean | string | undefined> = {
+            ...(this.descriptor.options.default_params ?? {}),
+            ...Object.fromEntries(Object.entries(this.descriptor.param_map)
+                .map(entry => [entry[0], getEventPathValue(e, entry[1])]))
+        };
+
+        this.submitMap.set(this.submitId, {
+            context_id: this.descriptor.context_id,
+            data: eventData
+        });
+
+        if (this.timeoutHandle) {
+            clearTimeout(this.timeoutHandle);
+            this.timeoutHandle = undefined;
+        }
+
+        if (this.descriptor.options.prevent_default) {
+            e.preventDefault();
+        }
+
+        if (!this.descriptor.options.no_trigger) {
+            const waitTime = Math.max(
+                0,
+                this.descriptor.options.debounce ?? 0,
+                (this.lastCall ?? 0) + (this.descriptor.options.throttle ?? 0) - now()
+            );
+
+            this.timeoutHandle = setTimeout(() => {
+                if (this.submitMap.has(this.submitId)) {
+                    this.lastCall = now();
+                    this.triggerCallback();
+                }
+            }, waitTime);
+        }
+    }
 }
 
-function getLocalElementEventDescriptors(element: Element) {
-    const res = new Map<string, InputEventDescriptor>();
+function getLocalElementEventDescriptors(element: Element)  {
+    const res = new Map<string, string>();
 
     for (const attributeName of element.getAttributeNames()) {
         if (attributeName.startsWith(eventPrefix)) {
             const eventName = attributeName.substring(eventPrefix.length);
-            const eventDesc: InputEventDescriptor = JSON.parse(
-                atob(element.getAttribute(attributeName) ?? ""),
-            );
-            res.set(eventName, eventDesc);
+            const rawDescriptor = element.getAttribute(attributeName);
+            if (rawDescriptor !== null) {
+                res.set(eventName, rawDescriptor);
+            }
         }
     }
 
@@ -65,138 +100,39 @@ function getEventPathValue(event: Event, path: string) {
     }
 }
 
-/**
- * This is very messy ... a lot of bad choices.
- */
 export function initEventManager(triggerUpdate: () => void) {
-    let submitIdCounter = 0;
-    const targetEvents = new WeakMap<EventTarget, TargetEvent[]>();
-    const registeredTargetEvents = new WeakMap<EventTarget, Map<string, EventHandler>>();
-    const eventDataSubmissions = new Map<number, InputEvent>(); // preserves insertion order. Important!
-    const enabledContexts = new Set<string>();
-
-
-    const eventHandler = (target: EventTarget, e: Event) => {
-        let peningEvents = targetEvents.get(target) ?? [];
-        const newEvents = peningEvents.filter(e => enabledContexts.has(e.descriptor.context_id));
-        if (newEvents.length !== peningEvents.length) {
-            targetEvents.set(target, newEvents);
-            updateHandlers(target);
-            peningEvents = newEvents;
-        }
-
-        for (const targetEvent of peningEvents.filter(te => te.event === e.type)) {
-            const eventData: Record<string, number | boolean | string | undefined> = {
-                ...(targetEvent.descriptor.options.default_params ?? {}),
-                ...Object.fromEntries(Object.entries(targetEvent.descriptor.param_map)
-                    .map(entry => [entry[0], getEventPathValue(e, entry[1])]))
-            };
-
-            eventDataSubmissions.set(targetEvent.submitId, {
-                context_id: targetEvent.descriptor.context_id,
-                data: eventData
-            });
-
-            if (targetEvent.timeoutHandle) {
-                clearTimeout(targetEvent.timeoutHandle);
-                targetEvent.timeoutHandle = undefined;
-            }
-
-            if (targetEvent.descriptor.options.prevent_default) {
-                e.preventDefault();
-            }
-
-            if (!targetEvent.descriptor.options.no_trigger) {
-                const waitTime = Math.max(
-                    0,
-                    targetEvent.descriptor.options.debounce ?? 0,
-                    (targetEvent.lastCall ?? 0) + (targetEvent.descriptor.options.throttle ?? 0) - now()
-                );
-
-                targetEvent.timeoutHandle = setTimeout(() => {
-                    if (eventDataSubmissions.has(targetEvent.submitId)) {
-                        targetEvent.lastCall = now();
-                        triggerUpdate();
-                    }
-                }, waitTime);
-            }
-        }
-    };
-
-    const updateHandlers = (target: EventTarget) => {
-        const reg = registeredTargetEvents.get(target) ?? new Map<string, EventHandler>();
-        registeredTargetEvents.set(target, reg);
-
-        const newReg = new Set(targetEvents.get(target)?.map(e => e.event) ?? []);
-        for (const event of Array.from(reg.keys())) {
-            if (!newReg.has(event)) {
-                target.removeEventListener(event, reg.get(event)!);
-                reg.delete(event);
-            }
-        }
-
-        for (const event of newReg) {
-            if (!reg.has(event)) {
-                const newHandler = (e: Event) => eventHandler(target, e);
-                target.addEventListener(event, newHandler);
-                reg.set(event, newHandler);
-            }
-        }
-    };
+    const targetRegisteredEvents = new WeakMap<EventTarget, Map<string, RegisteredEvent>>();
+    const submitMap = new Map<number, InputEvent>();
 
     const popPendingEvents = () => {
-        const result = new Map(eventDataSubmissions);
-        eventDataSubmissions.clear();
+        const result = new Map(submitMap);
+        submitMap.clear();
         return result;
     };
     const onElementUpdated = (element: Element) => {
-        if (element.tagName === "RXXXT-META") {
-            enabledContexts.add(element.id)
-        }
-
-        const registeredLocalEvents = new Map((targetEvents.get(element) ?? []).filter(e => e.tag == "local").map(e => [e.event, e]));
         const newEventDescriptors = getLocalElementEventDescriptors(element);
+        const registeredEvents = targetRegisteredEvents.get(element) ?? new Map<string, RegisteredEvent>();
+        targetRegisteredEvents.set(element, registeredEvents);
 
-        for (const targetEvent of registeredLocalEvents.values()) {
-            if (!newEventDescriptors.has(targetEvent.event)) {
-                unregisterEvent(element, targetEvent.event, targetEvent.descriptor, "local");
+        for (const registeredEventName of registeredEvents?.keys()) {
+            if (!newEventDescriptors.has(registeredEventName)) {
+                element.removeEventListener(registeredEventName, registeredEvents.get(registeredEventName)!.handler);
+                registeredEvents.delete(registeredEventName);
             }
         }
 
-        for (const newEventEntry of newEventDescriptors.entries()) {
-            if (registeredLocalEvents.has(newEventEntry[0])) {
-                registeredLocalEvents.get(newEventEntry[0])!.descriptor = newEventEntry[1];
+        for (const item of newEventDescriptors.entries()) {
+            const registeredEvent = registeredEvents.get(item[0]);
+            if (registeredEvent === undefined) {
+                const newRegisteredEvent = new RegisteredEvent(triggerUpdate, submitMap, item[1]);
+                element.addEventListener(item[0], newRegisteredEvent.handler);
+                registeredEvents.set(item[0], newRegisteredEvent);
             }
             else {
-                registerEvent(element, newEventEntry[0], newEventEntry[1], "local");
+                registeredEvent.descriptorRaw = item[1];
             }
         }
     };
-    const onElementDeleted = (element: Element) => {
-        if (element.tagName === "RXXXT-META") {
-            enabledContexts.delete(element.id)
-        }
-    }
-    const registerEvent = (target: EventTarget, event: string, descriptor: InputEventDescriptor, tag: string = "global") => {
-        const key = descriptorKey(descriptor);
-        const elementEvents = targetEvents.get(target) ?? [];
-        targetEvents.set(target, elementEvents);
 
-        let regEvent = elementEvents.find(e => e.event === event && descriptorKey(e.descriptor) === key && e.tag == tag);
-        if (regEvent === undefined) {
-            elementEvents.push({ descriptor, event, submitId: ++submitIdCounter, tag: tag });
-        }
-        else {
-            regEvent.descriptor = descriptor;
-        }
-
-        updateHandlers(target);
-    };
-    const unregisterEvent = (target: EventTarget, event: string, descriptor: InputEventDescriptor, tag: string = "global") => {
-        const key = descriptorKey(descriptor);
-        targetEvents.set(target, (targetEvents.get(target) ?? []).filter(e => e.event != event || descriptorKey(e.descriptor) !== key || e.tag !== tag));
-        updateHandlers(target);
-    };
-
-    return { registerEvent, unregisterEvent, onElementUpdated, onElementDeleted, popPendingEvents };
+    return { onElementUpdated, popPendingEvents };
 }
