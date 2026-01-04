@@ -2,6 +2,7 @@ import html, itertools, logging
 from abc import ABC, abstractmethod
 from typing import Callable, Concatenate, Generic, Protocol, cast
 from collections.abc import Iterable
+from pydantic import validate_call
 from rxxxt.execution import Context, InputEventDescriptorOptions
 from rxxxt.helpers import FNP, attribute_key_to_event_name
 from rxxxt.node import ElementNode, EventHandlerNode, FragmentNode, Node, TextNode, VoidElementNode
@@ -40,7 +41,7 @@ def _html_attributes_to_nodes(context: Context, attributes: HTMLAttributes):
     if isinstance(value, CustomAttribute):
       attribute_nodes.append(value.tonode(attr_context, sanitized_key))
     elif callable(value):
-      attribute_nodes.append(EventHandlerNode(context, attribute_key_to_event_name(key), value, (), InputEventDescriptorOptions()))
+      attribute_nodes.append(EventHandlerNode(context, attribute_key_to_event_name(key), validate_call(value), (), InputEventDescriptorOptions()))
     elif value is None or isinstance(value, bool):
       if value is None or value == True:
         attribute_nodes.append(TextNode(attr_context, sanitized_key))

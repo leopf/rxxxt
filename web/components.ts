@@ -1,7 +1,7 @@
 const virtualElementStyle = "contents";
 const queryAttributeNames = ["name", "query", "selector", "pattern"] as const;
 
-abstract class BaseVirtualEventElement extends HTMLElement {
+abstract class BaseEventElement extends HTMLElement {
     protected listener: EventListener = (event: Event) => this.dispatchEvent(event);
     protected attributeValues = new Map<string, string | null>();
 
@@ -10,7 +10,7 @@ abstract class BaseVirtualEventElement extends HTMLElement {
     }
 
     private get allPresent() {
-        return (this.constructor as typeof BaseVirtualEventElement).observedAttributes.every((a) => this.attributeValues.has(a));
+        return (this.constructor as typeof BaseEventElement).observedAttributes.every((a) => this.attributeValues.has(a));
     }
 
     connectedCallback() {
@@ -38,7 +38,7 @@ abstract class BaseVirtualEventElement extends HTMLElement {
     protected abstract doUnregister(): void;
 }
 
-class RxxxtWindowEventElement extends BaseVirtualEventElement {
+class WindowEventElement extends BaseEventElement {
     static get observedAttributes() {
         return ["name"];
     }
@@ -52,7 +52,7 @@ class RxxxtWindowEventElement extends BaseVirtualEventElement {
     }
 }
 
-class RxxxtQuerySelectorEventElement extends BaseVirtualEventElement {
+class QuerySelectorEventElement extends BaseEventElement {
     static get observedAttributes() {
         return ["name", "selector"];
     }
@@ -75,5 +75,5 @@ class RxxxtQuerySelectorEventElement extends BaseVirtualEventElement {
     }
 }
 
-customElements.define("rxxxt-window-event", RxxxtWindowEventElement);
-customElements.define("rxxxt-query-selector-event", RxxxtQuerySelectorEventElement);
+customElements.define("rxxxt-window-event", WindowEventElement);
+customElements.define("rxxxt-query-selector-event", QuerySelectorEventElement);
