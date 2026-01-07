@@ -6,6 +6,7 @@ from rxxxt.component import Component, event_handler, local_state
 from rxxxt.elements import El, Element, lazy_element
 from rxxxt.execution import Context, InputEvent
 from rxxxt.state import default_state_resolver
+from tests.helpers import TrackedCustomAttribute
 
 class TestApp(unittest.IsolatedAsyncioTestCase):
 
@@ -72,20 +73,17 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
       self.assertEqual(r.text, ref_text)
 
   async def test_ws(self):
-    context_id: str = ""
+    add_tracked = TrackedCustomAttribute()
+
     class Counter(Component):
       counter = local_state(int)
-
-      async def on_init(self) -> None:
-        nonlocal context_id
-        context_id = self.context.sid
 
       @event_handler()
       def add(self, value: Annotated[int, "target.value"]):
         self.counter += value
 
       def render(self):
-        return El.div(content=[f"c{self.counter}"])
+        return El.div(onclick=add_tracked(self.add), content=[f"c{self.counter}"])
 
     state_resolver = default_state_resolver()
     app = App(Counter, state_resolver)
@@ -94,8 +92,9 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
     token = state_resolver.create_token({}, None)
     async with httpx_ws.aconnect_ws(str(client.base_url), client) as ws:
       await ws.send_text(AppWebsocketInitMessage(type="init", state_token=token, enable_state_updates=False).model_dump_json())
+      await add_tracked.set_event.wait()
       await ws.send_text(AppWebsocketUpdateMessage(type="update", events=(
-        InputEvent(context_id=context_id, data={ "$handler_name": "add", "value": 5 }),), location="/").model_dump_json())
+        InputEvent(context_id=add_tracked.last_context.sid, data={ "value": 5 }),), location="/").model_dump_json())
       response_text = await ws.receive_text()
       self.assertIn("c5", response_text)
 

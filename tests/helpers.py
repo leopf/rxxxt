@@ -23,12 +23,22 @@ async def render_element(el: Element, registry: dict[str, Any] | None = None):
   await node.destroy()
   return s
 
-class TrackedCustomAttribute(CustomAttribute):
-  def __init__(self, inner: CustomAttribute) -> None:
-    super().__init__()
-    self._inner = inner
-    self.last_context: Context | None = None
+class TrackedCustomAttribute:
+  class Inner(CustomAttribute):
+    def __init__(self, attr: CustomAttribute, outer: 'TrackedCustomAttribute') -> None:
+      super().__init__()
+      self._outer = outer
+      self._attr = attr
 
-  def tonode(self, context: Context, original_key: str) -> Node:
-    self.last_context = context
-    return self._inner.tonode(context, original_key)
+    def tonode(self, context: Context, original_key: str) -> Node:
+      self._outer.last_context = context
+      self._outer.set_event.set()
+      return self._attr.tonode(context, original_key)
+
+  def __init__(self) -> None:
+    super().__init__()
+    self.last_context: Context | None = None
+    self.set_event = asyncio.Event()
+
+  def __call__(self, attr: CustomAttribute) -> Any:
+    return TrackedCustomAttribute.Inner(attr, self)
