@@ -1,10 +1,9 @@
 # Getting Started with rxxxt
-rxxxt is a tool for building purely server-rendered Python web apps. 
-Every update is rendered on the server and streamed as HTML, so you do not need to build a frontend or maintain a JSON API.
+rxxxt was inspired by React’s component model, but everything renders on the server.  
+Think of each `Component` as a React component that already runs inside Python: you return a tree of elements, rxxxt streams the resulting HTML to the browser, and DOM events come back as Python method calls.
 
-## HTML, meet `El` (and `VEl`)
-The [Elements](./elements.md) reference documents every helper, but the fastest way to grasp it is to compare literal HTML to the `El.*`
-calls it maps to. Each helper is just a callable returning an element object.
+## 1. Describe HTML with elements
+Just like JSX describes markup in React, the `El`/`VEl` helpers describe HTML in Python. Each helper returns an element object that renders into HTML later.
 
 ```html
 <section class="card">
@@ -18,22 +17,36 @@ from rxxxt import El, VEl
 
 El.section(_class="card", content=[
   El.button(disabled=True, content=["Save"]),
-  VEl.input(type="text"),  # VEl is for void elements
+  VEl.input(type="text"),  # void elements come from VEl.*
 ])
 ```
 
-## Counter
-This is the exact `examples/counter.py` flow explained in [component.md](./component.md), [state.md](./state.md),
-and [app.md](./app.md): `local_state` declares reactive fields, `@event_handler` wires DOM events, and `App` mounts the root component.
+If you know how to read HTML, you already know how to read rxxxt elements.
+
+## 2. Build your first component
+Components encapsulate logic plus markup, similar to a React component. Override `render` and return any element tree.
+
+```python
+from rxxxt import Component, El, Element
+
+class Hero(Component):
+  def render(self) -> Element:
+    return El.section(_class="hero", content=[
+      El.h1(content=["Welcome"]),
+      El.p(content=["All HTML comes from this Python function."]),
+    ])
+```
+
+## 3. Handle events and state
+Use `local_state` for reactive data and plain methods for event handlers. Unlike React you do not call `setState`; simply mutate the value and rxxxt re-renders the component. Mount everything with `App`, the equivalent of `createRoot`.
 
 ```python
 import uvicorn
-from rxxxt import Component, event_handler, El, Element, App, local_state
+from rxxxt import Component, El, Element, App, local_state
 
 class Counter(Component):
   count = local_state(int)
 
-  @event_handler()
   def on_click(self):
     self.count += 1
 
@@ -46,12 +59,14 @@ app = App(Counter)
 uvicorn.run(app)
 ```
 
-## Nested components
-The [Component](./component.md) guide shows how components work. They can be used just like elements. 
+Need debounce/throttle or automatic event payload extraction? Decorate the method with [`@event_handler`](./component.md#events) and set options such as `debounce=300` or `prevent_default=True`.
+
+## 4. Compose components
+Components can render other components exactly like React: use them beside HTML nodes, nest them, and pass in constructor arguments or state.
 
 ```python
-import uvicorn
 from rxxxt import Component, El, Element, App
+import uvicorn
 
 class Card(Component):
   def __init__(self, text: str):
@@ -69,9 +84,8 @@ app = App(Dashboard)
 uvicorn.run(app)
 ```
 
-## Routing
-The [Router](./router.md) handles path matching and helps you access the matched parameters with the `router_params` helper.
-The root route here is a plain callable (lambda) returning an element, while `/hello/{word}` renders a component.
+## 5. Route between pages
+`Router` plays the role of React Router. Register callables or components for paths, and read path parameters with `router_params`.
 
 ```python
 import uvicorn
@@ -88,24 +102,19 @@ class ShowWord(Component):
   def render(self) -> Element:
     return El.div(content=[
       f"Word: '{self.params['word']}' ",
-      El.button(onclick=self.bump, content=[
-        f"clicks: {self.clicks}"
-      ]),
+      El.button(onclick=self.bump, content=[f"clicks: {self.clicks}"]),
     ])
 
 router = Router()
-router.add_route("/", lambda: El.div(content=["This text will be shown on /"]))
+router.add_route("/", lambda: El.div(content=["This text renders on /"]))
 router.add_route("/hello/{word}", ShowWord)
 
 app = App(router)
 uvicorn.run(app)
 ```
 
-## External state
-Rendering is just Python, so you can load external state mid-render, trade JSON APIs for direct SQL, 
-and render table rows from your database directly into HTML. 
-
-See [state.md](./state.md) for more on external and `global_state`.
+## 6. Load data directly in Python
+Because rendering all happens server-side, your components can call databases or internal APIs directly. Coroutines work too: declare `async def render` and `await` inside it.
 
 ```python
 from rxxxt import Component, El, Element, global_state
@@ -121,4 +130,10 @@ class ShoppingList(Component):
     ])
 ```
 
-`sql_select` is a fake function, but there are database APIs that look like this, and can be used in place of it.
+`sql_select` is just a placeholder; plug in your own data access code.
+
+## Next steps
+- Learn more about [`Component`](./component.md) lifecycles, events, and decorators.
+- Explore [`state.md`](./state.md) for global, context, and shared state helpers.
+- Use [`PageBuilder`](./app.md#pagebuilder) to inject CSS, scripts, or custom markup into the document head/body.
+- Head over to [`app.md`](./app.md) to see how routing, sessions, and background tasks tie together.

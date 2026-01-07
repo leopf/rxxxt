@@ -1,4 +1,4 @@
-from rxxxt import Component, event_handler, El, Element, App
+from rxxxt import Component, El, Element, App
 import uvicorn
 
 class Counter(Component):
@@ -7,7 +7,6 @@ class Counter(Component):
     try: return int(self.context.cookies.get("count", 0))
     except: return 0
 
-  @event_handler()
   def on_click(self):
     self.context.set_cookie("count", str(self.count + 1))
 

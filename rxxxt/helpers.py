@@ -57,6 +57,9 @@ def _compile_matcher(pattern: str, re_flags: int):
 def match_path(pattern: str, path: str, re_flags: int = re.IGNORECASE):
   return _compile_matcher(pattern, re_flags)(path)
 
+def attribute_key_to_event_name(original_key: str):
+  return original_key[2:] if original_key.startswith("on") else original_key
+
 class JWTError(Exception): pass
 
 class JWTManager:

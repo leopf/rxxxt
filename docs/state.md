@@ -78,12 +78,11 @@ class Child(Component):
 ```
 4. **[`local_state_box`](./api.md#rxxxt.component.local_state_box)** - which is confined to a single component instance, but requires manual updates
 ```python
-from rxxxt import Component, Element, event_handler, El, local_state_box
+from rxxxt import Component, Element, El, local_state_box
 
 class Counter(Component):
   count = local_state_box(int)
 
-  @event_handler()
   def increment(self):
     self.count.value += 1  # assigning to value triggers an update automatically
 

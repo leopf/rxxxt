@@ -6,9 +6,7 @@ export type OutputEvent =
     | CustomOutputEvent
     | SetCookieOutputEvent
     | NavigateOutputEvent
-    | UseWebsocketOutputEvent
-    | EventRegisterWindowEvent
-    | EventRegisterQuerySelectorEvent;
+    | UseWebsocketOutputEvent;
 
 export interface CustomOutputEvent {
     event: "custom";
@@ -39,22 +37,6 @@ export interface UseWebsocketOutputEvent {
     websocket: boolean;
 }
 
-export interface EventRegisterWindowEvent {
-    event: "event-modify-window";
-    mode: "add" | "remove";
-    name: string;
-    descriptor: InputEventDescriptor;
-}
-
-export interface EventRegisterQuerySelectorEvent {
-    event: "event-modify-query-selector";
-    mode: "add" | "remove";
-    name: string;
-    selector: string;
-    all: boolean;
-    descriptor: InputEventDescriptor;
-}
-
 export interface InputEvent {
     context_id: string;
     data: PrimitveRecord;
@@ -62,13 +44,12 @@ export interface InputEvent {
 
 export interface InputEventDescriptor {
     context_id: string;
-    handler_name: string;
-    param_map: Record<string, string>;
     options: {
         throttle?: number;
         debounce?: number;
         no_trigger?: boolean;
         prevent_default?: boolean;
+        param_map: Record<string, string>;
         default_params?: PrimitveRecord;
     };
 }

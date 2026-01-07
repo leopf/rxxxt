@@ -11,7 +11,6 @@ A simple counter component:
 class Counter(Component):
   count = local_state(int)
 
-  @event_handler()
   def on_click(self):
     self.count += 1
 
@@ -22,20 +21,23 @@ class Counter(Component):
 [`HandleNavigate`](./api.md#rxxxt.component.HandleNavigate) can be used as an attribute helper when you only need navigation.
 
 ## Events
-Components can receive user input events using the [`event_handler`](./api.md#rxxxt.component.event_handler) decorator.
-
-Like:
-```python
-@event_handler()
-def on_click(self):
-  self.count += 1
-```
-
-Event handlers can receive [`InputEventDescriptorOptions`](./api.md#rxxxt.execution.InputEventDescriptorOptions).
-
-Parameters on event handlers can be pre-filled with [`EventHandler.bind`](./api.md#rxxxt.component.EventHandler.bind):
+Components can receive user input events by a callable as an HTML attribute. For simple interactions you can use plain methods:
 ```python
 class Counter(Component):
+  count = local_state(int)
+
+  def on_click(self):
+    self.count += 1
+
+  def render(self) -> Element:
+    return El.button(onclick=self.on_click, content=[f"Count: {self.count}"])
+```
+
+Add the [`event_handler`](./api.md#rxxxt.component.event_handler) decorator when you need extra capabilities such as [`InputEventDescriptorOptions`](./api.md#rxxxt.execution.InputEventDescriptorOptions), extracting event payloads with `Annotated` parameters, or the [`EventHandler.bind`](./api.md#rxxxt.component.EventHandler.bind) helper.
+
+Parameters on decorated event handlers can be pre-filled with `bind`:
+```python
+class AdjustableCounter(Component):
   count = local_state(int)
 
   @event_handler()
@@ -155,8 +157,27 @@ methods:
 - `unsubscribe`
 - `unsubscribe_all`
 
-#### add/remove events to the window or elements selected by a query selector
-- `add_query_selector_event`
-- `add_window_event`
-- `remove_query_selector_event`
-- `remove_window_event`
+#### window and query selector events
+Use the [`window_event`](./api.md#rxxxt.elements.window_event) and [`query_selector_all_event`](./api.md#rxxxt.elements.query_selector_all_event) helpers (available directly from `rxxxt`) to bind handlers to global window events or existing DOM nodes selected through CSS selectors. These helpers render lightweight virtual elements that automatically register the listener when mounted and remove it when destroyed, so there is no manual bookkeeping.
+
+```python
+from typing import Annotated
+from rxxxt import Component, Element, El, HTMLFragment, event_handler, window_event, query_selector_all_event
+
+class GlobalEvents(Component):
+  @event_handler()
+  def on_key_press(self, key: Annotated[str, "key"]):
+    print("key pressed", key)
+
+  @event_handler()
+  def on_click_p(self, text: Annotated[str, "currentTarget.textContent"]):
+    print("paragraph clicked")
+
+  def render(self) -> Element:
+    return HTMLFragment([
+      window_event("keydown", self.on_key_press),
+      query_selector_all_event("click", "p", self.on_click_p),
+      El.p(content=["Hello World"]),
+      El.p(content=["Hello Universe"]),
+    ])
+```

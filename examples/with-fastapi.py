@@ -1,11 +1,10 @@
 from fastapi import FastAPI, Response
 import uvicorn
-from rxxxt import local_state, Component, event_handler, El, Element, App, PageBuilder, VEl
+from rxxxt import local_state, Component, El, Element, App, PageBuilder, VEl
 
 class Counter(Component):
   count = local_state(int)
 
-  @event_handler()
   def on_click(self): self.count += 1
 
   def render(self) -> Element:

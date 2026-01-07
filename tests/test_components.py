@@ -2,14 +2,12 @@ import unittest
 from typing import Annotated
 from rxxxt.component import Component, SharedExternalState, event_handler, local_state
 from rxxxt.elements import El, WithRegistered
-from rxxxt.execution import InputEvent
 from tests.helpers import element_to_node, render_node
 
 class TestComponents(unittest.IsolatedAsyncioTestCase):
   class Counter(Component):
     counter = local_state(int)
 
-    @event_handler()
     def add(self, value: Annotated[int, "target.value"]):
       self.counter += value
 
@@ -22,12 +20,23 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
     def render(self):
       return El.div(onclick=self.on_click, content=["click"])
 
+  class PlainButton(Component):
+    def on_click(self): ...
+    def render(self):
+      return El.div(onclick=self.on_click, content=["plain"])
+
   class RegistryComp(Component):
     def render(self):
       return El.div(content=[self.context.registered("header", str)])
 
   async def test_render_event_handler(self):
     comp = TestComponents.Button()
+    node = element_to_node(comp)
+    await node.expand()
+    self.assertIn("rxxxt-on-click", render_node(node))
+
+  async def test_plain_event_handler_without_decorator(self):
+    comp = TestComponents.PlainButton()
     node = element_to_node(comp)
     await node.expand()
     self.assertIn("rxxxt-on-click", render_node(node))
@@ -41,30 +50,6 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
     node = element_to_node(comp, { "header": "1337" })
     await node.expand()
     self.assertEqual(render_node(node), "<div>1337</div>")
-
-  async def test_event_handler(self):
-    class Main(Component):
-      @event_handler(prevent_default=True, debounce=500, throttle=250)
-      def on_input(self, value: Annotated[str, "target.value"]):
-        pass
-
-      @event_handler(prevent_default=True, debounce=500, throttle=250)
-      def on_toggle(self, active: 'Annotated[str, "target.checked"]'):
-        pass
-
-      def render(self):
-        return El.div()
-
-    comp = Main()
-    node = element_to_node(comp)
-    await node.expand()
-
-    descriptor = comp.on_input.descriptor
-    self.assertDictEqual(descriptor.param_map, { "value": "target.value" })
-    self.assertTrue(descriptor.options.prevent_default)
-    self.assertEqual(descriptor.options.debounce, 500)
-    self.assertEqual(descriptor.options.throttle, 250)
-    self.assertDictEqual(comp.on_toggle.descriptor.param_map, { "active": "target.checked" })
 
   async def test_with_registered(self):
     comp = WithRegistered({ "header": "deadbeef" }, TestComponents.RegistryComp())
@@ -92,7 +77,7 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
      await node.expand()
      self.assertEqual(render_node(node), "<div>c0</div>")
 
-     await node.handle_event(InputEvent(context_id=node.context.sid, data={ "$handler_name": "add", "value": 5 }))
+     comp.add(5)
      await node.update()
      self.assertEqual(render_node(node), "<div>c5</div>")
      await node.destroy()

@@ -1,12 +1,12 @@
-import asyncio, inspect, weakref, base64
+import asyncio, inspect, weakref, html, functools
 from abc import abstractmethod
-from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, cast, get_type_hints
+from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, get_type_hints
 from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call, TypeAdapter
 from rxxxt.elements import CustomAttribute, Element, meta_element
-from rxxxt.execution import Context, InputEventDescriptor, InputEventDescriptorGenerator, InputEventDescriptorOptions, InputEvent
-from rxxxt.helpers import to_awaitable, FNP, FNR, T
-from rxxxt.node import Node
+from rxxxt.execution import Context, InputEventDescriptorOptions
+from rxxxt.helpers import attribute_key_to_event_name, to_awaitable, FNP, FNR, T
+from rxxxt.node import EventHandlerNode, Node, TextNode
 from rxxxt.state import StateCell, State
 
 class StateBox(Generic[T], StateCell):
@@ -168,48 +168,26 @@ class SharedExternalState(Generic[T]):
     for component in self._components:
       component.context.request_update()
 
-class ClassEventHandler(Generic[FNP, FNR]):
-  def __init__(self, fn: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions) -> None:
-    self._fn = fn
-    self._options = options
-  def __get__(self, instance: Any, _): return EventHandler(self._fn, self._options, instance)
-  def __call__(self, *args: FNP.args, **kwargs: FNP.kwargs) -> FNR: raise RuntimeError("The event handler can only be called when attached to an instance!")
+class BoundEventHandler(Generic[FNP, FNR], CustomAttribute):
+  def __init__(self, bound: tuple[Any,...], handler: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions) -> None:
+    super().__init__()
+    self._bound = bound
+    self._handler = validate_call(handler)
+    self._options = options.model_copy(update={'param_map': BoundEventHandler.get_handler_param_map(len(bound), handler) | options.param_map})
 
-class EventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribute, InputEventDescriptorGenerator):
-  def __init__(self, fn: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions, instance: Any) -> None:
-    super().__init__(validate_call(fn), options)
-    if not isinstance(instance, Component): raise ValueError("The provided instance must be a component!")
-    self._instance: 'Component' = instance
+  def __call__(self, *args: FNP.args, **kwds: FNP.kwargs) -> FNR:
+    return self._handler(*self._bound, *args, **kwds)
 
-  @property
-  def descriptor(self):
-    return InputEventDescriptor(
-      context_id=self._instance.context.sid,
-      handler_name=self._fn.__name__,
-      param_map=self._get_param_map(),
-      options=self._options)
+  def tonode(self, context: Context, original_key: str) -> Node:
+    return EventHandlerNode(context, attribute_key_to_event_name(original_key), functools.partial(self._handler, *self._bound), self._options)
 
-  def __call__(self, *args: FNP.args, **kwargs: FNP.kwargs) -> FNR: return self._fn(self._instance, *args, **kwargs)
-
-  def bind(self, **kwargs: int | float | str | bool | None):
-    if len(kwargs) == 0: return
-    new_options = InputEventDescriptorOptions.model_validate({
-      **self._options.model_dump(),
-      "default_params": (self._options.default_params or {}) | kwargs
-    })
-    return EventHandler(self._fn, new_options, self._instance)
-
-  def get_key_values(self, original_key: str):
-    if not original_key.startswith("on"): raise ValueError("Event handler must be applied to an attribute starting with 'on'.")
-    v = base64.b64encode(self.descriptor.model_dump_json(exclude_defaults=True).encode("utf-8")).decode("utf-8")
-    return ((f"rxxxt-on-{original_key[2:]}", v),)
-
-  def _get_param_map(self):
+  @staticmethod
+  def get_handler_param_map(n_bound: int, handler: Callable):
     param_map: dict[str, str] = {}
-    sig = inspect.signature(self._fn)
-    hints = get_type_hints(self._fn, include_extras=True)
+    sig = inspect.signature(handler)
+    hints = get_type_hints(handler, include_extras=True)
     for i, (name, param) in enumerate(sig.parameters.items()):
-      if i == 0: continue  # skip self
+      if i < n_bound: continue  # skip self
       ann = hints.get(name, param.annotation)
       if get_origin(ann) is Annotated:
         args = get_args(ann)
@@ -219,12 +197,23 @@ class EventHandler(ClassEventHandler[FNP, FNR], Generic[FNP, FNR], CustomAttribu
         if not isinstance(metadata[0], str):
           raise TypeError(f"Parameter '{name}' second annotation must be a str, got {type(metadata[0]).__name__}.")
         param_map[name] = metadata[0]
-
     return param_map
+
+class UnboundEventHandler(Generic[FNP, FNR]):
+  def __init__(self, handler: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions) -> None:
+    super().__init__()
+    self._handler = handler
+    self._options = options
+
+  def __get__(self, instance: Any, _):
+    return BoundEventHandler((instance,), self._handler, self._options)
+
+  def __call__(self, instance: Any, *args: FNP.args, **kwds: FNP.kwargs) -> FNR:
+    return self._handler(instance, *args, **kwds)
 
 def event_handler(**kwargs: Any):
   options = InputEventDescriptorOptions.model_validate(kwargs)
-  def _inner(fn: Callable[Concatenate[Any, FNP], FNR]) -> ClassEventHandler[FNP, FNR]: return ClassEventHandler(fn, options)
+  def _inner(fn: Callable[Concatenate[Any, FNP], FNR]) -> UnboundEventHandler[FNP, FNR]: return UnboundEventHandler(fn, options)
   return _inner
 
 class HandleNavigate(CustomAttribute):
@@ -232,8 +221,8 @@ class HandleNavigate(CustomAttribute):
     super().__init__()
     self.location = location
 
-  def get_key_values(self, original_key: str) -> tuple[tuple[str, str],...]:
-    return ((original_key, f"window.rxxxt.navigate('{self.location}');"),)
+  def tonode(self, context: Context, original_key: str) -> Node:
+    return TextNode(context, f"{html.escape(original_key)}=\"window.rxxxt.navigate('{html.escape(self.location)}');\"")
 
 class Component(Element):
   def __init__(self) -> None:
@@ -285,12 +274,12 @@ class Component(Element):
       self._worker_tasks.clear()
     await to_awaitable(self.on_after_destroy)
 
-  async def lc_handle_event(self, event: dict[str, int | float | str | bool | None]):
-    handler_name = event.pop("$handler_name", None)
-    if isinstance(handler_name, str):
-      fn = getattr(self, handler_name, None) # NOTE: this is risky!!
-      if isinstance(fn, EventHandler):
-        await to_awaitable(cast(EventHandler[..., Any], fn), **event)
+  # async def lc_handle_event(self, event: dict[str, int | float | str | bool | None]):
+  #   handler_name = event.pop("$handler_name", None)
+  #   if isinstance(handler_name, str):
+  #     fn = getattr(self, handler_name, None) # NOTE: this is risky!!
+  #     if isinstance(fn, EventHandler):
+  #       await to_awaitable(cast(EventHandler[..., Any], fn), **event)
 
   def on_init(self) -> None | Awaitable[None]: ...
   def on_before_update(self) -> None | Awaitable[None]: ...
@@ -320,17 +309,11 @@ class ComponentNode(Node):
     self.children = ()
     await self._render_inner()
 
-  async def handle_event(self, event: InputEvent):
-    if self.context.sid == event.context_id:
-      await self.element.lc_handle_event(dict(event.data))
-    await super().handle_event(event)
-
   async def destroy(self):
     for c in self.children: await c.destroy()
     self.children = ()
 
     await self.element.lc_destroy()
-    # self.context.unsubscribe_all()
 
   async def _render_inner(self):
     inner = await self.element.lc_render()
