@@ -41,7 +41,7 @@ def _html_attributes_to_nodes(context: Context, attributes: HTMLAttributes):
     if isinstance(value, CustomAttribute):
       attribute_nodes.append(value.tonode(attr_context, sanitized_key))
     elif callable(value):
-      attribute_nodes.append(EventHandlerNode(context, attribute_key_to_event_name(key), validate_call(value), (), InputEventDescriptorOptions()))
+      attribute_nodes.append(EventHandlerNode(context, attribute_key_to_event_name(key), validate_call(value), InputEventDescriptorOptions()))
     elif value is None or isinstance(value, bool):
       if value is None or value == True:
         attribute_nodes.append(TextNode(attr_context, sanitized_key))

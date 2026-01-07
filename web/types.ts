@@ -44,12 +44,12 @@ export interface InputEvent {
 
 export interface InputEventDescriptor {
     context_id: string;
-    param_map: Record<string, string>;
     options: {
         throttle?: number;
         debounce?: number;
         no_trigger?: boolean;
         prevent_default?: boolean;
+        param_map: Record<string, string>;
         default_params?: PrimitveRecord;
     };
 }

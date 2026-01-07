@@ -1,6 +1,6 @@
-import asyncio, inspect, weakref, html
+import asyncio, inspect, weakref, html, functools
 from abc import abstractmethod
-from typing import Any, Callable, Concatenate, Generic, get_origin
+from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, get_type_hints
 from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call, TypeAdapter
 from rxxxt.elements import CustomAttribute, Element, meta_element
@@ -169,17 +169,35 @@ class SharedExternalState(Generic[T]):
       component.context.request_update()
 
 class BoundEventHandler(Generic[FNP, FNR], CustomAttribute):
-  def __init__(self, instance: Any, handler: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions) -> None:
+  def __init__(self, bound: tuple[Any,...], handler: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions) -> None:
     super().__init__()
-    self._instance = instance
+    self._bound = bound
     self._handler = validate_call(handler)
-    self._options = options
+    self._options = options.model_copy(update={'param_map': BoundEventHandler.get_handler_param_map(len(bound), handler) | options.param_map})
 
   def __call__(self, *args: FNP.args, **kwds: FNP.kwargs) -> FNR:
-    return self._handler(self._instance, *args, **kwds)
+    return self._handler(*self._bound, *args, **kwds)
 
   def tonode(self, context: Context, original_key: str) -> Node:
-    return EventHandlerNode(context, attribute_key_to_event_name(original_key), self._handler, (self._instance,), self._options)
+    return EventHandlerNode(context, attribute_key_to_event_name(original_key), functools.partial(self._handler, *self._bound), self._options)
+
+  @staticmethod
+  def get_handler_param_map(n_bound: int, handler: Callable):
+    param_map: dict[str, str] = {}
+    sig = inspect.signature(handler)
+    hints = get_type_hints(handler, include_extras=True)
+    for i, (name, param) in enumerate(sig.parameters.items()):
+      if i < n_bound: continue  # skip self
+      ann = hints.get(name, param.annotation)
+      if get_origin(ann) is Annotated:
+        args = get_args(ann)
+        metadata = args[1:]
+        if len(metadata) < 1:
+          raise ValueError(f"Parameter '{name}' is missing the second annotation.")
+        if not isinstance(metadata[0], str):
+          raise TypeError(f"Parameter '{name}' second annotation must be a str, got {type(metadata[0]).__name__}.")
+        param_map[name] = metadata[0]
+    return param_map
 
 class UnboundEventHandler(Generic[FNP, FNR]):
   def __init__(self, handler: Callable[Concatenate[Any, FNP], FNR], options: InputEventDescriptorOptions) -> None:
@@ -188,7 +206,7 @@ class UnboundEventHandler(Generic[FNP, FNR]):
     self._options = options
 
   def __get__(self, instance: Any, _):
-    return BoundEventHandler(instance, self._handler, self._options)
+    return BoundEventHandler((instance,), self._handler, self._options)
 
   def __call__(self, instance: Any, *args: FNP.args, **kwds: FNP.kwargs) -> FNR:
     return self._handler(instance, *args, **kwds)

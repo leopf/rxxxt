@@ -14,11 +14,11 @@ class InputEventDescriptorOptions(BaseModel):
   throttle: int | None = None
   no_trigger: bool = False
   prevent_default: bool = False
+  param_map: dict[str, str] = dataclasses.field(default_factory=dict)
   default_params: dict[str, int | float | str | bool | None] | None = None
 
 class InputEventDescriptor(BaseModel):
   context_id: str
-  param_map: dict[str, str]
   options: InputEventDescriptorOptions
 
 class InputEvent(BaseModel):
