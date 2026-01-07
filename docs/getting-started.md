@@ -24,16 +24,15 @@ El.section(_class="card", content=[
 
 ## Counter
 This is the exact `examples/counter.py` flow explained in [component.md](./component.md), [state.md](./state.md),
-and [app.md](./app.md): `local_state` declares reactive fields, `@event_handler` wires DOM events, and `App` mounts the root component.
+and [app.md](./app.md): `local_state` declares reactive fields.
 
 ```python
 import uvicorn
-from rxxxt import Component, event_handler, El, Element, App, local_state
+from rxxxt import Component, El, Element, App, local_state
 
 class Counter(Component):
   count = local_state(int)
 
-  @event_handler()
   def on_click(self):
     self.count += 1
 

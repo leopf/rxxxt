@@ -75,7 +75,7 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
   async def test_ws(self):
     add_tracked = TrackedCustomAttribute()
 
-    class Counter(Component):
+    class Adder(Component):
       counter = local_state(int)
 
       @event_handler()
@@ -86,7 +86,7 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
         return El.div(onclick=add_tracked(self.add), content=[f"c{self.counter}"])
 
     state_resolver = default_state_resolver()
-    app = App(Counter, state_resolver)
+    app = App(Adder, state_resolver)
     client = self._get_client(app, True)
     _ = await client.get("/")
     token = state_resolver.create_token({}, None)

@@ -29,12 +29,11 @@ pip install rxxxt uvicorn[standard]
 ## Usage
 ```python
 import uvicorn
-from rxxxt import Component, event_handler, El, Element, App, local_state
+from rxxxt import Component, El, Element, App, local_state
 
 class Counter(Component):
   count = local_state(int)
 
-  @event_handler()
   def on_click(self):
     self.count += 1
 
@@ -50,12 +49,11 @@ uvicorn.run(app)
 ```python
 import uvicorn
 from fastapi import FastAPI, Response
-from rxxxt import local_state, Component, event_handler, El, Element, App, PageBuilder, VEl
+from rxxxt import local_state, Component, El, Element, App, PageBuilder, VEl
 
 class Counter(Component):
   count = local_state(int)
 
-  @event_handler()
   def on_click(self):
     self.count += 1
 

@@ -1,5 +1,5 @@
 import uvicorn, asyncio
-from rxxxt import Component, local_state, App, event_handler, El
+from rxxxt import Component, local_state, App, El
 
 class Counter(Component):
   count = local_state(int)
@@ -18,15 +18,12 @@ class Counter(Component):
       self.someswitch = not self.someswitch
       await asyncio.sleep(1)
 
-  @event_handler()
   def on_submit(self):
     self.add_job(self.count_100())
 
-  @event_handler()
   def on_increment(self):
     self.count += 1
 
-  @event_handler()
   def on_toggle_ws(self):
     self.context.use_websocket(not self.context.config.persistent)
 

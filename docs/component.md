@@ -11,7 +11,6 @@ A simple counter component:
 class Counter(Component):
   count = local_state(int)
 
-  @event_handler()
   def on_click(self):
     self.count += 1
 
@@ -22,20 +21,23 @@ class Counter(Component):
 [`HandleNavigate`](./api.md#rxxxt.component.HandleNavigate) can be used as an attribute helper when you only need navigation.
 
 ## Events
-Components can receive user input events using the [`event_handler`](./api.md#rxxxt.component.event_handler) decorator.
-
-Like:
-```python
-@event_handler()
-def on_click(self):
-  self.count += 1
-```
-
-Event handlers can receive [`InputEventDescriptorOptions`](./api.md#rxxxt.execution.InputEventDescriptorOptions).
-
-Parameters on event handlers can be pre-filled with [`EventHandler.bind`](./api.md#rxxxt.component.EventHandler.bind):
+Components can receive user input events by a callable as an HTML attribute. For simple interactions you can use plain methods:
 ```python
 class Counter(Component):
+  count = local_state(int)
+
+  def on_click(self):
+    self.count += 1
+
+  def render(self) -> Element:
+    return El.button(onclick=self.on_click, content=[f"Count: {self.count}"])
+```
+
+Add the [`event_handler`](./api.md#rxxxt.component.event_handler) decorator when you need extra capabilities such as [`InputEventDescriptorOptions`](./api.md#rxxxt.execution.InputEventDescriptorOptions), extracting event payloads with `Annotated` parameters, or the [`EventHandler.bind`](./api.md#rxxxt.component.EventHandler.bind) helper.
+
+Parameters on decorated event handlers can be pre-filled with `bind`:
+```python
+class AdjustableCounter(Component):
   count = local_state(int)
 
   @event_handler()
