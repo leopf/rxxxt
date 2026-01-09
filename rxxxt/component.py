@@ -251,6 +251,8 @@ class Component(Element):
     else: a.close()
 
   async def lc_init(self, context: Context) -> None:
+    if hasattr(self, "context"):
+      raise asyncio.InvalidStateError("Context already present, you must not use the instance of a component in twice.")
     self.context = context
     await to_awaitable(self.on_init)
 
