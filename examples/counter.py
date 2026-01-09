@@ -2,7 +2,7 @@ import uvicorn
 from rxxxt import Component, El, Element, App, local_state
 
 class Counter(Component):
-  count = local_state(int)
+  count = local_state(lambda: 42, int)
 
   def on_click(self):
     self.count += 1

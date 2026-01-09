@@ -3,7 +3,7 @@ from rxxxt.elements import El, Element, ElementFactory, TaggedElement
 from rxxxt.component import Component, context_state
 from rxxxt.helpers import match_path
 
-def router_params(): return context_state(dict[str, str], "*rp*")
+def router_params(): return context_state(dict[str, str], name="*rp*")
 
 class Router(ElementFactory):
   class RoutedComponent(Component):
