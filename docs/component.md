@@ -158,7 +158,7 @@ methods:
 - `unsubscribe_all`
 
 #### window and query selector events
-Use the [`window_event`](./api.md#rxxxt.elements.window_event) and [`query_selector_all_event`](./api.md#rxxxt.elements.query_selector_all_event) helpers (available directly from `rxxxt`) to bind handlers to global window events or existing DOM nodes selected through CSS selectors. These helpers render lightweight virtual elements that automatically register the listener when mounted and remove it when destroyed, so there is no manual bookkeeping.
+Use the [`window_event`](./api.md#rxxxt.elements.window_event) and [`query_selector_all_event`](./api.md#rxxxt.elements.query_selector_all_event) helpers (available directly from `rxxxt`) to bind handlers to global window events or existing DOM nodes selected through CSS selectors. These helpers render lightweight virtual elements that automatically register the listener when mounted and remove it when destroyed. Each helper dispatches an `emit` event whose `detail` is the original DOM event, so you can use [`Annotated` accessors](./component.md#events) like `detail.key` or `detail.currentTarget.textContent` to pull out data from the browser event.
 
 ```python
 from typing import Annotated
@@ -166,11 +166,11 @@ from rxxxt import Component, Element, El, HTMLFragment, event_handler, window_ev
 
 class GlobalEvents(Component):
   @event_handler()
-  def on_key_press(self, key: Annotated[str, "key"]):
+  def on_key_press(self, key: Annotated[str, "detail.key"]):
     print("key pressed", key)
 
   @event_handler()
-  def on_click_p(self, text: Annotated[str, "currentTarget.textContent"]):
+  def on_click_p(self, text: Annotated[str, "detail.currentTarget.textContent"]):
     print("paragraph clicked")
 
   def render(self) -> Element:

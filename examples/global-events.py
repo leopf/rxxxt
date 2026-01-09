@@ -5,11 +5,11 @@ from rxxxt import App, Component, Element, El, HTMLFragment, event_handler, wind
 
 class GlobalEvents(Component):
   @event_handler()
-  def on_key_press(self, key: Annotated[str, "key"]):
+  def on_key_press(self, key: Annotated[str, "detail.key"]):
     print("key pressed", key)
 
   @event_handler()
-  def on_hello_world(self, text: Annotated[str, "currentTarget.textContent"]):
+  def on_hello_world(self, text: Annotated[str, "detail.currentTarget.textContent"]):
     if text and text.strip() == "Hello World":
       print("Hello World paragraph clicked")
 
