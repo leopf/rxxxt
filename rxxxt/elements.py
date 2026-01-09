@@ -152,10 +152,10 @@ def meta_element(id: str, inner: Element):
   return HTMLElement("rxxxt-meta", {"id":id}, [inner])
 
 def window_event(name: str, handler: Callable):
-  return El["rxxxt-window-event"](name=name, content=[], **{ name: handler })
+  return El["rxxxt-window-event"](name=name, content=[], onemit=handler)
 
 def query_selector_all_event(name: str, selector: str, handler: Callable):
-  return El["rxxxt-query-selector-event"](name=name, selector=selector, content=[], **{ name: handler })
+  return El["rxxxt-query-selector-event"](name=name, selector=selector, content=[], onemit=handler)
 
 def class_map(map: dict[str, bool]):
   return " ".join([ k for k, v in map.items() if v ])

@@ -1,4 +1,4 @@
-import codecs, functools, json, mimetypes, pathlib, io, asyncio, logging, os, typing
+import codecs, functools, json, mimetypes, pathlib, io, asyncio, logging, os, sys, typing
 from typing import Any, Callable
 from collections.abc import Awaitable, Iterable, MutableMapping, AsyncGenerator
 from email.utils import formatdate
@@ -206,6 +206,8 @@ async def http_not_found_handler(context: HTTPContext):
   await context.respond_text("not found", 404)
 
 class Composer:
+  _error_count = 0
+
   def __init__(self) -> None:
     self._handlers: list[ASGIHandler] = []
 
@@ -220,7 +222,10 @@ class Composer:
         except ASGINextException: pass
     except asyncio.CancelledError: raise
     except BaseException as e:
-      logging.debug("asgi error", exc_info=True, stack_info=True)
+      Composer._error_count += 1
+      if Composer._error_count == 1:
+        print("ERROR during an ASGI request. Enable logging by calling `import logging; logging.basicConfig(level=logging.DEBUG)` at startup.", file=sys.stderr)
+      logging.debug("Unhandled exception during a request", exc_info=True, stack_info=True)
       if scope["type"] == "websocket":
         return await self._ws_error_handler(WebsocketContext(scope, receive, send), e)
       if scope["type"] == "http":

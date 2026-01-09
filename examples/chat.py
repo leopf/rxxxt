@@ -1,8 +1,6 @@
-import uvicorn, logging
+import uvicorn
 from rxxxt import App, Component, PageBuilder, local_state, El, VEl, event_handler, SharedExternalState
 from typing import Annotated
-
-logging.basicConfig(level=logging.DEBUG)
 
 class Main(Component):
   messages = SharedExternalState[list[tuple[str, str]] ]([])

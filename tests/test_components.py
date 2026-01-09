@@ -1,4 +1,4 @@
-import unittest
+import unittest, asyncio
 from typing import Annotated
 from rxxxt.component import Component, SharedExternalState, event_handler, local_state
 from rxxxt.elements import El, WithRegistered
@@ -42,22 +42,21 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
     self.assertIn("rxxxt-on-click", render_node(node))
 
   async def test_registry(self):
-    comp = TestComponents.RegistryComp()
     with self.assertRaises(TypeError):
-      node = element_to_node(comp, {})
+      node = element_to_node(TestComponents.RegistryComp(), {})
       await node.expand()
 
-    node = element_to_node(comp, { "header": "1337" })
+    node = element_to_node(TestComponents.RegistryComp(), { "header": "1337" })
     await node.expand()
     self.assertEqual(render_node(node), "<div>1337</div>")
 
   async def test_with_registered(self):
-    comp = WithRegistered({ "header": "deadbeef" }, TestComponents.RegistryComp())
-    node = element_to_node(comp, {})
+    comp_factory = lambda: WithRegistered({ "header": "deadbeef" }, TestComponents.RegistryComp())
+    node = element_to_node(comp_factory(), {})
     await node.expand()
     self.assertEqual(render_node(node), "<div>deadbeef</div>")
 
-    node = element_to_node(comp, { "header": "1337" })
+    node = element_to_node(comp_factory(), { "header": "1337" })
     await node.expand()
     self.assertEqual(render_node(node), "<div>deadbeef</div>")
 
@@ -88,6 +87,15 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
     await node.expand()
     with self.assertRaises(Exception):
       await node.expand()
+
+  async def test_component_reused_in_different_contexts(self):
+    el = TestComponents.Counter()
+    first_node = element_to_node(el)
+    await first_node.expand()
+
+    second_node = element_to_node(el)
+    with self.assertRaises(asyncio.InvalidStateError):
+      await second_node.expand()
 
   async def test_shared_external_state(self):
     class Subscriber(Component):

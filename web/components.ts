@@ -2,7 +2,7 @@ const virtualElementStyle = "contents";
 const queryAttributeNames = ["name", "query", "selector", "pattern"] as const;
 
 abstract class BaseEventElement extends HTMLElement {
-    protected listener: EventListener = (event: Event) => this.dispatchEvent(event);
+    protected listener: EventListener = (event: Event) => this.dispatchEvent(new CustomEvent("emit", { detail: event }));
     protected attributeValues = new Map<string, string | null>();
 
     public static get observedAttributes(): string[] {
@@ -23,7 +23,9 @@ abstract class BaseEventElement extends HTMLElement {
     attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null) {
         if (this.allPresent) {
             this.doUnregister();
-            this.attributeValues.set(name, newValue);
+        }
+        this.attributeValues.set(name, newValue);
+        if (this.allPresent) {
             this.doRegister();
         }
     }

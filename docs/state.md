@@ -37,6 +37,11 @@ class InputExample(Component):
   def render(self) -> Element:
     return VEl.input(oninput=self.on_input, type="text", value=self.text)
 ```
+Instead of passing a type, you can provide a callable (including lambdas) that returns the initial value. This is useful for non-default defaults:
+```python
+class Counter(Component):
+  count = local_state(lambda: 42, int)  # start at 42 using a lambda factory
+```
 2. **[`global_state`](./api.md#rxxxt.component.global_state)** - which is shared accross the entire application
 ```python
 from typing import Annotated

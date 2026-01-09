@@ -1,6 +1,6 @@
 import asyncio, inspect, weakref, html, functools
 from abc import abstractmethod
-from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, get_type_hints, overload
 from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call, TypeAdapter
 from rxxxt.elements import CustomAttribute, Element, meta_element
@@ -50,16 +50,21 @@ class StateBox(Generic[T], StateCell):
   def detach(self, key: str) -> Any:
     del self._value
 
+StateKeyProducer = Callable[[Context, str], str]
+
 class StateBoxDescriptorBase(Generic[T]):
-  def __init__(self, state_key_producer: Callable[[Context, str], str], default_factory: Callable[[], T], state_name: str | None = None) -> None:
+  def __init__(self, state_key_producer: StateKeyProducer, default_factory: Callable[[], T], type_overwrite: type | None, state_name: str | None) -> None:
     self._state_name = state_name
     self._default_factory = default_factory
     self._state_key_producer = state_key_producer
     self._box_cache: weakref.WeakKeyDictionary[Context, StateBox] = weakref.WeakKeyDictionary()
+    self._val_type_adapter: TypeAdapter[Any]
 
     native_types = (bool, bytearray, bytes, complex, dict, float, frozenset, int, list, object, set, str, tuple)
-    if default_factory in native_types or get_origin(default_factory) in native_types:
-      self._val_type_adapter: TypeAdapter[Any] = TypeAdapter(default_factory)
+    if type_overwrite is not None:
+      self._val_type_adapter = TypeAdapter(type_overwrite)
+    elif default_factory in native_types or get_origin(default_factory) in native_types:
+      self._val_type_adapter = TypeAdapter(default_factory)
     else:
       sig = inspect.signature(default_factory)
       self._val_type_adapter = TypeAdapter(sig.return_annotation)
@@ -124,23 +129,27 @@ def get_context_state_key(context: Context, name: str):
   if state_key is None: raise ValueError(f"State key not found for context '{name}'!")
   return state_key # this is just the key for context.sid
 
-def local_state(default_factory: Callable[[], T], name: str | None = None):
-  return StateDescriptor(get_local_state_key, default_factory, state_name=name)
+@overload
+def _field_state(key_fn: StateKeyProducer, default_factory: Callable[[], Any], t: type[T], name: str | None = None) -> StateDescriptor[T]: ...
+@overload
+def _field_state(key_fn: StateKeyProducer, default_factory: Callable[[], T], t: None = None, name: str | None = None) -> StateDescriptor[T]: ...
+def _field_state(key_fn: StateKeyProducer, default_factory: Callable[[], T], t: type | None = None, name: str | None = None) -> StateDescriptor[T]:
+  return StateDescriptor(key_fn, default_factory, t, name)
 
-def global_state(default_factory: Callable[[], T], name: str | None = None):
-  return StateDescriptor(get_global_state_key, default_factory, state_name=name)
+local_state = functools.partial(_field_state, get_local_state_key)
+global_state = functools.partial(_field_state, get_global_state_key)
+context_state = functools.partial(_field_state, get_context_state_key)
 
-def context_state(default_factory: Callable[[], T], name: str | None = None):
-  return StateDescriptor(get_context_state_key, default_factory, state_name=name)
+@overload
+def _box_state(key_fn: StateKeyProducer, default_factory: Callable[[], Any], t: type[T], name: str | None = None) -> StateBoxDescriptor[T]: ...
+@overload
+def _box_state(key_fn: StateKeyProducer, default_factory: Callable[[], T], t: None = None, name: str | None = None) -> StateBoxDescriptor[T]: ...
+def _box_state(key_fn: StateKeyProducer, default_factory: Callable[[], T], t: type | None = None, name: str | None = None) -> StateBoxDescriptor[T]:
+  return StateBoxDescriptor(key_fn, default_factory, t, name)
 
-def local_state_box(default_factory: Callable[[], T], name: str | None = None):
-  return StateBoxDescriptor(get_local_state_key, default_factory, state_name=name)
-
-def global_state_box(default_factory: Callable[[], T], name: str | None = None):
-  return StateBoxDescriptor(get_global_state_key, default_factory, state_name=name)
-
-def context_state_box(default_factory: Callable[[], T], name: str | None = None):
-  return StateBoxDescriptor(get_context_state_key, default_factory, state_name=name)
+local_state_box = functools.partial(_box_state, get_local_state_key)
+global_state_box = functools.partial(_box_state, get_global_state_key)
+context_state_box = functools.partial(_box_state, get_context_state_key)
 
 class SharedExternalState(Generic[T]):
   def __init__(self, initial_value: T) -> None:
@@ -251,6 +260,8 @@ class Component(Element):
     else: a.close()
 
   async def lc_init(self, context: Context) -> None:
+    if hasattr(self, "context"):
+      raise asyncio.InvalidStateError("Context already present, you must not use the instance of a component in twice.")
     self.context = context
     await to_awaitable(self.on_init)
 
@@ -273,13 +284,6 @@ class Component(Element):
       except asyncio.CancelledError: pass
       self._worker_tasks.clear()
     await to_awaitable(self.on_after_destroy)
-
-  # async def lc_handle_event(self, event: dict[str, int | float | str | bool | None]):
-  #   handler_name = event.pop("$handler_name", None)
-  #   if isinstance(handler_name, str):
-  #     fn = getattr(self, handler_name, None) # NOTE: this is risky!!
-  #     if isinstance(fn, EventHandler):
-  #       await to_awaitable(cast(EventHandler[..., Any], fn), **event)
 
   def on_init(self) -> None | Awaitable[None]: ...
   def on_before_update(self) -> None | Awaitable[None]: ...
