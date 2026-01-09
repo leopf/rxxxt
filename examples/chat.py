@@ -26,6 +26,7 @@ class Main(Component):
     self.messages.value.append((self.username, self.message))
     self.messages.update()
     self.message = ""
+    raise ValueError()
 
   async def on_init(self):
     self.context.use_websocket()
