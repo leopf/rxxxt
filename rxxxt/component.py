@@ -285,13 +285,6 @@ class Component(Element):
       self._worker_tasks.clear()
     await to_awaitable(self.on_after_destroy)
 
-  # async def lc_handle_event(self, event: dict[str, int | float | str | bool | None]):
-  #   handler_name = event.pop("$handler_name", None)
-  #   if isinstance(handler_name, str):
-  #     fn = getattr(self, handler_name, None) # NOTE: this is risky!!
-  #     if isinstance(fn, EventHandler):
-  #       await to_awaitable(cast(EventHandler[..., Any], fn), **event)
-
   def on_init(self) -> None | Awaitable[None]: ...
   def on_before_update(self) -> None | Awaitable[None]: ...
   def on_after_update(self) -> None | Awaitable[None]: ...
