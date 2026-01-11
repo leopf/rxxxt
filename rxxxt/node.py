@@ -93,3 +93,8 @@ class EventHandlerNode(Node):
   def write(self, io: StringIO):
     v = base64.b64encode(InputEventDescriptor(context_id=self.context.sid, options=self.options).model_dump_json().encode("utf-8")).decode("utf-8")
     io.write(f"rxxxt-on-{html.escape(self.event_name)}=\"{html.escape(v)}\"")
+
+def render_node(node: Node) -> str:
+  io = StringIO()
+  node.write(io)
+  return io.getvalue()
