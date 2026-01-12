@@ -1,5 +1,5 @@
 # rxxxt (R-3-X-T)
-Server side rendered, reactive web applications in python.
+A library to build server side rendered, reactive web applications in python.
 
 **1 dependency (pydantic).**
 
