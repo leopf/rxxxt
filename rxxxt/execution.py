@@ -1,6 +1,6 @@
 import asyncio, hashlib, functools, re, dataclasses
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Any, Callable
 from rxxxt.helpers import T, match_path
 from rxxxt.state import State, StateConsumer
@@ -10,13 +10,14 @@ ContextStack = tuple[ContextStackKey, ...]
 OutputEvent = dict[str, Any]
 
 class InputEventDescriptorOptions(BaseModel):
+  model_config = ConfigDict(frozen=True)
+
   debounce: int | None = None
   throttle: int | None = None
   no_trigger: bool = False
   prevent_default: bool = False
   param_map: dict[str, str] = dataclasses.field(default_factory=dict)
-  default_params: dict[str, int | float | str | bool | None] | None = None
-
+  default_params: dict[str, int | float | str | bool | None] = dataclasses.field(default_factory=dict)
 class InputEventDescriptor(BaseModel):
   context_id: str
   options: InputEventDescriptorOptions

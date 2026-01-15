@@ -31,7 +31,7 @@ class RegisteredEvent {
     private handle(e: Event) {
         const eventData: Record<string, number | boolean | string | undefined> = {
             ...(this.descriptor.options.default_params ?? {}),
-            ...Object.fromEntries(Object.entries(this.descriptor.options.param_map)
+            ...Object.fromEntries(Object.entries(this.descriptor.options.param_map ?? {})
                 .map(entry => [entry[0], getEventPathValue(e, entry[1])]))
         };
 

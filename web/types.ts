@@ -49,7 +49,7 @@ export interface InputEventDescriptor {
         debounce?: number;
         no_trigger?: boolean;
         prevent_default?: boolean;
-        param_map: Record<string, string>;
+        param_map?: Record<string, string>;
         default_params?: PrimitveRecord;
     };
 }

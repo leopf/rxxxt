@@ -8,6 +8,7 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
   class Counter(Component):
     counter = local_state(int)
 
+    @event_handler()
     def add(self, value: Annotated[int, "target.value"]):
       self.counter += value
 
@@ -34,6 +35,17 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
     node = element_to_node(comp)
     await node.expand()
     self.assertIn("rxxxt-on-click", render_node(node))
+
+  async def test_bind(self):
+    comp = TestComponents.Counter()
+    node = element_to_node(comp)
+    await node.expand()
+    new_event_handler = comp.add.bind(value=1)
+    self.assertEqual(new_event_handler.options.default_params, { "value": 1 })
+
+  async def test_param_map(self):
+    comp = TestComponents.Counter()
+    self.assertEqual(comp.add.options.param_map, { "value": "target.value" })
 
   async def test_plain_event_handler_without_decorator(self):
     comp = TestComponents.PlainButton()
