@@ -91,8 +91,9 @@ class EventHandlerNode(Node):
       await to_awaitable(self.handler, **event.data)
 
   def write(self, io: StringIO):
-    v = base64.b64encode(InputEventDescriptor(context_id=self.context.sid, options=self.options).model_dump_json().encode("utf-8")).decode("utf-8")
-    io.write(f"rxxxt-on-{html.escape(self.event_name)}=\"{html.escape(v)}\"")
+    event_descriptor_json = InputEventDescriptor(context_id=self.context.sid, options=self.options).model_dump_json(exclude_defaults=True)
+    attr_value = base64.b64encode(event_descriptor_json.encode("utf-8")).decode("utf-8")
+    io.write(f"rxxxt-on-{html.escape(self.event_name)}=\"{html.escape(attr_value)}\"")
 
 def render_node(node: Node) -> str:
   io = StringIO()
