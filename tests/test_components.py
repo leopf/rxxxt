@@ -8,6 +8,7 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
   class Counter(Component):
     counter = local_state(int)
 
+    @event_handler()
     def add(self, value: Annotated[int, "target.value"]):
       self.counter += value
 

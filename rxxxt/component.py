@@ -184,8 +184,16 @@ class BoundEventHandler(Generic[FNP, FNR], CustomAttribute):
     self._handler = validate_call(handler)
     self._options = options.model_copy(update={'param_map': BoundEventHandler.get_handler_param_map(len(bound), handler) | options.param_map})
 
+  @property
+  def options(self):
+    return self._options
+
   def __call__(self, *args: FNP.args, **kwds: FNP.kwargs) -> FNR:
     return self._handler(*self._bound, *args, **kwds)
+
+  def bind(self, **kwargs: int | float | str | bool | None):
+    new_options = self._options.model_copy(update={"default_params": self._options.default_params | kwargs})
+    return BoundEventHandler(self._bound, self._handler, new_options)
 
   def tonode(self, context: Context, original_key: str) -> Node:
     return EventHandlerNode(context, attribute_key_to_event_name(original_key), functools.partial(self._handler, *self._bound), self._options)
