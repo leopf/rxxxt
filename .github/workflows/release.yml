@@ -22,20 +22,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install build
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "pnpm"
-
-      - name: Build web assets
-        run: pnpm install && pnpm build:prod
-
       - name: Build the package
         run: python -m build -s
 

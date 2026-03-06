@@ -4,12 +4,14 @@ on:
   workflow_dispatch:
   push:
     branches: [master]
-    paths:
+    paths: &paths
       - "**/*.py"
+      - "web/**"
+      - "package.json"
+      - "package-lock.json"
   pull_request:
     branches: [master]
-    paths:
-      - "**/*.py"
+    paths: *paths
 
 jobs:
   test-and-lint:
@@ -45,3 +47,27 @@ jobs:
       - name: Run ruff linter
         run: |
           ruff check .
+
+  verify-web-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Verify web assets match committed build
+        run: |
+          pnpm install
+          pnpm build:prod
+          git diff --exit-code rxxxt/assets/main.js
