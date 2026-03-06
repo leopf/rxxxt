@@ -3,7 +3,7 @@ from rxxxt import App, Component, PageBuilder, local_state, El, VEl, event_handl
 from typing import Annotated
 
 class Main(Component):
-  messages = SharedExternalState[list[tuple[str, str]] ]([])
+  messages = SharedExternalState[list[tuple[str, str]]]([])
   message = local_state(str)
   username = local_state(str)
 
