@@ -23,7 +23,7 @@ pip install rxxxt
 
 If you want to run the application, you will have to install an ASGI web server like uvicorn (with `[standard]` to allow for websockets) as well:
 ```bash
-pip install rxxxt uvicorn[standard]
+pip install rxxxt "uvicorn[standard]"
 ```
 
 ## Usage
