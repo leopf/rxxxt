@@ -1,5 +1,6 @@
-import uvicorn
+import asyncio
 from rxxxt import Component, El, Element, App, local_state
+from rxxxt.httpserver import HTTPServer, ServerConfig
 
 class Counter(Component):
   count = local_state(lambda: 42, int)
@@ -11,4 +12,5 @@ class Counter(Component):
     return El.div(onclick=self.on_click, content=[f"Count: {self.count}"])
 
 app = App(Counter)
-uvicorn.run(app)
+server = HTTPServer(app, ServerConfig(host="127.0.0.1", port=8000))
+asyncio.run(server.run())
