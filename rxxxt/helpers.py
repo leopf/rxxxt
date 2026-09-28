@@ -82,17 +82,17 @@ class JWTManager:
     self._max_age: timedelta = max_age
     self._algorithm = algorithm
     self._digest = { "HS256": hashlib.sha256, "HS384": hashlib.sha384, "HS512": hashlib.sha512 }[algorithm]
-    self._jwt_header = JWTManager.encode_json({ "typ": "JWT", "alg": self._algorithm }) + b"."
+    self._jwt_header = JWTManager._encode_json({ "typ": "JWT", "alg": self._algorithm }) + b"."
 
   def sign(self, extra_fields: dict[str, Any]):
     try:
       expires_at = int((datetime.now(tz=timezone.utc) + self._max_age).timestamp())
       stream = io.BytesIO()
       _ = stream.write(self._jwt_header)
-      _ = stream.write(JWTManager.encode_json({ "exp": expires_at, **extra_fields }))
+      _ = stream.write(JWTManager._encode_json({ "exp": expires_at, **extra_fields }))
       signature = hmac.digest(self._secret, stream.getvalue(), self._digest)
       _ = stream.write(b".")
-      _ = stream.write(JWTManager.b64_url_encode(signature))
+      _ = stream.write(JWTManager._b64_url_encode(signature))
       return stream.getvalue().decode()
     except Exception as e:
       if not isinstance(e, JWTError): raise JWTError(e)
@@ -103,14 +103,14 @@ class JWTManager:
       parts = token.encode().split(b".")
       if len(parts) != 3: raise JWTError("invalid format (expected 3 parts)")
 
-      header = JWTManager.JWTHeader.model_validate_json(JWTManager.b64_url_decode(parts[0]))
+      header = JWTManager.JWTHeader.model_validate_json(JWTManager._b64_url_decode(parts[0]))
       if header.alg != self._algorithm: raise JWTError("invalid algorithm in header")
 
       ref_signature = hmac.digest(self._secret, parts[0] + b"." + parts[1], self._digest)
-      if not hmac.compare_digest(JWTManager.b64_url_decode(parts[2]), ref_signature):
+      if not hmac.compare_digest(JWTManager._b64_url_decode(parts[2]), ref_signature):
         raise JWTError("invalid JWT signature!")
 
-      full_payload = JWTManager.JWTPayloadAdapter.validate_json(JWTManager.b64_url_decode(parts[1]))
+      full_payload = JWTManager.JWTPayloadAdapter.validate_json(JWTManager._b64_url_decode(parts[1]))
       if not JWTManager.JWTPayloadValidations.model_validate(full_payload).is_valid():
         raise JWTError("token expired")
 
@@ -121,13 +121,13 @@ class JWTManager:
       else: raise e
 
   @staticmethod
-  def encode_json(obj: Any):
-    return JWTManager.b64_url_encode(json.dumps(obj).encode())
+  def _encode_json(obj: Any):
+    return JWTManager._b64_url_encode(json.dumps(obj).encode())
 
   @staticmethod
-  def b64_url_encode(value: bytes | bytearray):
+  def _b64_url_encode(value: bytes | bytearray):
     return base64.urlsafe_b64encode(value).rstrip(b"=")
 
   @staticmethod
-  def b64_url_decode(value: bytes | bytearray):
+  def _b64_url_decode(value: bytes | bytearray):
     return base64.urlsafe_b64decode(value + b"=" * (4 - len(value) % 4))
