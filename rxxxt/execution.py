@@ -101,7 +101,7 @@ class Context:
 
   @property
   def stack_sids(self):
-    return [ get_context_stack_sid(self.id[:i + 1]) for i in range(len(self.id)) ]
+    return [get_context_stack_sid(self.id[:i + 1]) for i in range(len(self.id))]
 
   @property
   def location(self):

@@ -44,7 +44,7 @@ class TransportContext:
     if ct is None or len(ct) == 0: raise ValueError("No content type specified on request!")
     if len(ct) > 1: raise ValueError("More than one content-type was specified!")
     ct = ct[0]
-    parts = [ p.strip() for p in ct.split(";") ]
+    parts = [p.strip() for p in ct.split(";")]
     mime_type = parts[0].lower()
     params = { k.lower(): v for k, v in (tuple(p.split("=") for p in parts[1:] if p.count("=") == 1)) }
     return mime_type, params
@@ -68,7 +68,7 @@ class WebsocketContext(TransportContext):
   async def setup(self, headers: ASGIHeaders = (), subprotocol: str | None = None):
     event = await self.receive()
     if event["type"] != "websocket.connect": raise ConnectionError("Did not receive connect event!")
-    await self.send({ "type": "websocket.accept", "subprotocol": subprotocol, "headers": [ (name.lower(), value) for name, value in headers ] })
+    await self.send({ "type": "websocket.accept", "subprotocol": subprotocol, "headers": [(name.lower(), value) for name, value in headers] })
 
   async def receive_message(self) -> BytesLike | str:
     while self._connected:
@@ -140,7 +140,7 @@ class HTTPContext(TransportContext):
 
       if use_last_modified:
         last_modified = formatdate(fd_stat.st_mtime, usegmt=True).encode()
-        self.add_response_headers([ (b"Last-Modified", last_modified) ])
+        self.add_response_headers([(b"Last-Modified", last_modified)])
         if (last_modified,) == self.headers.get("If-Modified-Since", None):
           await self.response_start(304)
           await self.response_body(b"", False)

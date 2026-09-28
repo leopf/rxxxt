@@ -9,7 +9,7 @@ def chart(*, config: dict[str, typing.Any], **kwargs: HTMLAttributeValue):
 class Dashboard(Component):
   async def load_data(self):
     await asyncio.sleep(0.1) # this is meant to illustrate loading data from db
-    return { "labels": [ "A", "B", "C" ], "datasets": [ { "label": "Demo", "data": [ 3, 7, 4 ] } ] }
+    return { "labels": ["A", "B", "C"], "datasets": [{"label": "Demo", "data": [3, 7, 4]}] }
 
   async def render(self):
     return El.div(_class="dashboard", content=[

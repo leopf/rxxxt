@@ -16,7 +16,7 @@ class Main(Component):
 
   def render(self) -> Element:
     return El.div(content=[
-      El.div(content=[ json.dumps(self.texts.value) ]),
+      El.div(content=[json.dumps(self.texts.value)]),
       *(VEl.input(value=self.texts.value.get(name, ""), oninput=self.on_input.bind(name=name)) for name in ("field_a", "field_b"))
     ])
 

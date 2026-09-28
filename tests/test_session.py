@@ -33,7 +33,7 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
   async def test_cookie_parsing(self):
     @lazy_element
     def main(context: Context):
-      return El.div(content=[ context.cookies.get("hello", ""), context.cookies.get("world", "") ])
+      return El.div(content=[context.cookies.get("hello", ""), context.cookies.get("world", "")])
 
     async with Session(session_config, main()) as session:
       session.set_location("/")
@@ -167,7 +167,7 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       async def on_init(self) -> None:
         self.data.value = { "hello": "no" }
       def render(self):
-        return El.div(content=[ self.data.value.get("hello", "") ])
+        return El.div(content=[self.data.value.get("hello", "")])
 
     el = Main()
     async with Session(session_config, el) as session:

@@ -106,7 +106,7 @@ class Session:
     content_el = UnescapedHTMLElement(self._render_full())
     header_el = El.style(content=["rxxxt-meta { display: contents; }"])
     body_end_el = HTMLFragment([
-      El.script(type="application/json", id="rxxxt-init-data", content=[ ScriptContent(init_data.model_dump_json(exclude_defaults=True)) ]),
+      El.script(type="application/json", id="rxxxt-init-data", content=[ScriptContent(init_data.model_dump_json(exclude_defaults=True))]),
       El.script(src="/rxxxt-client.js")
     ])
 

@@ -158,7 +158,7 @@ def query_selector_all_event(name: str, selector: str, handler: Callable):
   return El["rxxxt-query-selector-event"](name=name, selector=selector, content=[], onemit=handler)
 
 def class_map(map: dict[str, bool]):
-  return " ".join([ k for k, v in map.items() if v ])
+  return " ".join([k for k, v in map.items() if v])
 
 def merge_attributes(a: HTMLAttributes, b: HTMLAttributes):
   return dict(_merge_attribute_items(itertools.chain(a.items(), b.items())))

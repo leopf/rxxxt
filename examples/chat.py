@@ -34,7 +34,7 @@ class Main(Component):
     return El.div(_class="content", content=[
       El.div(style="font-size: 0.9rem;", content=["your name:"]),
       VEl.input(_type="text", value=self.username, oninput=self.on_username_input, placeholder="username", style="display: block;"),
-      El.div(style="flex: 1; padding: 1rem 0;", content=[ El.div(content=[f"{username}: {message}"]) for username, message in self.messages.value ]),
+      El.div(style="flex: 1; padding: 1rem 0;", content=[El.div(content=[f"{username}: {message}"]) for username, message in self.messages.value]),
       El.form(style="display: flex; gap: 0.5rem; align-items: center;", onsubmit=self.send_message, content=[
         VEl.input(_type="text", value=self.message, oninput=self.on_message_input, placeholder="new message", style="display: block; flex: 1"),
         El.button(disabled=not self.message_allowed, content=["send"])

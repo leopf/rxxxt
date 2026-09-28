@@ -27,7 +27,7 @@ page_builder.add_header(El.style(content=["form * { display: block; }"]))
 
 router = Router()
 router.add_route("/", Form)
-router.add_route("/hello", lambda: El.h1(content=[ "Welcome!" ]))
+router.add_route("/hello", lambda: El.h1(content=["Welcome!"]))
 
 app = App(router, page_factory=page_builder)
 uvicorn.run(app)
