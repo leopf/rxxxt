@@ -1,6 +1,6 @@
-import unittest, asyncio
+import html, unittest, asyncio
 from typing import Annotated
-from rxxxt.component import Component, SharedExternalState, event_handler, local_state
+from rxxxt.component import Component, HandleNavigate, SharedExternalState, event_handler, local_state
 from rxxxt.elements import El, WithRegistered
 from tests.helpers import element_to_node, render_node
 
@@ -142,6 +142,16 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
 
     await node_a.destroy()
     await node_b.destroy()
+
+  async def test_handle_navigate_renders(self):
+    node = element_to_node(El.button(onclick=HandleNavigate("/hello?x='y'"), content=["go"]))
+    attr_value = render_node(node).split('"')[1]
+    self.assertEqual(html.unescape(attr_value), "window.rxxxt.navigate(\"/hello?x='y'\");")
+
+  async def test_handle_navigate_escapes_js(self):
+    node = element_to_node(El.button(onclick=HandleNavigate("'); alert(1); //"), content=["go"]))
+    attr_value = render_node(node).split('"')[1]
+    self.assertEqual(html.unescape(attr_value), "window.rxxxt.navigate(\"'); alert(1); //\");")
 
 if __name__ == "__main__":
   _ = unittest.main()

@@ -1,4 +1,4 @@
-import asyncio, inspect, weakref, html, functools
+import asyncio, inspect, weakref, html, json, functools
 from abc import abstractmethod
 from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get_origin, get_type_hints, overload
 from collections.abc import Awaitable, Coroutine
@@ -239,7 +239,8 @@ class HandleNavigate(CustomAttribute):
     self.location = location
 
   def tonode(self, context: Context, original_key: str) -> Node:
-    return TextNode(context, f"{html.escape(original_key)}=\"window.rxxxt.navigate('{html.escape(self.location)}');\"")
+    attr_value = f"window.rxxxt.navigate({json.dumps(self.location)});"
+    return TextNode(context, f"{html.escape(original_key)}=\"{html.escape(attr_value)}\"")
 
 class Component(Element):
   def __init__(self) -> None:
