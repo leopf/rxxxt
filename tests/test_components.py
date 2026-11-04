@@ -2,6 +2,7 @@ import html, unittest, asyncio
 from typing import Annotated
 from rxxxt.component import Component, HandleNavigate, SharedExternalState, event_handler, local_state
 from rxxxt.elements import El, WithRegistered
+from rxxxt.execution import encode_state_key_part, get_context_stack_key
 from tests.helpers import element_to_node, render_node
 
 class TestComponents(unittest.IsolatedAsyncioTestCase):
@@ -152,6 +153,12 @@ class TestComponents(unittest.IsolatedAsyncioTestCase):
     node = element_to_node(El.button(onclick=HandleNavigate("'); alert(1); //"), content=["go"]))
     attr_value = render_node(node).split('"')[1]
     self.assertEqual(html.unescape(attr_value), "window.rxxxt.navigate(\"'); alert(1); //\");")
+
+  def test_state_key_serialization(self):
+    self.assertEqual(encode_state_key_part("a%b;c"), "a%25b%3Bc")
+    key = get_context_stack_key(("root", "a;b", 0))
+    self.assertNotIn(";", key)
+    self.assertNotEqual(key, get_context_stack_key(("root", "a", "b", 0)))
 
 if __name__ == "__main__":
   _ = unittest.main()

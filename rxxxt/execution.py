@@ -76,6 +76,16 @@ def get_context_stack_sid(stack: ContextStack):
     hasher.update((k + ";").encode("utf-8"))
   return hashlib.sha256(hasher.digest()).hexdigest() # NOTE: double hash to prevent hash continuation
 
+def encode_state_key_part(value: str):
+  return value.replace("%", "%25").replace(";", "%3B")
+
+def get_context_stack_key(stack: ContextStack):
+  parts: list[str] = []
+  for k in stack:
+    value = encode_state_key_part(k) if isinstance(k, str) else str(k)
+    parts.append(f"{'s' if isinstance(k, str) else 'i'}{len(value)}:{value}")
+  return "".join(parts)
+
 @dataclasses.dataclass(frozen=True)
 class ContextConfig:
   persistent: bool
@@ -103,9 +113,8 @@ class Context:
   @functools.cached_property
   def sid(self): return get_context_stack_sid(self.id)
 
-  @property
-  def stack_sids(self):
-    return [get_context_stack_sid(self.id[:i + 1]) for i in range(len(self.id))]
+  @functools.cached_property
+  def state_key(self): return get_context_stack_key(self.id)
 
   @property
   def location(self):

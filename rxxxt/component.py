@@ -4,7 +4,7 @@ from typing import Annotated, Any, Callable, Concatenate, Generic, get_args, get
 from collections.abc import Awaitable, Coroutine
 from pydantic import validate_call, TypeAdapter
 from rxxxt.elements import CustomAttribute, Element, meta_element
-from rxxxt.execution import Context, InputEventDescriptorOptions
+from rxxxt.execution import Context, InputEventDescriptorOptions, encode_state_key_part, get_context_stack_key
 from rxxxt.helpers import attribute_key_to_event_name, to_awaitable, FNP, FNR, T
 from rxxxt.node import EventHandlerNode, Node, TextNode
 from rxxxt.state import StateCell, State
@@ -113,21 +113,24 @@ class StateDescriptor(StateBoxDescriptorBase[T]):
 
     return box.value
 
+def _get_state_key(prefix: str, key: str, name: str):
+  return f"{prefix};{key};{encode_state_key_part(name)}"
+
 def get_global_state_key(_context: Context, name: str):
-  return f"global;{name}"
+  return f"global;{encode_state_key_part(name)}"
 
 def get_local_state_key(context: Context, name: str):
-  return f"#local;{context.sid};{name}"
+  return _get_state_key("#local", context.state_key, name)
 
 def get_context_state_key(context: Context, name: str):
   state_key = None
-  exisiting_keys = context.state.keys
-  for sid in context.stack_sids:
-    state_key = f"#context;{sid};{name}"
-    if state_key in exisiting_keys:
+  existing_keys = context.state.keys
+  for i in range(len(context.id)):
+    state_key = _get_state_key("#context", get_context_stack_key(context.id[:i + 1]), name)
+    if state_key in existing_keys:
       return state_key
   if state_key is None: raise ValueError(f"State key not found for context '{name}'!")
-  return state_key # this is just the key for context.sid
+  return state_key
 
 @overload
 def _field_state(key_fn: StateKeyProducer, default_factory: Callable[[], Any], t: type[T], name: str | None = None) -> StateDescriptor[T]: ...
