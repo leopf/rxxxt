@@ -43,7 +43,7 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
     state_resolver = default_state_resolver()
     app = App(lambda: El.div(), state_resolver)
     async with self._get_client(app) as client:
-      token = state_resolver.create_token({}, None)
+      token = state_resolver.create_token("{}", None)
       r = await client.post("/", json=AppHttpRequest(state_token=token, events=()).model_dump())
       self.assertEqual(r.status_code, 200)
 
@@ -95,7 +95,7 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
     app = App(Adder, state_resolver)
     client = self._get_client(app, True)
     _ = await client.get("/")
-    token = state_resolver.create_token({}, None)
+    token = state_resolver.create_token("{}", None)
     async with httpx_ws.aconnect_ws(str(client.base_url), client) as ws:
       await ws.send_text(AppWebsocketInitMessage(type="init", state_token=token, enable_state_updates=False).model_dump_json())
       await add_tracked.set_event.wait()

@@ -2,7 +2,7 @@ import os, secrets, weakref
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from collections.abc import Awaitable
-from pydantic import TypeAdapter, ValidationError
+from pydantic import TypeAdapter
 from rxxxt.helpers import JWTError, JWTManager
 from typing import Any, Callable, Set
 
@@ -106,28 +106,30 @@ class State:
 
 class StateResolverError(Exception): pass
 
+StateDataAdapter = TypeAdapter(dict[str, str])
+
 class StateResolver(ABC):
   @abstractmethod
-  def create_token(self, data: dict[str, str], old_token: str | None) -> str | Awaitable[str]: pass
+  def create_token(self, data: str, old_token: str | None) -> str | Awaitable[str]: pass
   @abstractmethod
-  def resolve(self, token: str) -> dict[str, str] | Awaitable[dict[str, str]]: pass
+  def resolve(self, token: str) -> str | Awaitable[str]: pass
 
 class JWTStateResolver(StateResolver):
-  StateDataAdapter = TypeAdapter(dict[str, str])
-
   def __init__(self, secret: bytes, max_age: timedelta | None = None, algorithm: str = "HS512") -> None:
     super().__init__()
     self._jwt_manager = JWTManager(secret, timedelta(days=1) if max_age is None else max_age, algorithm)
 
-  def create_token(self, data: dict[str, str], old_token: str | None) -> str:
+  def create_token(self, data: str, old_token: str | None) -> str:
     try: return self._jwt_manager.sign({ "d": data })
     except JWTError as e: raise StateResolverError(e) from e
 
-  def resolve(self, token: str) -> dict[str, str]:
+  def resolve(self, token: str) -> str:
     try:
       payload = self._jwt_manager.verify(token)
-      return JWTStateResolver.StateDataAdapter.validate_python(payload["d"])
-    except (ValidationError, JWTError) as e: raise StateResolverError(e) from e
+      data = payload.get("d")
+      if not isinstance(data, str): raise JWTError("invalid state payload")
+      return data
+    except JWTError as e: raise StateResolverError(e) from e
 
 def default_state_resolver() -> JWTStateResolver:
   """

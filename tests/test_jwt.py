@@ -1,23 +1,23 @@
-import unittest
+import json, unittest
 import jwt
 from datetime import datetime, timedelta, timezone
 from rxxxt.state import JWTStateResolver, StateResolverError
 
 def encode_own_jwt(payload: dict[str, str], secret: str, max_age: timedelta, algorithm: str):
   r = JWTStateResolver(secret.encode("utf-8"), max_age, algorithm)
-  return r.create_token(payload, None)
+  return r.create_token(json.dumps(payload), None)
 
 def decode_own_jwt(token: str, secret: str, max_age: timedelta, algorithm: str):
   r = JWTStateResolver(secret.encode("utf-8"), max_age, algorithm)
-  return r.resolve(token)
+  return json.loads(r.resolve(token))
 
 def encode_ref_jwt(payload: dict[str, str], secret: str, max_age: timedelta, algorithm: str):
-  data = { "d": payload, "exp": int((datetime.now(tz=timezone.utc) + max_age).timestamp()) }
+  data = { "d": json.dumps(payload), "exp": int((datetime.now(tz=timezone.utc) + max_age).timestamp()) }
   return jwt.encode(data, secret, algorithm)
 
 def decode_ref_jwt(token: str, secret: str, _max_age: timedelta, algorithm: str):
   data = jwt.decode(token, secret, [algorithm])
-  return data["d"]
+  return json.loads(data["d"])
 
 class TestJWT(unittest.TestCase):
   def test_encode(self):
@@ -51,6 +51,10 @@ class TestJWT(unittest.TestCase):
     _ = decode_own_jwt(token, "1234", *args)
     with self.assertRaises(StateResolverError):
       _ = decode_own_jwt(token, "1235", *args)
+
+  def test_raw_string(self):
+    r = JWTStateResolver(b"12345678", timedelta(days=1))
+    self.assertEqual(r.resolve(r.create_token("hello", None)), "hello")
 
 if __name__ == "__main__":
   _ = unittest.main()

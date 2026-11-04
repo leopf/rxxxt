@@ -6,7 +6,7 @@ from rxxxt.execution import Context, ContextConfig, ContextStack, Execution, Inp
 from rxxxt.helpers import to_awaitable
 from rxxxt.node import LazyNode, Node, render_node
 from rxxxt.page import PageFactory
-from rxxxt.state import StateResolver, State
+from rxxxt.state import StateResolver, State, StateDataAdapter
 
 class InitOutputData(BaseModel):
   path: str
@@ -57,7 +57,7 @@ class Session:
     if state_token is not None:
       self._last_token = state_token
       user_data = await to_awaitable(self.config.state_resolver.resolve, state_token)
-      self.state.set_many(user_data)
+      self.state.set_many(StateDataAdapter.validate_json(user_data))
 
     await self._root_node.expand()
 
@@ -134,5 +134,6 @@ class Session:
 
   async def _update_state_token(self):
     self.state.cleanup({ "#" })
-    self._last_token = await to_awaitable(self.config.state_resolver.create_token, self.state.get_key_values({ "!", "#" }), self._last_token)
+    state_data = StateDataAdapter.dump_json(self.state.get_key_values({ "!", "#" })).decode()
+    self._last_token = await to_awaitable(self.config.state_resolver.create_token, state_data, self._last_token)
     return self._last_token
