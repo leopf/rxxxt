@@ -93,7 +93,7 @@ class State:
     active_keys = self._get_active_keys(inactive_prefixes)
     inactive_keys = tuple(key for key in self._key_states.keys() if key not in active_keys)
     for key in inactive_keys:
-      return self.delete(key)
+      self.delete(key)
 
   def destroy(self):
     for state in self._key_states.values():

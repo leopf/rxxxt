@@ -5,7 +5,7 @@ from rxxxt.component import Component, event_handler, local_state, local_state_b
 from rxxxt.execution import Context, InputEvent
 from rxxxt.page import default_page
 from rxxxt.session import AppConfig, Session, SessionConfig
-from rxxxt.state import JWTStateResolver
+from rxxxt.state import JWTStateResolver, State, StateConsumer
 from tests.helpers import TrackedCustomAttribute
 
 session_config = SessionConfig(page_facotry=default_page, state_resolver=JWTStateResolver(b"deez"), persistent=False, app_config=AppConfig())
@@ -223,6 +223,28 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       el.hidden = True
       await session.update()
       self.assertEqual(counters["after_destroy"], 1)
+
+class _Consumer(StateConsumer):
+  def consume(self, key: str, producer) -> None: pass
+
+class TestState(unittest.TestCase):
+  def test_cleanup_removes_all_inactive_keys(self):
+    state = State()
+    state.set_many({ "#a": "1", "#b": "2", "#c": "3", "keep": "4" })
+
+    state.cleanup({ "#" })
+
+    self.assertEqual(state.keys, { "keep" })
+
+  def test_cleanup_keeps_keys_with_consumers(self):
+    state = State()
+    state.set_many({ "#a": "1", "#b": "2" })
+    consumer = _Consumer()  # keep a strong ref, KeyState.consumers is a WeakSet
+    state.get("#a").add_consumer(consumer)
+
+    state.cleanup({ "#" })
+
+    self.assertEqual(state.keys, { "#a" })
 
 if __name__ == "__main__":
   _ = unittest.main()
