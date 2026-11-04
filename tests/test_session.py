@@ -1,5 +1,5 @@
 from collections import defaultdict
-import unittest, typing
+import asyncio, unittest, typing
 from rxxxt.elements import El, lazy_element
 from rxxxt.component import Component, event_handler, local_state, local_state_box
 from rxxxt.execution import Context, InputEvent
@@ -55,7 +55,7 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       self.assertEqual(main.context.cookies, {})
 
       session.set_headers({ "x-test": ("hello",) })
-      self.assertTrue(session.update_pending)
+      self.assertTrue(session.execution.has_pending_work)
       await session.update()
       self.assertIn("hello", (await session.render_update(True, False)).html_parts[0])
 
@@ -75,7 +75,7 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       self.assertEqual(session.state.get("!header;cookie").value, "a=1; b=2")
       main.delete_a()
       self.assertEqual(session.state.get("!header;cookie").value, "b=2")
-      self.assertTrue(session.update_pending)
+      self.assertTrue(session.execution.has_pending_work)
       await session.update()
       self.assertIn("a=;b=2", (await session.render_update(True, False)).html_parts[0])
 
@@ -88,13 +88,27 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
     async with Session(session_config, el) as session:
       await session.init(None)
       _update1 = await session.render_update(True, True)
-      self.assertFalse(session.update_pending)
+      self.assertFalse(session.execution.has_pending_work)
       el.context.emit("download", { "url": "https://google.com" })
-      self.assertTrue(session.update_pending)
+      self.assertTrue(session.execution.has_pending_work)
       update2 = await session.render_update(True, False)
       self.assertEqual(len(update2.html_parts), 0)
       self.assertEqual(len(update2.events), 1)
       self.assertEqual(update2.events[0], dict(event="custom", name="download", data={ "url": "https://google.com" }))
+      self.assertFalse(session.execution.has_pending_work)
+
+  async def test_wait_for_update_requires_work(self):
+    class Main(Component):
+      def render(self): return El.div()
+
+    el = Main()
+    async with Session(session_config, el) as session:
+      await session.init(None)
+      session.execution.update_pending_event.set()
+      with self.assertRaises(asyncio.TimeoutError):
+        await asyncio.wait_for(session.wait_for_update(), 0.05)
+      el.context.request_update()
+      await asyncio.wait_for(session.wait_for_update(), 1)
 
   async def test_partial_update(self):
     class Inner(Component):
@@ -211,7 +225,7 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       await session.init(None)
       el.data.value["hello"] = "yes"
       el.data.update()
-      if session.update_pending:
+      if session.execution.has_pending_work:
         await session.update()
       update = await session.render_update(True, True)
       self.assertIn("yes", update.html_parts[0])

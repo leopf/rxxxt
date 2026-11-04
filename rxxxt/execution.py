@@ -44,24 +44,28 @@ class Execution:
     self.output_events.append({ k: v for k, v in event.items() if v is not None })
     self.update_pending_event.set()
 
+  @property
+  def has_pending_work(self):
+    return len(self.pending_updates) > 0 or len(self.output_events) > 0
+
   def pop_output_events(self):
     res: list[OutputEvent] = []
     for event in self.output_events:
       if event not in res:
         res.append(event)
     self.output_events.clear()
+    self.update_event()
     return tuple(res)
 
   def pop_pending_updates(self):
     result = set(self.pending_updates)
     self.pending_updates.clear()
+    self.update_event()
     return result
 
-  def reset_event(self):
-    if len(self.pending_updates) == 0 and len(self.output_events) == 0:
-      self.update_pending_event.clear()
-    else:
-      self.update_pending_event.set()
+  def update_event(self):
+    if self.has_pending_work: self.update_pending_event.set()
+    else: self.update_pending_event.clear()
 
 @functools.lru_cache(maxsize=2048)
 def get_context_stack_sid(stack: ContextStack):

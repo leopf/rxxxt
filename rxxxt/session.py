@@ -45,19 +45,13 @@ class Session:
       meta_element("root", base).tonode)
     self._last_token: str | None = None
 
-  @property
-  def update_pending(self):
-    return self._update_event.is_set()
-
   async def __aenter__(self): return self
   async def __aexit__(self, *_): await self.destroy()
 
   async def wait_for_update(self):
-    self.execution.reset_event()
-    while not self._update_event.is_set():
+    while not self.execution.has_pending_work:
+      self._update_event.clear()
       _ = await self._update_event.wait()
-      await asyncio.sleep(0.001)
-      self.execution.reset_event()
 
   async def init(self, state_token: str | None):
     if state_token is not None:
@@ -72,12 +66,11 @@ class Session:
     self.state.destroy()
 
   async def update(self, *, optional: bool = False):
-    if optional and not self.update_pending: return
+    if optional and not self.execution.has_pending_work: return
     for node in self._find_roots(self.execution.pop_pending_updates()):
       self._pending_renders.add(node.context.id)
       await node.update()
     self.state.cleanup({ "#" })
-    self.execution.reset_event()
 
   async def handle_events(self, events: tuple[InputEvent, ...]):
     for event in events:

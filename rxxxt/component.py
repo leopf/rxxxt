@@ -279,6 +279,7 @@ class Component(Element):
     el = await to_awaitable(self.render)
     try: self.context.execution.pending_updates.remove(self.context.id) # NOTE: remove any update that was requested during render
     except KeyError: pass
+    self.context.execution.update_event()
     await to_awaitable(self.on_after_update)
     return el
   async def lc_destroy(self) -> None:
