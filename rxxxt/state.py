@@ -104,7 +104,7 @@ class State:
     return set(k for k, v in self._key_states.items() if len(k) == 0 or k[0] not in inactive_prefixes or len(v.consumers) > 0)
 
 
-class StateResolverError(BaseException): pass
+class StateResolverError(Exception): pass
 
 class StateResolver(ABC):
   @abstractmethod
@@ -121,13 +121,13 @@ class JWTStateResolver(StateResolver):
 
   def create_token(self, data: dict[str, str], old_token: str | None) -> str:
     try: return self._jwt_manager.sign({ "d": data })
-    except JWTError as e: raise StateResolverError(e)
+    except JWTError as e: raise StateResolverError(e) from e
 
   def resolve(self, token: str) -> dict[str, str]:
     try:
       payload = self._jwt_manager.verify(token)
       return JWTStateResolver.StateDataAdapter.validate_python(payload["d"])
-    except (ValidationError, JWTError) as e: raise StateResolverError(e)
+    except (ValidationError, JWTError) as e: raise StateResolverError(e) from e
 
 def default_state_resolver() -> JWTStateResolver:
   """

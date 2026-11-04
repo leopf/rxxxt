@@ -47,6 +47,12 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
       r = await client.post("/", json=AppHttpRequest(state_token=token, events=()).model_dump())
       self.assertEqual(r.status_code, 200)
 
+  async def test_post_invalid_token(self):
+    app = App(lambda: El.div())
+    async with self._get_client(app) as client:
+      r = await client.post("/", json=AppHttpRequest(state_token="garbage", events=()).model_dump())
+      self.assertEqual(r.status_code, 400)
+
   async def test_basic(self):
     text = "This is a test of the app!"
     app = App(lambda: El.div(content=[text]))
@@ -97,6 +103,15 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
         InputEvent(context_id=add_tracked.last_context.sid, data={ "value": 5 }),), location="/").model_dump_json())
       response_text = await ws.receive_text()
       self.assertIn("c5", response_text)
+
+  async def test_ws_invalid_token(self):
+    app = App(lambda: El.div())
+    client = self._get_client(app, True)
+    async with httpx_ws.aconnect_ws(str(client.base_url), client) as ws:
+      await ws.send_text(AppWebsocketInitMessage(type="init", state_token="garbage", enable_state_updates=False).model_dump_json())
+      with self.assertRaises(httpx_ws.WebSocketDisconnect) as error:
+        await ws.receive_text()
+    self.assertEqual(error.exception.code, 1008)
 
 
 if __name__ == "__main__":

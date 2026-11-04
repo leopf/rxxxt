@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Iterable, MutableMapping, AsyncGenerator
 from email.utils import formatdate
 from pydantic import ValidationError
 from rxxxt.helpers import match_path
+from rxxxt.state import StateResolverError
 
 BytesLike = bytes | bytearray
 ASGIHeaders = Iterable[tuple[BytesLike, BytesLike]]
@@ -221,7 +222,7 @@ class Composer:
         try: return await handler(scope, receive, send)
         except ASGINextException: pass
     except asyncio.CancelledError: raise
-    except BaseException as e:
+    except Exception as e:
       Composer._error_count += 1
       if Composer._error_count == 1:
         print("ERROR during an ASGI request. Enable logging by calling `import logging; logging.basicConfig(level=logging.DEBUG)` at startup.", file=sys.stderr)
@@ -231,11 +232,12 @@ class Composer:
       if scope["type"] == "http":
         return await self._http_error_handler(HTTPContext(scope, receive, send), e)
 
-  async def _http_error_handler(self, context: HTTPContext, exception: BaseException):
-    if isinstance(exception, (ValueError, ValidationError)):
+  async def _http_error_handler(self, context: HTTPContext, exception: Exception):
+    if isinstance(exception, (ValueError, ValidationError, StateResolverError)):
       return await context.respond_text("bad request", 400)
     else:
       return await context.respond_text("internal server error", 500)
 
-  async def _ws_error_handler(self, context: WebsocketContext, _exception: BaseException):
-    await context.close(1011, "Internal error")
+  async def _ws_error_handler(self, context: WebsocketContext, exception: Exception):
+    if isinstance(exception, StateResolverError): await context.close(1008, "Invalid state token")
+    else: await context.close(1011, "Internal error")
