@@ -153,9 +153,8 @@ methods:
 - `match_path`
 
 #### manage subscriptions
+Subscriptions are managed automatically by the state descriptors. `subscribe` is the low-level primitive:
 - `subscribe`
-- `unsubscribe`
-- `unsubscribe_all`
 
 #### window and query selector events
 Use the [`window_event`](./api.md#rxxxt.elements.window_event) and [`query_selector_all_event`](./api.md#rxxxt.elements.query_selector_all_event) helpers (available directly from `rxxxt`) to bind handlers to global window events or existing DOM nodes selected through CSS selectors. These helpers render lightweight virtual elements that automatically register the listener when mounted and remove it when destroyed. Each helper dispatches an `emit` event whose `detail` is the original DOM event, so you can use [`Annotated` accessors](./component.md#events) like `detail.key` or `detail.currentTarget.textContent` to pull out data from the browser event.
