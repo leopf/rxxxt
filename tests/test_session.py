@@ -43,6 +43,42 @@ class TestSession(unittest.IsolatedAsyncioTestCase):
       update = await session.render_update(True, True)
       self.assertIn("worldhello", update.html_parts[0])
 
+  async def test_missing_header_returns_empty_and_subscribes(self):
+    class Main(Component):
+      def render(self):
+        return El.div(content=[";".join(self.context.get_header("x-test"))])
+
+    main = Main()
+    async with Session(session_config, main) as session:
+      await session.init(None)
+      self.assertEqual(main.context.get_header("x-test"), ())
+      self.assertEqual(main.context.cookies, {})
+
+      session.set_headers({ "x-test": ("hello",) })
+      self.assertTrue(session.update_pending)
+      await session.update()
+      self.assertIn("hello", (await session.render_update(True, False)).html_parts[0])
+
+  async def test_cookie_mirroring(self):
+    class Main(Component):
+      def render(self):
+        return El.div(content=[f"a={self.context.cookies.get('a', '')};b={self.context.cookies.get('b', '')}"])
+      def set_a(self): self.context.set_cookie("a", "1")
+      def set_b(self): self.context.set_cookie("b", "2")
+      def delete_a(self): self.context.delete_cookie("a")
+
+    main = Main()
+    async with Session(session_config, main) as session:
+      await session.init(None)
+      main.set_a()
+      main.set_b()
+      self.assertEqual(session.state.get("!header;cookie").value, "a=1; b=2")
+      main.delete_a()
+      self.assertEqual(session.state.get("!header;cookie").value, "b=2")
+      self.assertTrue(session.update_pending)
+      await session.update()
+      self.assertIn("a=;b=2", (await session.render_update(True, False)).html_parts[0])
+
   async def test_output_event_refresh(self):
     class Main(Component):
       def render(self):

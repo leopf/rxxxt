@@ -172,14 +172,13 @@ class Context:
 
     self.execution.add_output_event(dict(event="set-cookie", name=name, value=value, expires=expires_str, path=path, secure=secure, http_only=http_only, domain=domain, max_age=max_age))
     if mirror_state:
-      self.state.set_many({ "!header;cookie": "; ".join(f"{k}={v}" for k, v in (self.cookies | { name: value }).items()) })
+      cookies = self.cookies | { name: value }
+      self.state.set_many({ "!header;cookie": "; ".join(f"{k}={v}" for k, v in cookies.items() if v is not None) })
 
   def delete_cookie(self, name: str, mirror_state: bool = True):
-    self.set_cookie(name=name, max_age=-1, mirror_state=False)
-    if mirror_state:
-      self.state.set_many({ "!header;cookie": "; ".join(f"{k}={v}" for k, v in self.cookies.items() if k != name) })
+    self.set_cookie(name=name, max_age=-1, mirror_state=mirror_state)
 
-  def _get_state_str_subscribe(self, key: str):
-    res = self.state.get(key).get()
+  def _get_state_str_subscribe(self, key: str) -> str | None:
+    key_state = self.state.get(key)
     self.subscribe(key)
-    return res
+    return key_state.get() if key_state.has_value else None

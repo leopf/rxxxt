@@ -4,8 +4,7 @@ import uvicorn
 class Counter(Component):
   @property
   def count(self):
-    try: return int(self.context.cookies.get("count", 0))
-    except: return 0
+    return int(self.context.cookies.get("count", 0))
 
   def on_click(self):
     self.context.set_cookie("count", str(self.count + 1))
