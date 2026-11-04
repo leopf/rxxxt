@@ -1,7 +1,7 @@
 import json, unittest
 import jwt
 from datetime import datetime, timedelta, timezone
-from rxxxt.state import JWTStateResolver, StateResolverError
+from rxxxt.state import CompressedStateResolver, JWTStateResolver, StateResolverError
 
 def encode_own_jwt(payload: dict[str, str], secret: str, max_age: timedelta, algorithm: str):
   r = JWTStateResolver(secret.encode("utf-8"), max_age, algorithm)
@@ -55,6 +55,25 @@ class TestJWT(unittest.TestCase):
   def test_raw_string(self):
     r = JWTStateResolver(b"12345678", timedelta(days=1))
     self.assertEqual(r.resolve(r.create_token("hello", None)), "hello")
+
+class TestCompressedResolver(unittest.IsolatedAsyncioTestCase):
+  async def test_roundtrip(self):
+    inner = JWTStateResolver(b"12345678", timedelta(days=1))
+    resolver = CompressedStateResolver(inner)
+    data = json.dumps({ "Hello": "World" })
+    self.assertEqual(await resolver.resolve(await resolver.create_token(data, None)), data)
+
+  async def test_smaller_token(self):
+    inner = JWTStateResolver(b"12345678", timedelta(days=1))
+    resolver = CompressedStateResolver(inner)
+    data = json.dumps({ f"key{i}": "value" * 50 for i in range(20) })
+    self.assertLess(len(await resolver.create_token(data, None)), len(inner.create_token(data, None)))
+
+  async def test_invalid_payload(self):
+    inner = JWTStateResolver(b"12345678", timedelta(days=1))
+    token = inner.create_token("not deflate", None)
+    with self.assertRaises(StateResolverError):
+      _ = await CompressedStateResolver(inner).resolve(token)
 
 if __name__ == "__main__":
   _ = unittest.main()

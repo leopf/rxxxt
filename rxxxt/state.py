@@ -1,9 +1,9 @@
-import os, secrets, weakref
+import base64, os, secrets, weakref, zlib
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from collections.abc import Awaitable
 from pydantic import TypeAdapter
-from rxxxt.helpers import JWTError, JWTManager
+from rxxxt.helpers import JWTError, JWTManager, to_awaitable
 from typing import Any, Callable, Set
 
 class StateProducer(ABC):
@@ -131,13 +131,32 @@ class JWTStateResolver(StateResolver):
       return data
     except JWTError as e: raise StateResolverError(e) from e
 
-def default_state_resolver() -> JWTStateResolver:
+class CompressedStateResolver(StateResolver):
+  def __init__(self, inner: StateResolver) -> None:
+    super().__init__()
+    self._inner = inner
+
+  async def create_token(self, data: str, old_token: str | None) -> str:
+    compressor = zlib.compressobj(9, zlib.DEFLATED, -15)
+    payload = base64.b85encode(compressor.compress(data.encode()) + compressor.flush()).decode()
+    return await to_awaitable(self._inner.create_token, payload, old_token)
+
+  async def resolve(self, token: str) -> str:
+    try:
+      payload = await to_awaitable(self._inner.resolve, token)
+      return zlib.decompress(base64.b85decode(payload), -15).decode()
+    except StateResolverError:
+      raise
+    except Exception as e:
+      raise StateResolverError(e) from e
+
+def default_state_resolver() -> StateResolver:
   """
-  Creates a JWTStateResolver.
+  Creates a compressed JWTStateResolver.
   Uses the environment variable `JWT_SECRET` as its secret, if set, otherwise creates a new random, temporary secret.
   """
 
   jwt_secret = os.getenv("JWT_SECRET", None)
   if jwt_secret is None: jwt_secret = secrets.token_bytes(64)
   else: jwt_secret = jwt_secret.encode("utf-8")
-  return JWTStateResolver(jwt_secret)
+  return CompressedStateResolver(JWTStateResolver(jwt_secret))

@@ -4,7 +4,7 @@ State is organized as a key-value store.
 In order to associate a state with a session accross multiple requests, a token is created.
 The next request of the same session must include the state token, which will then be used to resolve the associated state.
 
-By default the [`JWTStateResolver`](./api.md#rxxxt.state.JWTStateResolver) is used, which transforms the state into a [JWT token](https://jwt.io/introduction), making the server side entirely stateless.
+By default a compressed [`JWTStateResolver`](./api.md#rxxxt.state.JWTStateResolver) is used: the state is compressed with raw DEFLATE and encoded with base85 before being signed into a [JWT token](https://jwt.io/introduction), making the server side entirely stateless.
 
 This is handled by the [`StateResolver`](./api.md#rxxxt.state.StateResolver) of the [`App`](./api.md#rxxxt.app.App) (default: [`default_state_resolver`](./api.md#rxxxt.state.default_state_resolver)).
 
