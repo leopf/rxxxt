@@ -8,10 +8,18 @@ on:
       - "**/*.py"
       - "web/**"
       - "package.json"
-      - "package-lock.json"
+      - "pnpm-lock.yaml"
+      - "pyproject.toml"
   pull_request:
     branches: [master]
     paths: *paths
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-and-lint:
